@@ -573,7 +573,31 @@ If user asks follow-up questions you can't answer, it's okay to say you're not s
     # These were already selected as relevant by reason_about_memories() LLM call
     # Trust the LLM's selection — don't keyword-filter on top
     if episodic_memories:
-        episodes = [mem.get("content", "")[:150] for mem in episodic_memories[:5] if mem.get("content")]
+        episodes = []
+        for mem in episodic_memories[:5]:
+            content = mem.get("content", "")[:150]
+            if not content:
+                continue
+            # Add recency label from timestamp
+            ts = mem.get("timestamp", "")
+            label = ""
+            if ts:
+                try:
+                    mem_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                    hours = (datetime.now(timezone.utc) - mem_time).total_seconds() / 3600
+                    if hours < 6:
+                        label = " (earlier today)"
+                    elif hours < 24:
+                        label = " (today)"
+                    elif hours < 48:
+                        label = " (yesterday)"
+                    elif hours < 168:
+                        label = " (a few days ago)"
+                    else:
+                        label = " (a while back)"
+                except Exception:
+                    pass
+            episodes.append(f"{content}{label}")
         
         if episodes:
             prompt += "[SHARED HISTORY]\n"
@@ -618,8 +642,28 @@ If it says "keeps replies short" — then keep them short.
             content = s.get('content', '') if isinstance(s, dict) else str(s)
             # Strip the [Summary of N messages] prefix
             content = _re_stm.sub(r'^\[Summary of \d+ messages\]\s*', '', content).strip()
-            if content:
-                summary_texts.append(content[:150])
+            if not content:
+                continue
+            # Add recency label from timestamp
+            ts = s.get('timestamp', '') if isinstance(s, dict) else ''
+            label = ""
+            if ts:
+                try:
+                    sum_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                    hours = (datetime.now(timezone.utc) - sum_time).total_seconds() / 3600
+                    if hours < 1:
+                        label = "(just now) "
+                    elif hours < 6:
+                        label = "(earlier today) "
+                    elif hours < 24:
+                        label = "(today) "
+                    elif hours < 48:
+                        label = "(yesterday) "
+                    else:
+                        label = "(a while back) "
+                except Exception:
+                    pass
+            summary_texts.append(f"{label}{content[:150]}")
         if summary_texts:
             prompt += "[EARLIER IN THIS CONVERSATION]\n"
             for st in summary_texts:
