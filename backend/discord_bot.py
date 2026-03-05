@@ -17,6 +17,37 @@ import time
 from backend.rate_limiter import global_rate_limiter as rate_limiter
 
 
+def _fact_value(fact_entry):
+    """Read fact value from both old format (string) and new format ({v, t})."""
+    if isinstance(fact_entry, dict):
+        return fact_entry.get("v", "")
+    return str(fact_entry)
+
+
+def _recency_label(fact_entry):
+    """Get human-readable recency label from a timestamped fact."""
+    if not isinstance(fact_entry, dict) or "t" not in fact_entry:
+        return ""
+    try:
+        learned = datetime.fromisoformat(fact_entry["t"].replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        hours = (now - learned).total_seconds() / 3600
+        if hours < 1:
+            return "(just now)"
+        elif hours < 6:
+            return "(earlier today)"
+        elif hours < 24:
+            return "(today)"
+        elif hours < 48:
+            return "(yesterday)"
+        elif hours < 168:
+            return "(a few days ago)"
+        else:
+            return "(a while back)"
+    except Exception:
+        return ""
+
+
 def build_phase_prompt(
     phase: str,
     trust: float,
@@ -448,12 +479,12 @@ Response style: Whatever feels authentic. Depth is natural here.
                 # Only show relevant facts
                 shown = {k: v for k, v in generated_facts.items() if k in relevant}
                 if shown:
-                    for key, val in shown.items():
-                        prompt += f"- {key}: {val}\n"
+                    for key, entry in shown.items():
+                        prompt += f"- {key}: {_fact_value(entry)}\n"
             # If no relevance info yet (first 5 messages), show up to 3 to avoid empty
             elif not relevant and generated_facts:
-                for key, val in list(generated_facts.items())[:3]:
-                    prompt += f"- {key}: {val}\n"
+                for key, entry in list(generated_facts.items())[:3]:
+                    prompt += f"- {key}: {_fact_value(entry)}\n"
         prompt += "(These are YOUR facts. Don't attribute them to the user.)\n\n"
     
     has_user_info = personal_facts or user_learned_facts
@@ -463,10 +494,13 @@ Response style: Whatever feels authentic. Depth is natural here.
             for pf in personal_facts[:3]:
                 prompt += f"- {pf}\n"
         if user_learned_facts:
-            for key, val in user_learned_facts.items():
+            for key, entry in user_learned_facts.items():
                 display_key = key.replace('_', ' ').title()
-                prompt += f"- {display_key}: {val}\n"
-        prompt += "(You learned these through conversation. Reference ONLY when naturally relevant to what you're talking about.)\n\n"
+                val = _fact_value(entry)
+                recency = _recency_label(entry)
+                prompt += f"- {display_key}: {val} {recency}\n"
+        prompt += """(You learned these through conversation. Reference ONLY when naturally relevant.
+IMPORTANT: If the user JUST told you something in the last few messages, do NOT say "reminds me" or "you mentioned" — you literally just heard it. Only use "I remember you said..." for things from PAST conversations, not the current one.)\n\n"""
     
     if world_knowledge:
         prompt += "[THINGS YOU KNOW]\n"
@@ -514,9 +548,11 @@ If user asks follow-up questions you can't answer, it's okay to say you're not s
     # ===== THINGS THEY TAUGHT YOU (user-taught knowledge, persistent) =====
     if user_taught_knowledge:
         prompt += "[THINGS THEY TAUGHT YOU]\n"
-        for topic, info in list(user_taught_knowledge.items())[:5]:
+        for topic, entry in list(user_taught_knowledge.items())[:5]:
             clean_topic = topic.replace("_", " ").title()
-            prompt += f"- {clean_topic}: {info}\n"
+            val = _fact_value(entry)
+            recency = _recency_label(entry)
+            prompt += f"- {clean_topic}: {val} {recency}\n"
         prompt += "(The user explained these to you. You can reference them naturally: 'oh yeah you told me about that' or 'I remember you mentioning...' Don't pretend you always knew — acknowledge they taught you.)\n\n"
     
     # ===== CONVERSATION SO FAR (compressed STM summary) =====
@@ -1066,6 +1102,27 @@ async def generate_response(core: CognitiveCore, user_message: str,
     except Exception as e:
         print(f"[WARNING] Plan detection failed (non-critical): {e}")
     
+    # Detect if user ignored REM's question (topic change detection)
+    ignored_question = None
+    if message_history and len(message_history) >= 2:
+        last_bot_msg = None
+        for m in reversed(message_history[:-1]):  # Skip the current user message
+            if m.get("role") == "assistant":
+                last_bot_msg = m.get("content", "")
+                break
+        if last_bot_msg and "?" in last_bot_msg:
+            # REM asked a question — check if user's response relates to it
+            bot_words = set(w.lower() for w in last_bot_msg.split() if len(w) > 3)
+            user_words = set(w.lower() for w in user_message.split() if len(w) > 3)
+            # Remove common filler words
+            fillers = {'like', 'just', 'yeah', 'what', 'that', 'this', 'with', 'about', 'have', 'been', 'your', 'from', 'they', 'them', 'were', 'more', 'some', 'than'}
+            bot_words -= fillers
+            user_words -= fillers
+            overlap = bot_words & user_words
+            if len(bot_words) > 2 and len(overlap) == 0:
+                ignored_question = last_bot_msg.strip()
+                print(f"[TOPIC CHANGE] User ignored REM's question: '{ignored_question[:60]}'")
+    
     system_msg = build_phase_prompt(
         phase=relationship_phase,
         trust=trust,
@@ -1135,6 +1192,9 @@ async def generate_response(core: CognitiveCore, user_message: str,
     # Ensure the current user message is in history
     if not history or history[-1].get("role") != "user" or history[-1].get("content") != user_message:
         history.append({"role": "user", "content": user_message})
+    # Inject topic change flag if user ignored REM's question
+    if ignored_question:
+        system_msg += f"\n\n[USER IGNORED YOUR QUESTION]\nYou asked: \"{ignored_question[:120]}\"\nThey completely changed the topic instead of answering. React to this naturally — call it out. Don't just go along.\n"
     
     # Call LLM
     import httpx
@@ -1457,6 +1517,11 @@ RULES:
 - Don't infer unstated facts. Don't assume.
 - No boolean facts. No duplicates.
 - Categorize: "favorites" (loves), "experiences" (seen/done), "preferences" (habits/opinions)
+- KEY NAMING: Keys MUST be descriptive and specific. Use full words.
+  GOOD keys: "favorite_ice_cream", "favorite_band", "experience_watched_jjk", "preference_study_habit"
+  BAD keys (NEVER use these): "cs", "opinion", "preference_cs", "cramming", "food", "thing"
+- If the value would just be one vague word like "cramming" or "programming", SKIP IT. Not a fact.
+- WHEN IN DOUBT: return empty {{}}. A wrong fact is worse than no fact.
 
 EXAMPLES OF MISTAKES:
 - User says "I need someone to scold me" → DO NOT store as Rem's preference. That's the USER's statement.
@@ -1466,6 +1531,8 @@ EXAMPLES OF MISTAKES:
 2. Extract facts the USER shared about THEMSELVES (from "User:" lines only).
 RULES: Only PERSONAL facts about the user — their major, job, preferences, interests, experiences.
 Don't extract greetings, questions, or commands. No duplicates.
+KEY NAMING: Use descriptive keys like "major", "favorite_ice_cream", "commute_time". Never use vague keys like "cs", "opinion", "thing".
+If the user said something about a SUBJECT ("cs is mostly programming") — that's their OPINION about the subject, store as user_facts with a clear key like "opinion_on_cs".
 
 3. Identify if they are actively discussing a SPECIFIC topic (movie, show, book, game, person, event).
 Only if discussed in depth, not just mentioned. Return null if casual chat.
@@ -1528,9 +1595,13 @@ Respond ONLY with JSON:
                 if not isinstance(cat_facts, dict):
                     continue
                 for key, value in cat_facts.items():
-                    if not isinstance(value, str) or len(value) < 2:
+                    if not isinstance(value, str) or len(value) < 3:
                         continue
                     if value.lower().strip() in junk_values:
+                        continue
+                    # Reject garbage keys: too short or vague
+                    if len(key) <= 3 or key.lower() in ('cs', 'opinion', 'thing', 'food', 'stuff', 'cramming'):
+                        print(f"[SELF-IDENTITY] REJECTED vague key: '{key}: {value}'")
                         continue
                     
                     # Cross-validation: reject if the fact is a LONG phrase (6+ words)
@@ -1550,13 +1621,13 @@ Respond ONLY with JSON:
                         if key_lower in ek_lower or ek_lower in key_lower:
                             is_dup = True
                             break
-                        if existing[ek].lower() == value.lower():
+                        if existing[ek].lower() == value.lower() if isinstance(existing[ek], str) else _fact_value(existing[ek]).lower() == value.lower():
                             is_dup = True
                             break
                     if is_dup:
                         continue
                     storage_key = f"{category[:-1]}_{key}"
-                    existing[storage_key] = value
+                    existing[storage_key] = {"v": value, "t": datetime.now(timezone.utc).isoformat()}
                     added[storage_key] = value
             
             if added:
@@ -1570,19 +1641,23 @@ Respond ONLY with JSON:
                 stored_user = core.state.get("_user_facts", {})
                 user_added = {}
                 for key, value in new_user_facts.items():
-                    if not isinstance(value, str) or len(value) < 2:
+                    if not isinstance(value, str) or len(value) < 3:
                         continue
                     if value.lower().strip() in junk_values:
+                        continue
+                    # Reject garbage keys: too short or too vague
+                    if len(key) <= 3 or key.lower() in ('cs', 'opinion', 'thing', 'food', 'stuff', 'it', 'yes', 'no'):
+                        print(f"[USER FACTS] REJECTED vague key: '{key}: {value}'")
                         continue
                     # Dedup
                     key_lower = key.lower().replace("_", " ")
                     is_dup = any(
                         key_lower in ek.lower().replace("_", " ") or ek.lower().replace("_", " ") in key_lower
-                        or stored_user[ek].lower() == value.lower()
+                        or _fact_value(stored_user[ek]).lower() == value.lower()
                         for ek in stored_user
                     )
                     if not is_dup:
-                        stored_user[key] = value
+                        stored_user[key] = {"v": value, "t": datetime.now(timezone.utc).isoformat()}
                         user_added[key] = value
                 
                 if user_added:
@@ -1609,11 +1684,11 @@ Respond ONLY with JSON:
                     key_lower = key.lower().replace("_", " ")
                     is_dup = any(
                         key_lower in ek.lower().replace("_", " ") or ek.lower().replace("_", " ") in key_lower
-                        or stored_taught[ek].lower() == value.lower()
+                        or _fact_value(stored_taught[ek]).lower() == value.lower()
                         for ek in stored_taught
                     )
                     if not is_dup:
-                        stored_taught[key] = value
+                        stored_taught[key] = {"v": value, "t": datetime.now(timezone.utc).isoformat()}
                         taught_added[key] = value
                 
                 if taught_added:
@@ -1633,7 +1708,7 @@ Respond ONLY with JSON:
                     identity = core.state.get("_self_identity", {})
                     topic_lower = active_topic.lower()
                     rem_knows = any(
-                        topic_lower in v.lower() or v.lower() in topic_lower
+                        topic_lower in _fact_value(v).lower() or _fact_value(v).lower() in topic_lower
                         for k, v in identity.items()
                         if k.startswith("experience_") or k.startswith("favorite_")
                     )
@@ -2786,12 +2861,12 @@ async def show_about_rem(ctx: commands.Context):
             for prefix, (label, items) in categories.items():
                 if key.startswith(prefix + "_"):
                     clean_key = key[len(prefix) + 1:].replace("_", " ").title()
-                    items.append(f"• **{clean_key}**: {value}")
+                    items.append(f"• **{clean_key}**: {_fact_value(value)}")
                     placed = True
                     break
             if not placed:
                 clean_key = key.replace("_", " ").title()
-                uncategorized.append(f"• **{clean_key}**: {value}")
+                uncategorized.append(f"• **{clean_key}**: {_fact_value(value)}")
         
         # Display each category
         for prefix, (label, items) in categories.items():
@@ -2832,7 +2907,7 @@ async def show_about_rem(ctx: commands.Context):
         uf_lines = []
         for key, val in list(user_facts.items())[:10]:
             clean_key = key.replace("_", " ").title()
-            uf_lines.append(f"• **{clean_key}**: {val}")
+            uf_lines.append(f"• **{clean_key}**: {_fact_value(val)}")
         uf_text = "\n".join(uf_lines)
         if len(uf_text) > 1024:
             uf_text = uf_text[:1020] + "..."
@@ -2844,7 +2919,8 @@ async def show_about_rem(ctx: commands.Context):
         tk_lines = []
         for key, val in list(taught.items())[:8]:
             clean_key = key.replace("_", " ").title()
-            tk_lines.append(f"• **{clean_key}**: {val[:80]}{'...' if len(val) > 80 else ''}")
+            v = _fact_value(val)
+            tk_lines.append(f"• **{clean_key}**: {v[:80]}{'...' if len(v) > 80 else ''}")
         tk_text = "\n".join(tk_lines)
         if len(tk_text) > 1024:
             tk_text = tk_text[:1020] + "..."

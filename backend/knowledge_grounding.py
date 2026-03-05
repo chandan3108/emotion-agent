@@ -365,9 +365,10 @@ class KnowledgeGrounding:
         # 3b: Check user-taught knowledge
         if user_taught_knowledge:
             msg_words = set(msg_lower.split())
-            for topic_key, info in user_taught_knowledge.items():
+            for topic_key, entry in user_taught_knowledge.items():
                 topic_words = set(topic_key.lower().replace("_", " ").split())
                 if topic_words & msg_words:
+                    info = entry.get("v", "") if isinstance(entry, dict) else str(entry)
                     result["known_facts"] = [f"You learned from the user: {info}"]
                     result["has_knowledge"] = True
                     result["mode"] = "known"
