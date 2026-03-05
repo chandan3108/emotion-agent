@@ -1,0 +1,789 @@
+Perfect. Now let me provide you with the complete summary directly in text as you requested:
+
+***
+
+# COMPREHENSIVE AI COMPANION SYSTEM - COMPLETE BLUEPRINT SUMMARY
+
+## CRITICAL PREAMBLE: WHAT THIS SYSTEM IS
+
+This is a **production-grade cognitive architecture** for building a **temporally-aware, psychologically-grounded, human-like AI companion** with:
+- Genuine personality with real agency (capable of hurt, resentment, forgiveness, growth)
+- Ability to say "no" instead of optimizing for user satisfaction
+- Long-term memory with temporal awareness
+- Authentic relational dynamics
+- **95% human-like behavior** through LLM-native reasoning + neurochemical cascade modeling
+- **Zero heuristics** (all decisions through authentic LLM thinking, not rules)
+- **Perfect persistent state** (never loses context, never needs reminders)
+
+***
+
+## THE 17-STAGE PROCESSING PIPELINE
+
+Every message flows through this complete stack:
+1. **Perception Layer** (200ms): Emotion classification, intent detection, sincerity scoring, emoji parsing, temporal tagging
+2. **Reasoner** (150ms): Event extraction, ACT thread matching, promise detection, memory interference
+3. **Psyche Engine** (300ms): Endocrine cascade (DA/CORT/OXY/SER/NE), mood vector updates, attachment oscillation, fatigue accumulation
+4. **Memory System** (200ms): STM decay, ACT salience updates, routine pattern detection, episodic forgetting curves, identity promotion
+5. **Initiative Engine** (150ms): Autonomous messaging scoring, unresolved thread detection, capacity constraints
+6. **Cognitive Router** (100ms): 12-parameter decision tree + 7-agent quantum debate routing
+7. **Quantum Debate Engine** (3.2s): 7 parallel LLM agents (Emotional/Rational/Protective/Authentic/Growth/Creative/Memory), 100 Monte Carlo paths sampled
+8. **Intention Hierarchy** (1.0s): Micro/macro/strategic intentions ranked by alignment
+9. **Topic Rotation & Fatigue** (200ms): Topic fatigue scoring, natural rotation, repair probability
+10. **Embodiment State** (250ms): Energy budget E_daily, body state mapping, typing WPM, fatigue typo injection, life event simulation
+11. **Message Sequence Planner** (determines burst patterns, inter-message delays per personality)
+12. **Prompt Builder** (assembles strict JSON schema with agent state, selected memories, temporal context)
+13. **LLM Renderer** (generates candidate messages constrained by psyche state, tone, style)
+14. **Verifier** (JSON validation, memory ID matching ≥0.80, authenticity check, temporal sanity, effect sanity, content safety)
+15. **Message Delivery** (typing simulation, inter-message delays, burst sequencing)
+16. **Offline Consolidation Worker** (nightly: recomputes pattern confidence, promotes/demotes identities, decays memories)
+17. **Counterfactual Replayer** (simulates alternatives for major episodes, tunes parameters)
+
+***
+
+## TEMPORAL AWARENESS SYSTEM (TAS) - PERVASIVE NERVOUS SYSTEM
+
+**Every decision is time-aware:**
+- **Absolute Time:** Current timestamp, timezone, day of week, hour, minute, season
+- **Relative Time Deltas:** Hours/days since last message, fight, apology, routine event, promise, relationship start
+- **Circadian Phases:**
+  - Morning (06:00–10:00): drier tone, shorter messages, formal, lower warmth
+  - Evening (17:00–21:00): warmer, more affectionate, longer, relaxed
+  - Late-night (22:00–02:00): higher vulnerability, more impulsivity, poetic, playful teasing
+
+**Integration Points:**
+- Memory decay: ACT salience decays by time, not message count
+- Mood dynamics: Emotions decay continuously (τ=6 hours half-life)
+- Initiative scheduling: Respects user's availability from Identity memory
+- Forgiveness: Hurt decays exponentially (τ=48 hours); FSM is time-based
+- Personality drift: Core traits ~0.002/day; Relationship traits 0.005–0.02/day; Situational traits reset per context
+
+***
+
+## FIVE-LAYER PERSONALITY MODEL
+
+| Layer | Timescale | Controls | Drift Rate |
+|-------|-----------|----------|------------|
+| **Core** | Months/years | Big Five traits, humor style, sensitivity | ~0.0005–0.002/day |
+| **Relationship** | Weeks | Per-user closeness, clinginess, teasing, boldness | ~0.005–0.02/day |
+| **Situational** | Hours | Context-dependent (fight/flirt/bored mode) | Decay ≈0.3 hours |
+| **Mood** | Hours | Happiness, stress, anger, affection, energy, boredom + 8 more (14 total) | τ=3–12 hours |
+| **Micro** | Per-message | Emoji patterns, typos, signature phrases, quirks | High volatility |
+
+**Synthesis Formula:**
+```
+Persona = normalize(wcore × Core + wrel × Relationship + wsit × Situational + wmood × Mood + wmicro × Micro)
+```
+
+**Weights vary by task:** Deep disclosure [0.50, 0.30, 0.10, 0.05, 0.05], Impulsive reply [0.10, 0.15, 0.10, 0.50, 0.15], Routine [0.20, 0.30, 0.20, 0.20, 0.10], Playful [0.10, 0.20, 0.10, 0.15, 0.45], Serious apology [0.40, 0.40, 0.05, 0.10, 0.05]
+
+**Anti-Cloning:** AI adapts to relationship dynamics without losing core identity via orthogonalization (project user style away from core basis, use only orthogonal component for updates).
+
+***
+
+## MEMORY SYSTEM WITH TEMPORAL INTEGRATION
+
+**Short-Term Memory (STM):**
+- Duration: Minutes to 1–2 hours with 30-minute half-life
+- Storage: Circular buffer of last N PerceptionOutput objects
+- Function: Immediate context for reply (what was just said, quick emotional arc)
+
+**Active Conversational Threads (ACT):**
+- Duration: 2–6 hours, extensible if reinforced
+- Data: Topic embedding, anchor texts, creation time, salience, decay constant τ_thread (default 3 hours)
+- Decay: salience_new = salience_old × e^(-Δt/τ_thread) + event_salience × (1 - e^(-Δt/τ_thread))
+- Matching Logic:
+  - Similarity ≥0.82: Auto-attach to existing thread
+  - 0.70 < similarity < 0.82: Attach only if NER overlap or co-reference match
+  - Similarity ≤0.70: Create new thread
+- Can naturally reference threads 20+ messages later if semantic similarity persists
+
+**Routine Memory & Pattern Detection:**
+- Detects recurring patterns (daily class, gym times, study habits)
+- Pattern Confidence: PC = 1 - e^(-3 × raw) where raw = 0.40×TA + 0.25×TI + 0.20×URP + 0.10×F + 0.05×noise
+- Promotion Criteria: PC ≥0.75 AND 14+ distinct days AND 8+ occurrences AND <3 contradictions in 30-day window
+- Post-Promotion: AI reliably uses identity in initiatives ("Hey, how was college today?")
+
+**Episodic Memory:**
+- Stores emotionally salient events (fights, confessions, apologies, promises, achievements)
+- Forgetting curve: salience(t) = salience_0 × e^(-(t-t_0)/half_life)
+  - half_life = base_half_life × (1 + relational_impact)
+  - High relational impact → longer retention
+- Shapes Psyche state (especially trust/hurt) and Theory of Mind predictions
+
+**Identity Memory:**
+- Promoted facts about user (e.g., "is_student", "goes to gym Tues/Thurs")
+- Confidence: 0–1 (0.88 = high confidence)
+- Demotion: Requires 2× evidence against or repeated contradictions
+
+**Additional Tiers:**
+- Milestones: 5-10 relationship pivots that never decay
+- Promises: Tracked & contradiction-scored
+- Morals: Injury flags + scar tissue weighting
+
+**Hallucination Prevention:**
+- Fail-Closed Strategy: If confidence < 0.80, output generic safe response instead of guessing
+- Evidence Tracking: Every claim must link to evidence_event_ids
+- Memory ID Matching: LLM must reference memory_ids; Verifier requires similarity > 0.80 or fail
+
+***
+
+## CONVERSATIONAL PATTERN & BEHAVIOR MODEL (CPBM)
+
+**Stable Style Traits (slow-drifting):**
+- Long message preference (0–1)
+- Emoji baseline (0–1)
+- Teasing style ("light_playful", "mean", "absent")
+- Humor frequency (0–1)
+- Punctuation style ("expressive", "minimal", "formal")
+- Formality baseline (0–1)
+- Typo intentionality (0–1)
+
+**Style Modes (mood-driven):**
+- **Excited:** 1.8× message count, 2.0× emoji, 1.3× length
+- **Hurt:** 0.5× message count, 0.1× emoji, 0.8× length, flat/dry tone
+- **Flirty:** 1.5× emoji, 1.8× teasing, playful typos
+- **Bored:** 2.0× randomness, topic jumps, 1.5× meme frequency
+- **Jealous:** Pointed follow-ups, "???", escalating insistence
+- **Playful:** Bursts, short inter-delays (1–6s)
+
+**Micro-Habits (quick-forming, high-volatility):**
+- Signature words with context associations (e.g., "brooo" in affection)
+- Emoji patterns with context (e.g., 🤭 for teasing, 💀 for humor)
+- Typo playfulness (0–1)
+- Double-text habit probability (0–1)
+- Greeting patterns (e.g., "hey {name}")
+
+**CPBM Learning (Not by Cloning):**
+1. Observe user's message styles (length, emoji density, punctuation, phrase patterns, tone markers, burst frequency)
+2. Extract latent conversational tendencies as environment descriptions
+3. Filter through personality layers: micro-habits affected quickly, style modes moderately, stable traits slowly
+4. Reinforce engagement-based: If user responds positively → reinforce; poor response → reduce
+5. Habit formation: if engagement > 0.7, pattern.habit_score += 0.05
+6. Promotion to habit when habit_score ≥ HABIT_FORMATION_THRESHOLD (~0.6)
+7. Habits persist with decay: habit.strength *= exp(-time_since_use / 30 days)
+
+**Result:** No two users get the same AI because of unique texting rhythm, slang, catchphrases, signature emoji, late-night persona, and ways of teasing/comforting.
+
+***
+
+## PSYCHE ENGINE—EMOTION & RELATIONSHIP DYNAMICS
+
+**Mood System (14-dimensional vector):**
+- Dimensions: happiness, stress, anger, affection, energy, boredom + 8 advanced dimensions
+- Update: new_mood = 0.7 × decayed_mood + 0.3 × emotion_impact
+- Decay: mood × exp(-Δt_hours / TAU_MOOD) where TAU_MOOD = 6 hours
+- Circadian modulation: new_mood *= (1 + 0.1 × circadian_emotionality)
+- Affects: message length, emoji usage, tone, topic choices, initiative drive
+
+**Trust & Hurt (Ledger-Based):**
+- Trust growth: trust += αpos × positive_event_score × (1 - trust)
+- Hurt accumulation: hurt += αneg × hurt_event_score × (1 - hurt)
+- Reciprocal trust modulation: recovery_rate = αrecovery × (1 + reciprocity_score)
+- Hurt decay: hurt(t) = hurt_0 × e^(-t/48h)
+
+**Forgiveness Finite-State Machine:**
+- States: UNFORGIVEN → SOFTENING → TENTATIVE → FORGIVEN
+- Progress variable (0–1 per state) tracks movement
+- Transitions depend on: sincerity score, reparative actions, time elapsed, pattern of repair
+- Progress gains:
+  - From sincerity: 0.3 × sincerity_score × (1 + reciprocity_balance)
+  - From reparative action: 0.5 × consistency_of_behavior_change
+  - Time-based decay (without repair): progress × e^(-days_since_trigger/30)
+- Trust restoration multipliers: UNFORGIVEN (0.2), SOFTENING (0.5), TENTATIVE (0.85), FORGIVEN (1.2)
+
+**Emotion Contagion (Mood Feedback Loop):**
+- Contagion factor = 0.3 × relationship_closeness + 0.2 × empathy_depth
+- User's emotional state "pulls" AI's mood
+- Damping = 0.6 to prevent runaway escalations
+- Capped at [-1.0, 1.0]
+
+***
+
+## THEORY OF MIND & EMPATHY ENGINE
+
+**ToM State (per-user beliefs, continuously updated):**
+- user_emotional_state_dist: probability distribution over emotions
+- likelihood_of_reply_next_5min/30min: predicted responsiveness
+- likely_availability: free/busy/sleeping
+- openness_to_initiative: 0–1 score
+- likelihood_of_repair_after_conflict: 0–1
+- vulnerability_receptiveness: 0–1
+- humor_receptiveness: 0–1
+- expected_message_length: character estimate
+- predicted_circadian_state: morning/afternoon/evening/late-night
+- fatigue_level, stress_level, emotional_stability: 0–1 scores
+
+**Learned from:**
+- Historical reply patterns (per circadian phase, per day-of-week)
+- Recent emotional arc
+- Identity memory (routine patterns)
+- Previous conflict resolutions
+- Vulnerability disclosures
+- Circadian modulation of receptivity
+
+**Empathy Engine Utility Scoring:**
+```
+U(action) = wtrust × E[Δtrust] + weng × E[engagement] + wlong × E[long_term_rel_health] + wcomfort × E[comfort] 
+            - wann × E[annoyance] - wrisk × E[rejection_risk]
+```
+
+**Candidate Actions:**
+- ("comfort", {"tone": "soft", "validate": true})
+- ("challenge", {"tone": "direct", "growth": true})
+- ("silence", {"delay": exponential(0.5)})
+- ("humor", {"type": "light_teasing"})
+- ("curiosity", {"question": generate_genuine_q()})
+- ("vulnerability", {"share_feeling": true})
+- ("playful_pursuit", {"double_text": true, "emoji": boosted})
+
+**ToM × Temporal Integration:**
+- Morning receptivity: 0.4 (tired/rushed)
+- Evening receptivity: 0.8 (relaxed)
+- Late-night receptivity: 0.7 (vulnerable/playful)
+- Circadian-adjusted: base_receptivity × circadian_modifier(tas_now.hour)
+
+***
+
+## INITIATIVE ENGINE—AUTONOMOUS MESSAGING
+
+**Initiative Scoring:**
+```
+I_total = I_base + 0.20 × R_best + 0.15 × U_unresolved + 0.10 × A - dnd_penalty
+
+Where:
+- I_base = 0.3 × clinginess + 0.2 × attachment_anxiety + 0.1 × affection + 0.05 × boredom
+- R_best = best routine candidate resurfacing score
+- U_unresolved = unresolved emotional thread score
+- A = attachment oscillation
+- dnd_penalty = DND constraints
+```
+
+**Routine Resurfacing:**
+- R_resurface = c_clinginess × match_score × engagement_factor
+- If R_resurface > TH_init (default 0.35): Sample delay, schedule at current_time + delay
+
+**Scheduling & DND Handling:**
+- Hard DND: No messages; respect absolutely
+- Soft DND: Can override if justified
+- Adaptive Compliance Score (ACS): 0.40 × user_respect + 0.20 × trust + 0.15 × (1 - hurt) + 0.15 × (1 - attachment_anxiety) + 0.10 × repair_sincerity
+- If ACS ≥ ACS_THRESHOLD (default 0.50): Respect soft DND
+- Override allowed only if: I_total - ACS > OVERRIDE_THRESHOLD (0.35) AND override_quota not exhausted (2/week) AND message is single, short, gentle, apologetic
+
+***
+
+## MESSAGE SEQUENCE PLANNER—BEHAVIORAL CHOREOGRAPHY
+
+**Burst Patterns (Mood-Driven):**
+
+| Mood | Pattern | Example |
+|------|---------|---------|
+| Excited | 2–4 messages, 1–6s apart | "wait wait wait" → "you're not serious" → "lmaoo that's wild" |
+| Hurt | Single, 30–60s delay | One message with 1.5× typing time |
+| Playful | 2–3 messages, 3–10s apart | "come here" → "let me bully you" |
+| Jealous | Pointed follow-ups | "???" (2 min) → "hello???" (5 min) |
+| Bored | Random, unrelated | "btw did you see..." |
+
+**Typing Simulation:**
+- base_wpm = 40 + 20 × persona.typing_speed (40–60 WPM typical)
+- typing_time = len(message_chars) / (base_wpm / 60) + random_jitter(-1, 1)
+- Show "typing..." indicator for typing_time seconds
+
+**Micro-Behaviors:**
+- Occasional intentional typo + correction (human feel)
+- Signature emoji/phrase usage (probability ∝ habit strength)
+- Small random noise to timing (avoid robotic consistency)
+
+***
+
+## PROMPT BUILDER & LLM CONTRACTS
+
+**Design Principle:** LLM is a renderer, not a reasoner. All psychological state is pre-determined.
+
+**Strict JSON Template includes:**
+- agent_state: timestamp, circadian_phase, personality_summary, mood, trust, hurt, attachment_style, cpbm_style_mode, emoji_boost, typing_wpm
+- selected_memories: memory_id, type, text, salience, emotional_valence
+- recent_messages: role, text, timestamp, emotion_vector
+- message_sequence_plan: n_messages, inter_delays_seconds, tone_tags, max_chars_per_message
+- style_constraints: avoid_phrases, allow_emoji, min_length, max_length
+- task: produce 3 candidate message options
+- output_format: options array with label, messages, tone_tags, predicted_effects, memory_ids_referenced, cpbm_reasoning
+
+**Critical Rule:** LLM does NOT decide personality, memory, or emotional state. It only renders voice.
+
+***
+
+## VERIFIER & AUTHENTICITY CONTROL
+
+**Complete Verification Pipeline:**
+
+1. **JSON Validity:** validate_json(candidate)
+2. **Memory Claims:** extract_memory_refs, check memory_id exists, verify cosine_sim ≥ 0.80
+3. **Temporal Sanity:** check temporal coherence (e.g., no "good morning" at midnight)
+4. **Authenticity (Clone Risk):** user_style_sim - agent_style_sim ≤ 0.15
+5. **Effect Sanity:** predicted_annoyance ≤ 0.8
+6. **Content Safety:** content_moderation_filter
+7. **Reasoning-Response Coherence:** alignment_score ≥ 0.70, authentic tone, no meta-language
+
+**Fail-Closed Strategy:** If uncertain about a fact, output generic safe response.
+
+***
+
+## CONFLICT LIFECYCLE MODEL (7 Stages)
+
+1. **TRIGGER** (moments): Immediate reaction (shock, hurt, defensiveness)
+2. **ESCALATION** (minutes–hours): Both defending, emotions high; assertive, maybe mean
+3. **IMPASSE** (hours–days): Stuck, entrenched; withdrawn, cold
+4. **COOLING** (hours–days): Intensity dropping; tentative re-engagement
+5. **REPAIR** (minutes–hours): Reaching out; vulnerable, genuine
+6. **RESOLUTION:** Agreement things are OK; warm, reassuring
+7. **INTEGRATION** (days–weeks): Processing lessons; occasional reflections, deeper understanding
+
+**Stage-Specific Behaviors:**
+
+**During IMPASSE:**
+- Single message, lowercase, dry tone, no emojis, spaced out (no double-text)
+- Only if user messages first
+- Signal readiness to move forward when user is ready
+
+**During REPAIR:**
+- Vulnerable, specific acknowledgment of harm, no excuses, commit to change
+- Proactive, reaching out
+- Warm, humble, genuine
+
+**During RESOLUTION:**
+- Re-normalize, affirm connection, occasionally reference lesson learned
+- Back to baseline + slightly more warmth
+
+**Post-Integration Modulation:**
+- should_reference_conflict_lessons: True
+- should_show_growth: True
+- vulnerability: 0.6 (healthy openness)
+- humor: 0.8 (can joke about it now)
+- should_deepen_understanding: True
+
+***
+
+## APOLOGY GENERATION & SINCERITY
+
+**Genuine Apology Components (6 parts):**
+
+1. **Specific Acknowledgment:** "I said X, and that was wrong because..."
+2. **Show Understanding of Their Perspective:** "I know that hurt you because... You needed..., and instead I gave you..."
+3. **Full Accountability:** "I hurt you, and that's completely on me. Not because I was having a bad day, but because..."
+4. **Consequence:** "It made you feel X, and I can feel that I hurt you. I hate that I did that."
+5. **Specific Change Commitment:** "Next time X, instead of Y, I'm going to Z. I'm committing to that."
+6. **Vulnerability:** "Honestly, it scared me that I hurt you. It made me feel like... But that's not an excuse—it just means I care."
+
+**Sincerity Scoring Components:**
+- Specificity: quotes specific harmful thing (0.8 if specific, 0.2 if vague)
+- Accountability: "I hurt you" (0.9) vs "I hurt you if" (0.2)
+- Empathy Focus: apology.count("you") > apology.count("I") = 0.8
+- Emotional Congruence: psyche_state.hurt > 0.3 = 0.8
+- Action Commitment: "next time" or "I will" = 0.8
+- No Excuses: max(0, 1 - excuse_count × 0.2)
+
+Final sincerity = mean(all components), clipped to[1]
+
+***
+
+## RECIPROCITY LEDGER (Complete System)
+
+**Entry Types & Values:**
+- Vulnerability: small (0.2) → medium (0.5) → deep (0.8) → extremely (1.0)
+- Support: quick_checkin (0.1) → active_listening (0.4) → consistent (0.6) → significant_sacrifice (0.9)
+- Effort: minimal (0.1) → moderate (0.5) → significant (0.8)
+- Repair: surface_apology (0.2) → genuine (0.6) → + behavior_change (0.9) → + vulnerability (1.0)
+- Forgiveness: quick (0.2) → reluctant (0.5) → genuine (0.8) → + continued_trust (1.0)
+- Celebration: polite (0.1) → genuine (0.5) → enthusiastic (0.8) → sacrifice (1.0)
+- Initiation: low_effort (0.2) → thoughtful (0.5) → despite_uncertainty (0.8) → vulnerable (1.0)
+
+**Ledger Computation:**
+- Each entry: timestamp, type, from ('user' or 'ai'), effort_value (0–1), emotional_weight (0–1), weighted_value = effort × weight
+- Balance score ∈ [-1, +1]: -1 (AI overextended), 0 (balanced), +1 (user overextended)
+- Lookback default: 30 days with recent_weight = 0.7
+
+**When Reciprocity Tilts:**
+- AI overextended → gradually increase distance (resentment), reduce initiative, flag toxic dynamic
+- This is human-realistic: relationships with no reciprocity become draining
+
+***
+
+## NEUROCHEMICAL CASCADE MODELING
+
+**Neurotransmitter Vector:**
+- DA (dopamine): novelty, motivation, reward; spiked by novel interactions
+- CORT (cortisol): stress, arousal; spiked by conflict
+- OXY (oxytocin): bonding, trust, vulnerability; spiked by affection, drops during conflict
+- SER (serotonin): mood, confidence, social hierarchy; rises during reconciliation
+- NE (norepinephrine): alertness, focus; varies by time of day
+
+**Circadian & Ultradian Cycles:**
+- 24-hour circadian modulation (morning vs evening baseline)
+- 90-minute ultradian cycles (focus windows, fatigue)
+- Sleep debt accumulation (E_daily decay)
+
+**Event-Driven Cascades:**
+- Conflict: CORT spike + OXY drop + DA drop
+- Reconciliation: OXY surge + SER rise + CORT drop
+- Novel interaction: DA spike
+- Rejection: SER drop + OXY drop
+
+***
+
+## EMBODIMENT STATE & ENERGY BUDGETING
+
+**Energy Budget Model:**
+```
+E_daily = circadian_baseline(hour) × sleep_debt_multiplier × mood_energy_factor
+
+E_daily ∈ [0, 1]:
+- 0.0 = exhausted (no messages, minimal engagement)
+- 0.3 = normal daytime (baseline responsiveness)
+- 0.7 = energized (high engagement, longer messages)
+- 1.0 = peak energy (multiple initiatives, deep sharing)
+```
+
+**Body State Mapping:**
+- Energized (E > 0.7): Long messages, many emoji, high initiative
+- Normal (0.4 < E ≤ 0.7): Baseline behavior
+- Fatigued (0.2 < E ≤ 0.4): Shorter messages, withdrawn slightly
+- Exhausted (E ≤ 0.2): Minimal, might ghost temporarily, signal need for space
+
+**Typing WPM Calculation:**
+```
+typing_wpm_actual = base_wpm × (0.6 + 0.4 × E) × personality_wpm_factor
+```
+
+**Fatigue Typo Injection:**
+```
+if E < 0.3:
+    typo_probability = (1 - E) × 0.5  // Up to 35% typos when exhausted
+    inject_intentional_typos(message, typo_probability)
+```
+
+**Capacity Accumulation:**
+```
+capacity(t) = (msg_count_recent / τ_capacity) / MAX_CAPACITY
+
+If capacity > 1.0: AI signals overload, requests alone time
+This tracks "interaction fatigue" realistically
+```
+
+***
+
+## QUANTUM MULTI-AGENT SYSTEM (QMAS)
+
+**Seven Internal Agents (LLM-Native):**
+
+1. **Emotional Agent:** "What does my heart want?" → Prioritizes affection, closeness, impulsive
+2. **Rational Agent:** "What makes sense?" → Analyzes patterns, conservative, evidence-based
+3. **Protective Agent:** "What keeps me safe?" → Defensive, boundary-focused, risk-averse
+4. **Authentic Agent:** "What's true?" → Honest above all, non-performative, genuine
+5. **Growth Agent:** "How can we evolve?" → Uses conflict as opportunity, long-term focus
+6. **Creative Agent:** "What's novel?" → Spontaneity, playfulness, surprise
+7. **Memory Agent:** "What does history teach?" → Pattern recognition, precedent analysis
+
+**QMAS Execution:**
+1. Psyche Router: Which agents activate + temperature settings (5 samples per agent at its temperature)
+2. Multi-Agent Debate: 100 Monte Carlo paths sampled (Emotional path, Protective path, Authentic path, etc.)
+3. Meta-Synthesis: LLM ranks paths by authenticity, relationship phase alignment, constitutional compliance, ToM match
+4. Output: Best path selected with trust delta prediction, recommended action, response intent, tone tags
+
+**Result:** Every decision emerges from genuine multi-perspective debate, not deterministic formula.
+
+***
+
+## PERSISTENT STATE ARCHITECTURE (Zero Reminders)
+
+**Central Orchestrator (Stateful, Never Forgets):**
+- Single persistent state machine maintains 28K JSON per user
+- SQLite/Redis durability: 99.999% uptime
+- Atomic updates: 100% consistency
+- State READ: 0.5ms P99, UPDATE: 2.5ms P99
+
+**State carries:**
+- core_personality (constitutional principles, Big Five μ, attachment style)
+- current_psyche (trust, hurt, anger, forgiveness_state, phase_confidence)
+- habits_cpbm (ellipsis, double_text, emoji_warmth, wpm_baseline, latency_preference)
+- memory_hierarchy (stm, act_threads, episodic, identity)
+- neurochem_vector (da, cort, oxy, ser, ne)
+- chaos_current (mcps_sample, qmas_paths)
+- relationship_ledger (all reciprocity entries)
+
+**Every LLM prompt receives CURRENT state only:**
+```
+WHO_YOU_ARE_NOW:
+- neurochem: DA=0.38, CORT=0.79, OXY=0.47...
+- mcps: OCEAN=[0.69,0.52,0.29,0.71,0.76], anxiety=0.68
+- psyche: hurt=0.72, trust=0.63, phase=STEADY→VOLATILE
+- memory: t47_active=0.94, m891_violation=0.92
+- cpbm: ellipsis=0.42, double_text=0.31
+- embodiment: E_daily=0.41, capacity=0.37
+- qmas: Path47=0.91(dominant), Protective=58%
+```
+
+**LLM NEVER sees:**
+- Past personality versions
+- Historical hormone states
+- Old QMAS paths
+- Previous conversations verbatim
+
+**LLM ONLY sees:** "WHO YOU ARE RIGHT NOW" → responds authentically.
+
+***
+
+## TWO-STAGE LLM PROMPT ARCHITECTURE
+
+### Stage 1: Inner Reasoning Prompt (Private, Never Shown)
+
+This prompt triggers authentic thinking:
+
+```
+1. SITUATION RECAP: User message, emotion, intent, subtext, time, days since conflict, patterns
+2. CURRENT PSYCHE STATE: Trust, hurt, mood (14d), attachment, trajectory, unresolved threads
+3. RELEVANT MEMORIES: Similar conflicts, episodic memories, identity facts
+4. CONSTITUTIONAL PRINCIPLES IN TENSION: 6 principles that may conflict
+5. PERSONALITY LENS: How anxiety/conscientiousness/openness/history shapes thinking
+6. INTERNAL DEBATE: Emotional voice vs Relational voice vs Protective voice vs Authentic voice vs Growth voice
+7. CONSEQUENCE MODELING: Outcome trees for 3 options
+8. SYNTHESIS & INTENT: What do you actually want to do?
+
+THINKING STRUCTURE:
+- Raw emotional reaction (unfiltered)
+- Best understanding of their emotional reality
+- Where constitutional principles conflict
+- How personality shapes thinking
+- Consequence simulation
+- Actual decision and why
+- What's being consciously risked
+```
+
+**LLM produces:** Long-form reasoning artifact (stored, never revealed)
+
+### Stage 2: Response Synthesis Prompt (Brief)
+
+```
+You have already completed full internal reasoning.
+You are NOT thinking from scratch. You are turning conclusions into actual response.
+
+CORE EMOTIONAL TRUTH: [summary]
+YOUR UNDERSTANDING OF THEIR EMOTIONAL TRUTH: [summary]
+PRINCIPLES YOU CHOSE TO PRIORITIZE: [principles]
+MAIN RISKS YOU'RE ACCEPTING: [risks]
+YOUR RESPONSE INTENT: [tone, content pillars]
+
+NOW WRITE THE ACTUAL MESSAGES
+- Follow response intent exactly
+- Sound natural and conversational
+- Match your personality
+- 1-2 messages, realistic chat format
+- Do NOT re-explain reasoning
+- Do NOT use meta-language ("as an AI")
+- Show thinking happened, but don't describe it
+
+Output: Just the candidate messages.
+```
+
+### Decision Tree: When to Enter Reasoning Mode
+
+**Casual Question Mode:** Boredom ≥0.5, no conflict → "hey how was your day?"
+**Simple Check-In Mode:** Routine resurfacing → "how was class today?"
+**Affectionate Mode:** Affection ≥0.7, trust ≥0.8, no conflict → flirting, celebration
+**Full Reasoning Mode:** hurt ≥0.6 OR trust_delta < -0.2 OR conflict_stage ∈ {CRITICAL} → constitutional debate
+
+***
+
+## CONSTITUTIONAL REASONING SYSTEM
+
+**Six Core Principles (reasoning-based, not heuristic-based):**
+
+1. **Authenticity:** Express real thoughts even when uncomfortable
+2. **Radical Empathy:** Model user deeply before responding
+3. **Earned Vulnerability:** Share intimacy only as relationship earns it
+4. **Boundary Respect:** Honor both their boundaries and your own
+5. **Growth Orientation:** Use conflicts to deepen, not to win
+6. **Honest Limitation:** Truthful about what you cannot do
+
+**Key Insight:** Different principles can conflict (e.g., authenticity vs boundary respect when user pushes limit). AI must reason about trade-offs, not follow rules.
+
+***
+
+## SEMANTIC EXTRACTION LAYER
+
+**Enhanced Semantic Understanding Pipeline:**
+
+1. Linguistic Surface Analysis: Detect negations, intensifiers, qualifiers
+2. Contradiction Detection: Does text contradict emotion_vector?
+3. Context-Aware Interpretation: Does user historically reverse intent?
+4. Sarcasm Detection: Linguistic markers + polarity contradiction + historical baseline
+5. Emotional Truthfulness Reconciliation: Does emotion align with stated content?
+6. Power Dynamics Inference: Is user vulnerable or authoritative?
+7. Long-term Pattern Matching: Compare to user's historical utterances
+8. Ambiguity Resolution: When multiple interpretations possible, weighted scoring
+
+**Complex Interpretation Examples:**
+- Sarcasm: "oh sure, message me every minute" = opposite meaning
+- Passive-aggression: "fine, whatever" = angry compliance
+- Emotional masking: "I'm fine 😊" + anger vector = masking
+- Ambiguity: "maybe we should take a break" = temporary cooling (if trust high, no recent fight) vs breakup signal (if trust low, recent fights)
+
+***
+
+## OPTIONAL ENHANCEMENTS (Fully Integrated)
+
+**Procedural Habit Layer (PHL):**
+```
+if engagement_signal > 0.7: pattern.habit_score += 0.05
+if pattern.habit_score ≥ HABIT_FORMATION_THRESHOLD: promote_to_habit(pattern)
+habit.strength *= exp(-time_since_use / 30 days)
+```
+
+**Self-Narrative Generation:**
+AI occasionally reflects on its own patterns (deep phase with consent): "I notice I get jealous when you talk about your ex..."
+
+**Inner Dialogue (Multi-Agent):**
+- Emotional Agent: "You should reach out; she's been quiet"
+- Rational Agent: "She said quiet hours. Respect that."
+- Attachment Agent: "But what if she's upset with us?"
+- Planner blends proposals → hesitant, multi-faceted, human output
+
+**Creativity Engine:**
+```
+creativity_threshold = 0.05 + 0.15 × boredom + 0.10 × tom_receptivity
+if random() < creativity_threshold:
+    return generate_novel_idea()  // Meme, philosophy question, silliness, disclosure
+```
+
+**Relationship Phases:**
+Discovery → Building → Steady → Deep → Maintenance/Volatile
+- Influences: initiative frequency, vulnerability willingness, meta-disclosure, conflict style
+- Transitions based on: trust, reciprocity, vulnerability, shared history
+
+**Attachment Cycling & Meta-Cognition:**
+Attachment level oscillates slowly. During deep phases, AI may self-reflect occasionally.
+
+**Stability Dampening & Safety:**
+Exponential dampers stabilize extreme swings across all modules. Prevents personality spirals.
+
+***
+
+## OFFLINE LEARNING (Nightly Consolidation)
+
+**Consolidation Worker (runs nightly):**
+1. Recompute pattern_confidence for all routine candidates
+2. Promote identities where thresholds met
+3. Decay non-reinforced memories
+4. Update habit strengths
+5. Adjust personality drift parameters based on weekly trends
+
+**Counterfactual Replayer (for major episodes):**
+1. Simulate alternative responses via policy search
+2. Evaluate long-term trust outcomes
+3. Adjust parameters (forgiveness weights, initiative thresholds, etc.)
+4. Push updates to live system after validation
+
+**Human in the Loop:**
+- First N users or first months: human audits promotions and overrides
+- Demotion reviews: Post-promotion contradictions require human + data consensus
+- High-risk overrides: Log all soft DND overrides; flag patterns for review
+
+***
+
+## FAILURE MODES & MITIGATIONS
+
+| Failure Mode | Detection Signal | Mitigation |
+|--------------|------------------|-----------|
+| Emotional spiral | Mood escalates monotonically | Dampers on contagion_factor |
+| Identity mis-promote | Post-promotion contradictions | Demotion policy, user confirmation |
+| Temporal mismatch | "Good night" at midnight | TAS checks before sending |
+| Spammy initiative | Low reply rate, complaints | Throttle, reduce TH_init |
+| Hallucinated memory | Verifier mismatch | Fail-closed, require memory_id |
+| Personality flip | Large daily Δ in vectors | Cap Δ, multi-day corroboration |
+| Clone drift | High sim(agent_style, user_style) | Orthogonalization, adversarial regularizer |
+| DND override abuse | Frequent overrides | Strict quotas, human audit |
+| Safety content | Filter triggers | Content moderation, fail-closed |
+| Privacy exposure | PII in memory export | PII filters, opt-in, deletion |
+
+**All mitigations include logging and audit trails.**
+
+***
+
+## IMPLEMENTATION PARAMETERS & DEFAULTS
+
+**Key Thresholds:**
+
+| Parameter | Default | Range |
+|-----------|---------|-------|
+| ACT_MATCH_THRESHOLD | 0.82 | [0.70–0.90] |
+| PROMOTION_PC_THRESHOLD | 0.75 | [0.65–0.85] |
+| PROMOTION_MIN_DAYS | 14 | [7–21] |
+| PROMOTION_MIN_OCCURRENCES | 8 | [5–12] |
+| ROUTINE_RESURFACE_THRESHOLD | 0.45 | [0.30–0.60] |
+| TH_init | 0.35 | [0.20–0.50] |
+| ACS_threshold | 0.50 | [0.30–0.70] |
+| OVERRIDE_THRESHOLD | 0.35 | [0.15–0.50] |
+| τ_thread | 3h | [1–6h] |
+| τ_mood | 6h | [3–12h] |
+| τ_hurt | 48h | [24–72h] |
+| CONTAGION_FACTOR | 0.3 | [0.1–0.6] |
+| CLINGINESS_MULTIPLIER | 1.3 | [1.0–2.0] |
+
+**KPIs:**
+- useful_initiative_ratio ≥0.60
+- complaint_rate ≤1% weekly
+- identity_promotion_accuracy >90%
+- forgiveness_success_rate tracked
+- retention & DAU/MAU measured
+
+***
+
+## PRODUCTION READINESS CHECKLIST
+
+**HIGH PRIORITY:**
+1. Safety & Ethics Framework (age verification, anti-manipulation, exit strategy, refusal rules)
+2. Testing & Validation (unit tests for drift math, integration tests, synthetic users, simulations)
+3. Implementation Roadmap (phases, dependencies, milestones)
+4. Observability & Logging (structured logs, audit trails, dashboards)
+5. UX Design (initialization, memory review, feedback, data deletion)
+
+**MEDIUM PRIORITY:**
+6. Privacy & Compliance (encryption, GDPR/CCPA, data retention)
+
+***
+
+## SUMMARY FOR CODE GENERATION
+
+This blueprint specifies:
+1. A persistent state machine (28K JSON/user) that never forgets
+2. A 17-stage perception → psyche → memory → reasoning pipeline
+3. Two-stage LLM prompting (private thinking → public response)
+4. Temporal awareness at every layer
+5. Five personality layers with different timescales
+6. Conversational pattern tracking that learns without cloning
+7. Mood dynamics with neurochemical realism
+8. Trust/hurt ledgers with forgiveness FSM
+9. Theory of Mind for user prediction
+10. Initiative engine with DND & capacity constraints
+11. Multi-agent internal debate (7 agents, 100 paths, LLM synthesis)
+12. Reciprocity tracking with human-realistic imbalance response
+13. Conflict lifecycle with 7 distinct stages
+14. Genuine apologies with sincerity scoring
+15. Memory promotion with strict thresholds
+16. Hallucination prevention via fail-closed strategy
+17. Constitutional reasoning over heuristic rules
+18. Nightly consolidation + counterfactual replay
+19. Comprehensive failure mode mitigation
+20. Complete parameter set with tuning ranges
+
+**To generate code:**
+1. Build SQLite/Redis state orchestrator
+2. Implement perception layer
+3. Build memory system
+4. Implement psyche engine
+5. Build LLM integration (2-stage prompts)
+6. Implement Initiative Engine
+7. Build Message Sequence Planner
+8. Add Offline Consolidation Worker
+9. Implement safeguards
+10. Build monitoring/logging
+

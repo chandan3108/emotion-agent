@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# Environment
+.env
+backend/.env
+backend/.env\\
+
+# Logs and data
+backend/realtime_log.csv
+backend/state.db
+*.log
+
+# Node
+node_modules/
+.next/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Gemini brain artifacts
+.gemini/
+state.db
+memory_search.db

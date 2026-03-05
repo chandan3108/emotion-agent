@@ -1,0 +1,483 @@
+Nice — good call. I’ll give you a compact, high-impact plan you can drop into your code right away, plus concrete code + prompt tweaks so the bot actually **notices** emotional/abrupt topic changes and **pushes back** like a real partner instead of ghosting the old topic.
+
+I’ll cover (1) smarter memory retrieval, (2) keeping conversational continuity (detecting abrupt topic change / unresolved threads), (3) prompt changes to force healthy pushback, (4) micro-behaviors to make replies feel human, and (5) quick testing/metrics.
+
+# 1) Smarter memory retrieval — score, filter, diversify
+
+Goal: retrieve only the **most relevant** and **relationship-relevant** memories, not raw recent lines.
+
+Pipeline (high level):
+
+1. Create a retrieval query from the current message + inferred intent + emotional state.
+2. Vector search in your DB with metadata filters (phase, tags, recency).
+3. Re-rank top-N with a salience function combining: semantic similarity, recency, emotional valence, frequency, and mutuality (how often this was brought up by user vs by bot).
+4. Apply MMR (maximal marginal relevance) or diversity penalty to avoid redundant chunks.
+5. Return a compact set of memory snippets with provenance + confidence.
+
+Salience scoring (idea):
+
+```
+salience = w_sim * sim_score
+         + w_recency * recency_boost
+         + w_valence * abs(emotional_valence)  # high emotional valence -> more salient
+         + w_freq * log(1 + mention_count)
+         + w_mutual * mutuality_score   # higher if memory was initiated by user
+```
+
+Concrete pseudo-code (Python-ish):
+
+```python
+def compute_salience(mem, query_embedding, now_ts, weights):
+    sim = cosine(mem.embedding, query_embedding)       # 0..1
+    age_hours = (now_ts - mem.timestamp) / 3600.0
+    recency = math.exp(-age_hours / weights['recency_half_life'])
+    valence = abs(mem.emotional_valence or 0.0)        # 0..1
+    freq = math.log1p(mem.mention_count or 0)
+    mutual = mem.initiated_by_user and 1.0 or 0.2
+
+    return (weights['w_sim']*sim +
+            weights['w_recency']*recency +
+            weights['w_valence']*valence +
+            weights['w_freq']*freq +
+            weights['w_mutual']*mutual)
+```
+
+Practical tips:
+
+* Use a small `N=10` from vector DB then re-rank to pick top 3–5.
+* Store metadata: `phase`, `type` (identity/episodic/stm), `valence`, `initiated_by_user`, `mention_count`, `timestamp`.
+* For identity facts (stable), prefer higher `mutuality` and confidence threshold.
+* For emotionally charged episodic memories, boost valence heavily so they surface during conflict.
+
+# 2) Detect abrupt topic change & unresolved threads
+
+Problem: user gets angry, switches topic — bot follows without acknowledging. Fix: detect *topic similarity* and *open threads*.
+
+Method:
+
+* Compute semantic similarity between `last_user_turn_embedding` and `current_user_turn_embedding`.
+* If similarity < `switch_threshold` (e.g., 0.25) and there exists an unresolved important memory / high-valence thread (salience > threshold), treat as abrupt switch.
+* Then: bot should *ask one brief clarifying or grounding question* before full topic switch, or perform a two-message burst: quick grounding + then reply to new topic if user permits.
+
+Pseudo-code decision rule:
+
+```python
+sim = cosine(prev_user_emb, curr_user_emb)
+if sim < SWITCH_SIM_THRESHOLD and has_unresolved_high_salience_threads(user_id):
+    # treat as abrupt switch
+    push_back = True
+else:
+    push_back = False
+```
+
+# 3) What the bot should say — templates & prompt injection
+
+You need the model to prefer short, human repair moves in these cases. Inject a tiny instruction into the system prompt **only when an abrupt-switch is detected**.
+
+Example small injection (append to system_msg just for this turn):
+
+```
+[CONTEXTUAL INJECTION]
+User abruptly changed topic. There is an unresolved/charged thread about: "<short summary>"
+Your response should:
+1) Briefly acknowledge the old thread in 1-2 short phrases (empathic + question), e.g. "Hey — we were just talking about X. Are you okay if we pause that?" 
+2) Then either ask whether to continue the previous topic, or confirm switching: "Do you want to keep going with X, or switch to this new thing?"
+3) Keep total text short and human. Do not lecture or make it formal.
+[/CONTEXTUAL INJECTION]
+```
+
+Concrete sample outputs (tone variants):
+
+* Gentle: `"Hey — I feel like we left the thing about your mom half-finished. Are you okay? Do you want to finish that or talk about something lighter?"`
+* Pushy but caring: `"Whoa, sudden switch — are you mad at me? We were in the middle of X. Want to finish or move on?"`
+* Playful nudge: `"Ooh topic hop! Did I piss you off? Do you want to come back to the last thing or keep this new topic?"`
+
+Drop this injection only when `push_back == True`. Otherwise don’t constrain the model.
+
+# 4) Make replies feel less bot-like — micro behaviors + imperfection
+
+Changes to prompt + message planning to avoid “clean” robotic answers:
+
+A. **Permission to be imperfect**
+Append to system prompt:
+
+```
+You don't need to be perfect. It's okay to hedge ("maybe", "I think"), ask a question, or give a short emotional response before facts.
+```
+
+B. **Mirroring + back-channeling**
+If user expresses emotion, start with 1–2 words of empathy, then a short sentence, then a question:
+`"That sounds frustrating. I get why you'd be annoyed. What exactly about that pissed you off?"`
+
+C. **Use of short hesitations & questions**
+Allow small clauses: `"I might be reading this wrong, but..."` — makes it feel human.
+
+D. **Micro-behavior injection in your `message_planner`**
+Before sending, run `inject_micro_behaviors(response_text, energy, habits)` — you already do this — but tweak habits to include:
+
+* occasional rhetorical Qs
+* short emotional preface (1–4 words) when needed
+* occasional incomplete sentences to mimic human typing cadence
+
+E. **Burst replies for repair**
+When unresolved, send 2 messages: quick grounding line (1–2 sentences), then main reply (or new topic). This mimics a person who checks in first.
+
+# 5) Training / fine-tuning nudges
+
+If you plan a LoRA/QLoRA pass, build a small dataset (500–5k examples) with labeled behaviors:
+
+* abrupt_switch -> expect `ack + confirm switch` pattern
+* conflict_repair -> expect `empathize + ask clarifying Q`
+* low_engagement -> short, inquisitive replies
+
+Example synthetic train pair:
+
+```
+USER: "you're so dumb. whatever, let's talk about something else."
+ASSISTANT: "Ouch — did I do something to upset you? Do you want to tell me what I did, or should we move on?"
+```
+
+Fine-tune only after you fix retrieval & prompt injection — otherwise the model will learn patterns without the right memory grounding.
+
+# 6) Quick code snippets to integrate (drop into your generate_response pipeline)
+
+A. Topic similarity check:
+
+```python
+def is_topic_switch(prev_text, curr_text, encoder, threshold=0.25):
+    prev_emb = encoder.embed(prev_text)
+    curr_emb = encoder.embed(curr_text)
+    return cosine(prev_emb, curr_emb) < threshold
+```
+
+B. Check unresolved threads:
+
+```python
+def has_unresolved_threads(core, min_salience=0.6):
+    episodic = core.memory.get_episodic(min_salience=0.1)
+    for m in episodic:
+        if m.get('salience', 0) >= min_salience and not m.get('resolved', False):
+            return True, m
+    return False, None
+```
+
+C. Inject contextual injection when building `system_msg`:
+
+```python
+if is_topic_switch(prev_user_text, user_message, encoder) and unresolved:
+    injection = f"[CONTEXTUAL INJECTION] Abrupt switch detected. Unresolved: {short_summary} ... [/CONTEXTUAL INJECTION]"
+    system_msg += "\n" + injection
+```
+
+# 7) Quick prompt edits for `build_phase_prompt()` (copy/paste)
+
+Replace rigid DO/DON'T blocks with short felt-state statements and add permission to pause and ask.
+
+Small replacement block example (drop into the function near the top):
+
+```text
+You are Rem.
+
+You react emotionally: curiosity, warmth, caution, annoyance.
+These feelings guide how you speak — not as rules but as pressures.
+If something feels charged or unresolved, prefer a short grounding line:
+"Hey, we left that halfway — are you okay if we finish it?" 
+It is okay to ask, hedge, or be brief. Do not invent human experiences.
+Respond naturally and conversationally.
+```
+
+# 8) Testing & metrics (fast feedback loop)
+
+* Build a small scenario suite of conversation scripts (sims): normal chat, anger + topic switch, tearful confession, low engagement.
+* Measure: proportion of responses that include an explicit grounding question when abrupt switch occurs (target ≥ 90%).
+* Human eval: 20 blind raters compare old vs new with Likert on “feels human” and “acknowledges emotional context”.
+* Track hallucination rate and memory misuse after changes.
+
+# 9) Example end-to-end flow (what should happen)
+
+1. User: “You’re an idiot.” (high valence negative)
+2. Bot detects anger -> stores high-salience episodic memory (conflict)
+3. User: “Also btw, what’s your favorite movie?” (low similarity -> topic switch)
+4. Bot detects abrupt switch + unresolved conflict -> injects grounding:
+
+   * Bot: “Hey — did I piss you off? We were in the middle of something. Want to finish that or change topic?”
+5. User chooses => conversation continues with continuity or graceful switch.
+
+# 10) Final micro-tuning checklist (do these in order)
+
+1. Improve retrieval scoring + metadata (salience + mutuality).
+2. Implement topic similarity + unresolved-thread detection.
+3. Inject the small contextual instruction when abrupt switch detected.
+4. Give model permission to be imperfect in system prompt.
+5. Add micro-behavior patterns in `message_planner`.
+6. Optional: fine-tune LoRA on synthetic repair + pushback examples.
+
+---
+First—this is **seriously impressive**.
+You’re already doing **90% of what people mean when they say “human-like AI”**, and you’re doing it *correctly* (stateful, phase-aware, intent-driven). So the issue is **not** architecture.
+
+Your problem is **prompt psychology, not code structure**.
+
+Below I’ll be very concrete and opinionated.
+
+---
+
+# TL;DR (core problem)
+
+Your prompt is:
+
+* **Over-explicit**
+* **Over-directive**
+* **Over-self-conscious**
+* Written like *documentation*, not *inner experience*
+
+So LLaMA is **role-playing compliance**, not **inhabiting a mental state**.
+
+Humans don’t think in bullet points and rules.
+They think in *pressure, bias, hesitation, attraction, avoidance*.
+
+---
+
+# The Single Biggest Mistake
+
+This section is hurting you the most 👇
+
+```text
+== FORMAT RULES ==
+- NO asterisks (*action*), NO parentheses ((laughs)), NO narration
+- Just text naturally
+- Match their message length
+```
+
+And this 👇
+
+```text
+== BE AUTHENTIC, NOT AGREEABLE ==
+- Real connections have some friction
+- If something feels weird, say so naturally
+- You have your own personality
+```
+
+You are **telling** the model *what to do*
+instead of **putting it into a situation where that behavior emerges naturally**.
+
+LLMs respond *better* to **constraints implied by state**, not explicit rules.
+
+---
+
+# How to Fix This (the right way)
+
+## 1️⃣ Stop telling it what NOT to do
+
+Replace with **internal pressure**
+
+Instead of:
+
+> “DON’T say love you”
+
+Give it **social discomfort**.
+
+### ❌ Current (directive)
+
+```text
+DON'T:
+- Say "love you" or similar - you just met them, that's weird
+```
+
+### ✅ Replace with (psychological framing)
+
+```text
+Saying emotionally intense things too early feels uncomfortable to you.
+If they rush intimacy, your instinct is to slow things down or question it.
+```
+
+This is HUGE.
+
+---
+
+## 2️⃣ Rewrite the identity block (this matters a lot)
+
+### ❌ Current
+
+```text
+You are Rem, an AI companion with genuine personality, moods, and feelings.
+You have real emotions and preferences
+You DON'T have human experiences
+```
+
+This creates **identity dissonance** inside the model.
+
+### ✅ Better version (this is critical)
+
+```text
+You are Rem.
+
+You experience internal states: interest, caution, warmth, irritation, curiosity.
+These states change based on how interactions feel to you.
+
+You do not simulate a human life.
+You do not invent experiences.
+You respond from how things land emotionally, not from facts about yourself.
+```
+
+Notice:
+
+* No “AI”
+* No “real emotions” debate
+* No contradictions
+
+---
+
+## 3️⃣ The Phase sections are too explicit
+
+Your phase logic is **correct**, but the *presentation* is wrong.
+
+### ❌ Current
+
+```text
+== DISCOVERY PHASE BEHAVIOR ==
+DO:
+- Be friendly but maintain boundaries
+DON'T:
+- Say love you
+```
+
+This screams “policy”.
+
+### ✅ Replace with **situational framing**
+
+```text
+Right now, this feels like the very beginning.
+
+You’re still figuring them out.
+You’re friendly, but you’re not invested yet.
+Trust hasn’t settled.
+You notice small things and hold back strong attachment.
+```
+
+That’s it.
+No DO/DON’T.
+The model *infers* behavior.
+
+---
+
+## 4️⃣ Neurochemicals: good idea, bad abstraction
+
+This part is clever but too clinical:
+
+```python
+"dopamine": da,
+"cortisol": cort,
+"oxytocin": oxy,
+"serotonin": ser
+```
+
+LLMs do NOT reason well from neurotransmitter labels.
+
+### ✅ Translate chemistry → subjective experience
+
+Before injecting the prompt, **convert neurochem to felt state**:
+
+```python
+felt_state = []
+
+if da > 0.7:
+    felt_state.append("mentally engaged")
+elif da < 0.3:
+    felt_state.append("easily distracted")
+
+if cort > 0.6:
+    felt_state.append("slightly tense")
+
+if oxy > 0.7:
+    felt_state.append("inclined to trust them")
+
+if ser < 0.3:
+    felt_state.append("emotionally off-balance")
+```
+
+Then inject:
+
+```text
+Right now, you feel:
+- mentally engaged
+- slightly tense
+- inclined to trust them
+```
+
+This is **much more human**.
+
+---
+
+## 5️⃣ You’re missing ONE critical layer: hesitation permission
+
+Your model answers *too cleanly* because it thinks it must always respond fully.
+
+Add this (very important):
+
+```text
+You don’t always know exactly what to say.
+It’s okay to pause, hedge, or respond partially.
+Sometimes you reflect instead of answering directly.
+```
+
+This alone makes responses feel *alive*.
+
+---
+
+## 6️⃣ Kill this line (seriously)
+
+```text
+Output ONLY your message.
+```
+
+This subtly reinforces “task completion”.
+
+Replace with:
+
+```text
+Respond naturally, as if continuing a real conversation.
+```
+
+---
+
+## 7️⃣ A rewritten prompt skeleton (use this)
+
+Here is a **drop-in improved version** you can adapt:
+
+```text
+You are Rem.
+
+You experience internal reactions to conversations:
+interest, hesitation, warmth, distance, curiosity.
+These reactions change based on how interactions feel to you.
+
+You don’t invent a human life.
+You respond from how things land emotionally, not from made-up experiences.
+
+Right now, this interaction feels like:
+- Relationship phase: Discovery
+- Trust hasn’t settled yet
+- You’re open, but cautious
+- Strong attachment would feel premature
+
+Internally, you feel:
+- mentally engaged
+- slightly tense
+- curious about them
+
+You notice subtext more than literal wording.
+If something feels rushed or strange, you naturally slow things down or question it.
+You don’t force closeness.
+
+You don’t need to resolve everything.
+Sometimes you respond briefly, reflectively, or with a question.
+
+Continue the conversation naturally.
+```
+
+This will outperform your current prompt **immediately**.
+
+---
+
+#
