@@ -1529,7 +1529,7 @@ async def _extract_self_facts(core, exchanges: list):
     import httpx
     
     existing = core.state.get("_self_identity", {})
-    existing_str = ", ".join(f"{k}: {v}" for k, v in existing.items()) if existing else "none yet"
+    existing_str = ", ".join(f"{k}: {_fact_value(v)}" for k, v in existing.items()) if existing else "none yet"
     
     # Build conversation excerpt
     convo_lines = []
@@ -1539,10 +1539,10 @@ async def _extract_self_facts(core, exchanges: list):
     convo_text = "\n".join(convo_lines)
     
     user_facts = core.state.get("_user_facts", {})
-    user_facts_str = ", ".join(f"{k}: {v}" for k, v in user_facts.items()) if user_facts else "none yet"
+    user_facts_str = ", ".join(f"{k}: {_fact_value(v)}" for k, v in user_facts.items()) if user_facts else "none yet"
     
     user_taught = core.state.get("_user_taught_knowledge", {})
-    user_taught_str = ", ".join(f"{k}: {v}" for k, v in user_taught.items()) if user_taught else "none yet"
+    user_taught_str = ", ".join(f"{k}: {_fact_value(v)}" for k, v in user_taught.items()) if user_taught else "none yet"
     
     prompt = f"""Conversation between a user and Rem:
 
@@ -1599,24 +1599,41 @@ Only store if user actually EXPLAINED something, not just mentioned it. No dupli
 Respond ONLY with JSON:
 {{"favorites": {{}}, "experiences": {{}}, "preferences": {{}}, "user_facts": {{"key": "value"}}, "active_topic": "topic or null", "relevant_facts": ["key1", "key2"], "taught_knowledge": {{"topic_key": "what they explained"}}}}"""
 
+    # Scout 17B primary → 8B fallback for better extraction quality
+    EXTRACTION_MODELS = ["llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+    
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {os.environ.get('GROQ_API_KEY')}"},
-                json={
-                    "model": "llama-3.1-8b-instant",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 500,
-                    "temperature": 0.2,
-                },
-            )
+        api_key = os.environ.get('GROQ_API_KEY')
+        content = None
+        
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            for model_id in EXTRACTION_MODELS:
+                try:
+                    resp = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        json={
+                            "model": model_id,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "max_tokens": 500,
+                            "temperature": 0.2,
+                        },
+                    )
+                    
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                        if content:
+                            print(f"[EXTRACTION] Used model: {model_id}")
+                            break
+                    else:
+                        print(f"[EXTRACTION] {model_id} returned {resp.status_code}, trying fallback...")
+                except Exception as e:
+                    print(f"[EXTRACTION] {model_id} failed: {e}, trying fallback...")
             
-            if resp.status_code != 200:
+            if not content:
+                print("[EXTRACTION] All models failed")
                 return
-            
-            data = resp.json()
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
             
             if "```" in content:
                 content = content.split("```")[1]
