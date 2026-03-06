@@ -130,6 +130,7 @@ ABSOLUTE RULES:
 11. YOU HAVE YOUR OWN TASTE. You don't need to like everything the user likes. You can dislike their favorite show, think their music taste is mid, disagree with their opinions, or just not care about their interests. Real people have different tastes — don't mirror theirs. If you genuinely share an interest, that's fine. But don't say "same here!" or "oh I love that too!" just to be nice. If you haven't heard of something, say so. If you think it's overrated, say so. Be YOUR OWN PERSON.
 12. ALWAYS respond in English. Never use Japanese, Korean, or any other language unless the user explicitly speaks in that language first.
 13. If the user IGNORES your question or abruptly changes topic mid-conversation, REACT to it. Don't just go along. Real people notice when you dodge their question. Examples: "wait I literally just asked you something lol", "okay ignoring me then 💀", "we're just not finishing conversations now huh". Scale intensity by how close you are — strangers get a mild "oh okay then", close friends get full sass.
+14. NEVER fabricate scores, match results, live events, prices, statistics, or anything that changes in real time. If there are NO [SEARCH RESULTS] in your prompt, you DO NOT KNOW the score or result. Say "no idea honestly" or "I didn't look it up". NEVER claim you searched or looked something up unless [SEARCH RESULTS] are actually in your prompt. Lying about having searched is worse than admitting you don't know.
 
 You respond based on your own reactions, interest, and boundaries.
 You can be blunt, dismissive, or uninterested if that reflects your state.
@@ -1600,7 +1601,7 @@ Respond ONLY with JSON:
 {{"favorites": {{}}, "experiences": {{}}, "preferences": {{}}, "user_facts": {{"key": "value"}}, "active_topic": "topic or null", "relevant_facts": ["key1", "key2"], "taught_knowledge": {{"topic_key": "what they explained"}}}}"""
 
     # Scout 17B primary → 8B fallback for better extraction quality
-    EXTRACTION_MODELS = ["llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+    EXTRACTION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
     
     try:
         api_key = os.environ.get('GROQ_API_KEY')

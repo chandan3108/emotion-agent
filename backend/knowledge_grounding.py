@@ -350,6 +350,35 @@ class KnowledgeGrounding:
         # Step 2: Determine trigger category
         is_search_command = any(kw in msg_lower for kw in self.SEARCH_COMMANDS)
         is_inquiry = any(kw in msg_lower for kw in self.INQUIRY_KEYWORDS)
+        
+        # Step 2b: Live event detection — check if conversation context indicates live events
+        # (cricket match, game score, etc.) that need real-time data
+        is_live_event = False
+        if not is_search_command and not is_inquiry and message_history:
+            recent_text = " ".join([
+                m.get("content", "").lower() 
+                for m in (message_history or [])[-5:]
+            ])
+            live_indicators = [
+                'match', 'score', 'game today', 'playing today', 'playing right now',
+                'cricket', 'football', 'soccer', 'basketball', 'tennis',
+                'world cup', 'ipl', 'premier league', 'champions league',
+                'winning', 'losing', 'who won', 'who is winning', 'what happened',
+                'live', 'watching the', 'vs', 'versus'
+            ]
+            if any(ind in recent_text for ind in live_indicators):
+                # Check if current message looks like it's about teams/countries playing
+                has_teams = any(w in msg_lower for w in [
+                    'india', 'england', 'australia', 'pakistan', 'south africa',
+                    'brazil', 'argentina', 'spain', 'france', 'germany',
+                    'barca', 'madrid', 'liverpool', 'arsenal', 'chelsea',
+                    'csk', 'mi', 'rcb', 'kkr', 'srh', 'pbks', 'dc', 'gt', 'rr', 'lsg'
+                ])
+                if has_teams:
+                    is_live_event = True
+                    is_search_command = True  # Treat like a search command
+                    print(f"[KNOWLEDGE] Live event detected in context, forcing search")
+        
         is_explicit = is_search_command or is_inquiry
         
         # Step 3: Check learned_facts first (avoid re-searching known topics)
