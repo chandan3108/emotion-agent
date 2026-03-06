@@ -99,7 +99,9 @@ def build_phase_prompt(
     # Cached search results for session continuity
     search_cache: list = None,
     # Knowledge the user taught REM
-    user_taught_knowledge: Dict[str, str] = None
+    user_taught_knowledge: Dict[str, str] = None,
+    # Last schedule activity REM mentioned (for continuity)
+    last_mentioned_activity: Dict[str, str] = None
 ) -> str:
     """
     Build prompt with personality-driven behavior and expression guidance.
@@ -234,26 +236,31 @@ LITMUS TEST: "Would a real person say this, or does it sound like an AI being dr
                     prompt += f"{status_label} ({act['time']}): {act['activity']}\n"
             elif current_activity:
                 prompt += f"What you're doing right now: {current_activity}\n"
-            # Check if REM already mentioned the current activity in recent messages
-            mentioned_activities = []
-            if message_history:
-                activity_keywords = []
-                if upcoming:
-                    activity_keywords = [act['activity'].lower().split()[0] for act in upcoming if act.get('activity')]
-                elif current_activity:
-                    activity_keywords = [current_activity.lower().split()[0]]
-                
-                for m in message_history[-10:]:
-                    if m.get('role') == 'assistant':
-                        msg_lower = m.get('content', '').lower()
-                        for kw in activity_keywords:
-                            if len(kw) > 3 and kw in msg_lower:
-                                mentioned_activities.append(kw)
+            # Schedule continuity — check what REM already mentioned
+            current_now = None
+            if upcoming:
+                for act in upcoming:
+                    if act.get("status") == "now":
+                        current_now = act.get("activity", "")
+                        break
+            elif current_activity:
+                current_now = current_activity
             
-            if mentioned_activities:
-                prompt += f"You ALREADY mentioned being busy with this earlier in the conversation. Do NOT bring it up again unless asked. If the activity has changed since you mentioned it, you can naturally say you're done with it (e.g. 'just finished dinner' not 'having dinner' again).\n"
+            last_mentioned = last_mentioned_activity
+            
+            if last_mentioned and current_now:
+                last_act = last_mentioned.get("activity", "")
+                if last_act.lower() == current_now.lower():
+                    # Same activity — she already talked about it
+                    prompt += "You ALREADY mentioned this activity earlier. Do NOT bring it up again unless directly asked.\n"
+                else:
+                    # Activity changed — she can reference the transition
+                    prompt += f"Earlier you were: {last_act}. Now you're doing something different. If it comes up naturally, you can say you just finished that.\n"
+            elif last_mentioned and not current_now:
+                last_act = last_mentioned.get("activity", "")
+                prompt += f"Earlier you mentioned: {last_act}. You're done with that now.\n"
             else:
-                prompt += "This is where you are and what you're doing — use it ONLY if asked or if it naturally fits. Don't volunteer your schedule.\n"
+                prompt += "Use your schedule ONLY if asked or if it naturally fits. Don't volunteer it.\n"
             if context_str:
                 prompt += f"{context_str}\n"
             prompt += "\n"
@@ -1223,6 +1230,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         relevant_self_keys=core.state.get("_relevant_self_keys"),
         search_cache=core.state.get("_search_cache"),
         user_taught_knowledge=core.state.get("_user_taught_knowledge"),
+        last_mentioned_activity=core.state.get("_last_mentioned_activity"),
     )
     
     # Build message history - include the current user message
@@ -1432,6 +1440,32 @@ async def generate_response(core: CognitiveCore, user_message: str,
             print(f"[WARNING] Response contains hallucinated memory references: {hallucinated}")
             print(f"[WARNING] Response: {response_text}")
             # For now, just log it - in production, would regenerate or filter
+    
+    # Track if REM mentioned a schedule activity (for continuity)
+    if response_text and core and temporal_context:
+        try:
+            current_now_activity = None
+            upcoming_acts = temporal_context.get("upcoming_activities") or []
+            for act in upcoming_acts:
+                if act.get("status") == "now":
+                    current_now_activity = act.get("activity", "")
+                    break
+            if not current_now_activity:
+                current_now_activity = temporal_context.get("current_activity", "")
+            
+            if current_now_activity:
+                # Check if REM's response mentions the activity using key words
+                activity_words = [w.lower() for w in current_now_activity.split() if len(w) > 3]
+                response_lower = response_text.lower()
+                if any(w in response_lower for w in activity_words):
+                    from datetime import datetime, timezone
+                    core.state["_last_mentioned_activity"] = {
+                        "activity": current_now_activity,
+                        "time": datetime.now(timezone.utc).isoformat()
+                    }
+                    print(f"[SCHEDULE] Tracked activity mention: {current_now_activity}")
+        except Exception as e:
+            print(f"[SCHEDULE] Activity tracking error (non-critical): {e}")
     
     # Buffer exchanges for batched self-fact extraction (every 5 messages)
     if response_text and core:
