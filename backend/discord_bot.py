@@ -1747,10 +1747,19 @@ EXAMPLES OF MISTAKES:
 - Rem says "same here!" about something → Only store if she adds specifics. Generic agreement is NOT a fact.
 
 2. Extract facts the USER shared about THEMSELVES (from "User:" lines only).
-RULES: Only PERSONAL facts about the user — their major, job, preferences, interests, experiences.
-Don't extract greetings, questions, or commands. No duplicates.
-KEY NAMING: Use descriptive keys like "major", "favorite_ice_cream", "commute_time". Never use vague keys like "cs", "opinion", "thing".
-If the user said something about a SUBJECT ("cs is mostly programming") — that's their OPINION about the subject, store as user_facts with a clear key like "opinion_on_cs".
+RULES:
+- Only PERSONAL facts about the user — their major, job, hobbies, where they live, preferences.
+- NOT opinions about Rem: "you're lovely", "you're funny", "I like talking to you" are about REM, not user facts. SKIP these.
+- NOT general statements: "that's cool", "interesting" are reactions, not facts. SKIP.
+- NOT commands or questions: "tell me about X", "can you do Y" are NOT facts. SKIP.
+- No duplicates with existing user facts.
+KEY NAMING: Use descriptive keys like "major", "favorite_ice_cream", "commute_time".
+
+EXAMPLES OF MISTAKES TO AVOID:
+- User says "you're lovely" → NOT a user fact. This is a compliment to Rem. SKIP.
+- User says "rem is cool" → NOT a user fact. This is about Rem. SKIP.  
+- User says "I study CS" → YES, store as user_facts: {{"major": "CS"}}
+- User says "cognitive biases are interesting" → NOT a personal fact. SKIP.
 
 3. Identify if they are actively discussing a SPECIFIC topic (movie, show, book, game, person, event).
 Only if discussed in depth, not just mentioned. Return null if casual chat.
@@ -1758,17 +1767,24 @@ Only if discussed in depth, not just mentioned. Return null if casual chat.
 4. From Rem's stored facts below, pick ONLY the ones relevant to the CURRENT conversation.
 Stored facts: {existing_str}
 Return their exact keys. If none are relevant, return []. Don't include things just because they exist — only if the conversation actually touches on that topic.
+IMPORTANT: "relevant" means the user is TALKING ABOUT that specific subject. If user says "might study" and Rem has "preference_study_habit", that's NOT relevant unless the user is specifically discussing study habits or psychology.
 
 5. Extract KNOWLEDGE the user TAUGHT Rem — things Rem didn't know but the user explained.
-This is NOT about the user personally — it's about external knowledge they shared.
+CRITICAL RULES:
+- ONLY from "User:" lines. If REM was the one explaining something, it is NOT user-taught.
+- If Rem already knows something (she's a psych major — she knows about psychology), it's NOT user-taught even if discussed.
+- This is about external knowledge THE USER explained to Rem. NOT things Rem discussed or shared.
 EXAMPLES:
 - User explains JJK plot → {{"jjk": "shonen anime about cursed energy, Yuji Itadori finds a cursed finger"}}
 - User describes a movie → {{"king_richard": "Will Smith movie about Venus and Serena Williams' father"}}
-- User explains a concept → {{"cognitive_bias": "mental shortcuts that lead to errors in judgment"}}
-NOT user-taught (these are personal facts, put in user_facts):
+NOT user-taught (COMMON MISTAKES):
+- Rem explains cognitive biases → NOT taught. Rem already knows this as a psych student.
+- Rem mentions confirmation bias → NOT taught. This is Rem's knowledge.
 - "I study CS" → user_facts, NOT taught_knowledge
 - "I like rock music" → user_facts, NOT taught_knowledge
-Only store if user actually EXPLAINED something, not just mentioned it. No duplicates with existing taught knowledge.
+- User and Rem discuss a topic Rem already knows about → NOT taught. Only if user EXPLAINS something NEW to Rem.
+Only store if user actually EXPLAINED something NEW that Rem didn't know. No duplicates.
+WHEN IN DOUBT: return empty {{}}. Storing Rem's own knowledge as "user taught" is a critical error.
 
 Respond ONLY with JSON:
 {{"favorites": {{}}, "experiences": {{}}, "preferences": {{}}, "user_facts": {{"key": "value"}}, "active_topic": "topic or null", "relevant_facts": ["key1", "key2"], "taught_knowledge": {{"topic_key": "what they explained"}}}}"""
@@ -1885,6 +1901,13 @@ Respond ONLY with JSON:
                     if len(key) <= 3 or key.lower() in ('cs', 'opinion', 'thing', 'food', 'stuff', 'it', 'yes', 'no'):
                         print(f"[USER FACTS] REJECTED vague key: '{key}: {value}'")
                         continue
+                    # Cross-validation: reject opinions/compliments about Rem
+                    val_lower = value.lower()
+                    key_lower_check = key.lower()
+                    rem_indicators = ['rem', "you're", 'you are', 'talking to you', 'about rem', 'you look', 'you seem']
+                    if any(ind in val_lower or ind in key_lower_check for ind in rem_indicators):
+                        print(f"[USER FACTS] REJECTED (about Rem, not user): '{key}: {value}'")
+                        continue
                     # Dedup
                     key_lower = key.lower().replace("_", " ")
                     is_dup = any(
@@ -1913,9 +1936,22 @@ Respond ONLY with JSON:
             if taught and isinstance(taught, dict):
                 stored_taught = core.state.get("_user_taught_knowledge", {})
                 taught_added = {}
+                
+                # Build Rem-line text for cross-validation
+                rem_lines_text = " ".join(ex["rem"].lower() for ex in exchanges)
+                
                 for key, value in taught.items():
                     if not isinstance(value, str) or len(value) < 5:
                         continue
+                    # Cross-validation: reject if the content appears in Rem's lines
+                    # (she was explaining it, not learning it from the user)
+                    val_words = [w for w in value.lower().split() if len(w) > 3]
+                    if val_words:
+                        words_in_rem = sum(1 for w in val_words if w in rem_lines_text)
+                        ratio = words_in_rem / len(val_words)
+                        if ratio > 0.5:
+                            print(f"[TAUGHT KNOWLEDGE] REJECTED (Rem was explaining): '{key}: {value[:60]}'")
+                            continue
                     # Dedup by key or value similarity
                     key_lower = key.lower().replace("_", " ")
                     is_dup = any(
