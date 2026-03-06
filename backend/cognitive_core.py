@@ -956,37 +956,52 @@ class CognitiveCore:
                 for e in entries_to_summarize
             ])
             
-            prompt = f"""Summarize these conversation messages into 2-3 concise sentences.
-Capture: key topics discussed, any facts shared, emotional tone, unresolved threads.
+            prompt = f"""Summarize this conversation between a user and Rem (an AI companion).
+
+RULES:
+- Always specify WHO said what: "User told Rem..." or "Rem mentioned..."
+- Capture: key topics, personal facts shared, emotional tone, any unresolved questions
+- Do NOT mix up who said what — if the user shared a fact, attribute it to them, not Rem
+- Keep it natural: write like you're telling a friend what was discussed
+- 5-6 sentences max
 
 Messages:
 {entries_text}
 
-Reply with ONLY the summary (2-3 sentences, no JSON):"""
+Summary:"""
 
             import httpx
             api_key = os.environ.get("GROQ_API_KEY")
             if not api_key:
                 return
             
-            # Rate limiter removed — only main response is rate-limited
+            # Scout 17B primary → 8B fallback for better summarization
+            SUMMARY_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+            summary = None
+            
             async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    json={
-                        "model": os.environ.get("MODEL_ID", "llama-3.1-8b-instant"),
-                        "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 150,
-                        "temperature": 0.3,
-                    },
-                )
-                if resp.status_code != 200:
-                    print(f"[STM SUMMARY] LLM call failed: {resp.status_code}")
-                    return
-                
-                data = resp.json()
-                summary = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                for model_id in SUMMARY_MODELS:
+                    try:
+                        resp = await client.post(
+                            "https://api.groq.com/openai/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {api_key}"},
+                            json={
+                                "model": model_id,
+                                "messages": [{"role": "user", "content": prompt}],
+                                "max_tokens": 200,
+                                "temperature": 0.3,
+                            },
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            summary = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                            if summary and len(summary) > 10:
+                                print(f"[STM SUMMARY] Used model: {model_id}")
+                                break
+                        else:
+                            print(f"[STM SUMMARY] {model_id} returned {resp.status_code}, trying fallback...")
+                    except Exception as e:
+                        print(f"[STM SUMMARY] {model_id} failed: {e}, trying fallback...")
             
             if summary and len(summary) > 10:
                 # Replace raw entries with summary
@@ -1058,59 +1073,80 @@ Reply with ONLY the summary (2-3 sentences, no JSON):"""
             
             user_ref = f"The user's name is {user_name}. Always refer to them as '{user_name}', never as 'the user'." if user_name else "The user has not shared their name yet."
             
-            prompt = f"""Analyze these recent conversation entries and extract memories worth storing.
+            prompt = f"""You are Rem's memory system. Analyze this conversation and extract what's worth remembering.
 
-NOTE: {user_ref}
-All messages below are from this person talking to you (the AI).
+{user_ref}
 
-ALREADY KNOWN FACTS:
-{existing_str}
-
-ALREADY STORED EPISODIC MEMORIES:
-{existing_ep_str}
+ALREADY KNOWN (don't re-extract these):
+Identity: {existing_str}
+Episodes: {existing_ep_str}
 
 RECENT CONVERSATION:
 {recent_text}
 
-Extract:
-1. IDENTITY FACTS: Explicit things the user stated about themselves (name, interests, job, location, preferences). DO NOT include things already known above. DO NOT infer — only explicit statements.
-2. EPISODIC MEMORIES: Significant conversation moments worth remembering (emotional exchanges, meaningful topics, conflicts, breakthroughs). Write as 1-sentence summaries using the user's name if known. DO NOT include trivial small talk.
+EXTRACT:
+1. IDENTITY FACTS — things the USER explicitly said about themselves.
+   RULES:
+   - Only from USER messages, never from Rem's messages
+   - Must be explicit: "I'm a CS major" → ✅. Rem saying "you seem smart" → ❌
+   - Don't infer. Don't assume. Only what they literally said.
+   - Use their name if known: "Chandu studies CS" not "User studies CS"
 
-Respond with ONLY valid JSON:
+2. EPISODIC MEMORIES — significant moments from Rem's perspective.
+   RULES:
+   - Write in third person as if Rem is journaling: "We talked about exams — they seemed stressed"
+   - Only genuinely meaningful moments: emotional exchanges, conflicts, breakthroughs, confessions
+   - NOT small talk like "we said hi" or "they asked what's up"
+   - Include emotional context: how did it feel, was there tension, warmth, awkwardness?
+
+Return ONLY valid JSON:
 {{
-  "identity_facts": ["fact1", "fact2"],
-  "episodic_memories": ["summary of significant moment 1"],
-  "reasoning": "brief explanation"
+  "identity_facts": ["fact about user 1", "fact about user 2"],
+  "episodic_memories": ["memory from Rem's POV 1"],
+  "reasoning": "why these matter"
 }}
 
-If nothing new to extract, use empty arrays []."""
+Empty arrays [] if nothing worth extracting."""
 
             import httpx
             api_key = os.environ.get("GROQ_API_KEY")
             if not api_key:
                 return
             
-            # Rate limiter removed — only main response is rate-limited
+            # Scout 17B primary → 8B fallback
+            CONSOLIDATION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+            content = None
+            
             async with httpx.AsyncClient(timeout=20.0) as client:
-                resp = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    json={
-                        "model": "llama-3.1-8b-instant",  # Auxiliary task
-                        "messages": [
-                            {"role": "system", "content": "Extract memories from conversation. Return JSON only."},
-                            {"role": "user", "content": prompt}
-                        ],
-                        "max_tokens": 400,
-                        "temperature": 0.3,
-                    },
-                )
-                if resp.status_code != 200:
-                    print(f"[MEMORY CONSOLIDATION] LLM call failed: {resp.status_code}")
-                    return
-                
-                data = resp.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                for model_id in CONSOLIDATION_MODELS:
+                    try:
+                        resp = await client.post(
+                            "https://api.groq.com/openai/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {api_key}"},
+                            json={
+                                "model": model_id,
+                                "messages": [
+                                    {"role": "system", "content": "You are a memory extraction system. Return clean JSON only. Be selective — only extract what genuinely matters."},
+                                    {"role": "user", "content": prompt}
+                                ],
+                                "max_tokens": 400,
+                                "temperature": 0.3,
+                            },
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                            if content:
+                                print(f"[MEMORY CONSOLIDATION] Used model: {model_id}")
+                                break
+                        else:
+                            print(f"[MEMORY CONSOLIDATION] {model_id} returned {resp.status_code}, trying fallback...")
+                    except Exception as e:
+                        print(f"[MEMORY CONSOLIDATION] {model_id} failed: {e}, trying fallback...")
+            
+            if not content:
+                print("[MEMORY CONSOLIDATION] All models failed")
+                return
             
             # Parse JSON
             if content.startswith("```"):
@@ -1356,7 +1392,7 @@ If nothing new to extract, use empty arrays []."""
                 "arousal": perception.get("arousal", 0.0)
             }
             self.memory.add_stm(
-                user_message, emotion_vector, perception,
+                f"[User] {user_message}", emotion_vector, perception,
                 topic=understanding.get("topic", "")
             )
         

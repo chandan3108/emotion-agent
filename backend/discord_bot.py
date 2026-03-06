@@ -1472,6 +1472,12 @@ async def generate_response(core: CognitiveCore, user_message: str,
         buf = core.state.get("_self_fact_buffer", [])
         buf.append({"user": user_message, "rem": response_text})
         core.state["_self_fact_buffer"] = buf
+        
+        # Also add Rem's response to STM so summaries capture both sides
+        core.memory.add_stm(
+            f"[Rem] {response_text[:200]}", {"valence": 0.0, "arousal": 0.0}, {},
+            topic=""
+        )
         if len(buf) >= 5:
             asyncio.create_task(_extract_self_facts(core, buf.copy()))
             core.state["_self_fact_buffer"] = []

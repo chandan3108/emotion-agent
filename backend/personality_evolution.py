@@ -707,40 +707,47 @@ RULES:
         return prompt
     
     async def _call_reflection_llm(self, prompt: str) -> Optional[Dict]:
-        """Call LLM for unified state reflection."""
+        """Call LLM for unified state reflection. Scout 17B primary → 8B fallback."""
         
         api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             return None
         
-        body = {
-            "model": "llama-3.1-8b-instant",  # Auxiliary task — use cheap model
-            "messages": [
-                {"role": "system", "content": "You are a psychological state analysis system. Analyze conversations and return JSON with metric updates. Be nuanced - understand sarcasm, jokes, and context."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": 800,  # Enough for full JSON with personality_rewrite + arrays
-            "temperature": 0.3,  # Low temp for consistent analysis
-        }
+        REFLECTION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+        system_msg = "You are a psychological state analysis system. Analyze conversations and return JSON with metric updates. Be nuanced - understand sarcasm, jokes, and context. Return ONLY valid JSON."
         
         try:
-            # Rate limiter removed — only main response is rate-limited
             async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    json=body
-                )
-                
-                if resp.status_code != 200:
-                    print(f"[ERROR] Reflection LLM call failed: {resp.status_code}")
+                for model_id in REFLECTION_MODELS:
+                    try:
+                        resp = await client.post(
+                            "https://api.groq.com/openai/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {api_key}"},
+                            json={
+                                "model": model_id,
+                                "messages": [
+                                    {"role": "system", "content": system_msg},
+                                    {"role": "user", "content": prompt}
+                                ],
+                                "max_tokens": 800,
+                                "temperature": 0.3,
+                            }
+                        )
+                        
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                            print(f"[REFLECTION] Used model: {model_id}")
+                            break
+                        else:
+                            print(f"[REFLECTION] {model_id} returned {resp.status_code}, trying fallback...")
+                    except Exception as e:
+                        print(f"[REFLECTION] {model_id} failed: {e}, trying fallback...")
+                else:
+                    print("[REFLECTION] All models failed")
                     return None
                 
-                data = resp.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                
                 # Parse JSON response
-                # Try to extract JSON from response
                 content = content.strip()
                 if content.startswith("```"):
                     # Remove markdown code blocks
