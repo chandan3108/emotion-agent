@@ -105,7 +105,9 @@ def build_phase_prompt(
     # Named mood state (derived from mood vector)
     named_mood_state: Dict[str, Any] = None,
     # User behavioral patterns (timestamps, frequencies)
-    user_patterns: Dict[str, Any] = None
+    user_patterns: Dict[str, Any] = None,
+    # LLM-extracted behavioral observations about the user
+    behavioral_observations: list = None
 ) -> str:
     """
     Build prompt with personality-driven behavior and expression guidance.
@@ -235,6 +237,15 @@ LITMUS TEST: "Would a real person say this, or does it sound like an AI being dr
             prompt += "[USER PATTERNS — things you've noticed over time]\n"
             for line in pattern_lines:
                 prompt += f"• {line}\n"
+            # Also include LLM-extracted behavioral observations
+            if behavioral_observations:
+                for obs in behavioral_observations[-5:]:
+                    prompt += f"• {obs}\n"
+            prompt += "Use these ONLY if naturally relevant. Don't announce observations robotically.\n\n"
+        elif behavioral_observations:
+            prompt += "[USER PATTERNS — things you've noticed over time]\n"
+            for obs in behavioral_observations[-5:]:
+                prompt += f"• {obs}\n"
             prompt += "Use these ONLY if naturally relevant. Don't announce observations robotically.\n\n"
     
     # ===== TIME CONTEXT (circadian rhythm + daily life) =====
@@ -1271,6 +1282,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         last_mentioned_activity=core.state.get("_last_mentioned_activity"),
         named_mood_state=core.psyche.get_named_mood_state(),
         user_patterns=core.state.get("_user_patterns"),
+        behavioral_observations=core.state.get("_behavioral_observations"),
     )
     
     # Build message history - include the current user message
@@ -2657,6 +2669,17 @@ async def show_phase(ctx: commands.Context):
     # ===== RECENT CONTEXT =====
     if conversation_context:
         embed.add_field(name="📋 Recent Context", value=f"_{conversation_context[:200]}_", inline=False)
+    
+    # ===== Personality Evolution (how Rem has changed) =====
+    evo_note = core.state.get("_personality_evolution_note", "")
+    if evo_note:
+        embed.add_field(name="🔄 How I've Changed", value=evo_note[:500], inline=False)
+    
+    # ===== Behavioral Observations (what Rem has noticed about the user) =====
+    observations = core.state.get("_behavioral_observations", [])
+    if observations:
+        obs_text = "\n".join([f"• {o[:100]}" for o in observations[-5:]])
+        embed.add_field(name="👁️ Things I've Noticed About You", value=obs_text[:1024], inline=False)
     
     # Footer with recovery note
     embed.set_footer(text="⚠️ Trust & Respect: Easy to lose, hard to rebuild. Treat this AI like a real person.")

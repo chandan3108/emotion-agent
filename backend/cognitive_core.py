@@ -828,6 +828,59 @@ class CognitiveCore:
                     self.personality_evolution.pending_episodic_events = []
                     self.personality_evolution.save()
                 
+                # Phase transition from light reflection too
+                if updates.get("phase_ready") and updates.get("suggested_phase"):
+                    suggested = updates["suggested_phase"]
+                    reasoning = updates.get("phase_reasoning", "LLM decided")
+                    current = self.relationship_phases.current_phase
+                    if suggested != current and suggested in ["Discovery", "Building", "Steady", "Deep", "Maintenance", "Volatile"]:
+                        self.relationship_phases.transition_phase(suggested)
+                        print(f"[LIGHT REFLECTION] Phase: {current} → {suggested} (reason: {reasoning})")
+                
+                # Store LLM-extracted milestones
+                pending_milestones = getattr(self.personality_evolution, 'pending_milestones', [])
+                if pending_milestones:
+                    for ms in pending_milestones:
+                        if isinstance(ms, dict) and ms.get("milestone"):
+                            milestone_text = ms["milestone"]
+                            significance = ms.get("significance", "")
+                            trust_impact = float(ms.get("trust_impact", 0))
+                            
+                            full_content = f"{milestone_text} — {significance}" if significance else milestone_text
+                            self.memory.add_episodic(
+                                event_type="relationship_milestone",
+                                content=full_content[:200],
+                                emotional_valence=0.6,
+                                relational_impact=0.7,
+                            )
+                            
+                            if trust_impact != 0:
+                                clamped = max(-0.1, min(0.1, trust_impact))
+                                current_trust = self.psyche.psyche.get("trust", 0.5)
+                                self.psyche.psyche["trust"] = max(0.0, min(1.0, current_trust + clamped))
+                                print(f"[MILESTONE] Trust impact: {clamped:+.2f} → {self.psyche.psyche['trust']:.2f}")
+                            
+                            print(f"[MILESTONE] Stored: {milestone_text[:80]}")
+                    self.personality_evolution.pending_milestones = []
+                
+                # Store behavioral observations
+                pending_observations = getattr(self.personality_evolution, 'pending_behavioral_observations', [])
+                if pending_observations:
+                    existing_obs = self.state.get("_behavioral_observations", [])
+                    for obs in pending_observations:
+                        if isinstance(obs, str) and not any(
+                            obs.lower()[:40] in e.lower() or e.lower()[:40] in obs.lower()
+                            for e in existing_obs
+                        ):
+                            existing_obs.append(obs)
+                    self.state["_behavioral_observations"] = existing_obs[-10:]
+                    self.personality_evolution.pending_behavioral_observations = []
+                
+                # Store personality evolution note
+                evo_note = getattr(self.personality_evolution, 'personality_evolution_note', '')
+                if evo_note:
+                    self.state["_personality_evolution_note"] = evo_note
+                
                 self._save_state()
                 print(f"[LIGHT REFLECTION] Applied - Stance: {self.psyche.stance}, Respect: {self.psyche.respect:.2f}, Engagement: {self.psyche.engagement:.2f}")
         
@@ -930,6 +983,54 @@ class CognitiveCore:
                             )
                     self.personality_evolution.pending_episodic_events = []
                     self.personality_evolution.save()
+                
+                # Store LLM-extracted milestones as episodic memories + apply trust impact
+                pending_milestones = getattr(self.personality_evolution, 'pending_milestones', [])
+                if pending_milestones:
+                    for ms in pending_milestones:
+                        if isinstance(ms, dict) and ms.get("milestone"):
+                            milestone_text = ms["milestone"]
+                            significance = ms.get("significance", "")
+                            trust_impact = float(ms.get("trust_impact", 0))
+                            
+                            # Store as episodic memory
+                            full_content = f"{milestone_text} — {significance}" if significance else milestone_text
+                            self.memory.add_episodic(
+                                event_type="relationship_milestone",
+                                content=full_content[:200],
+                                emotional_valence=0.6,
+                                relational_impact=0.7,
+                            )
+                            
+                            # Apply trust impact from milestone
+                            if trust_impact != 0:
+                                clamped = max(-0.1, min(0.1, trust_impact))
+                                current_trust = self.psyche.psyche.get("trust", 0.5)
+                                self.psyche.psyche["trust"] = max(0.0, min(1.0, current_trust + clamped))
+                                print(f"[MILESTONE] Trust impact: {clamped:+.2f} → {self.psyche.psyche['trust']:.2f}")
+                            
+                            print(f"[MILESTONE] Stored: {milestone_text[:80]}")
+                    self.personality_evolution.pending_milestones = []
+                
+                # Store behavioral observations in state for prompt injection
+                pending_observations = getattr(self.personality_evolution, 'pending_behavioral_observations', [])
+                if pending_observations:
+                    existing_obs = self.state.get("_behavioral_observations", [])
+                    # Deduplicate — don't add if similar already exists
+                    for obs in pending_observations:
+                        if isinstance(obs, str) and not any(
+                            obs.lower()[:40] in e.lower() or e.lower()[:40] in obs.lower()
+                            for e in existing_obs
+                        ):
+                            existing_obs.append(obs)
+                    self.state["_behavioral_observations"] = existing_obs[-10:]
+                    self.personality_evolution.pending_behavioral_observations = []
+                    print(f"[PATTERNS] Stored {len(pending_observations)} behavioral observations")
+                
+                # Store personality evolution note
+                evo_note = getattr(self.personality_evolution, 'personality_evolution_note', '')
+                if evo_note:
+                    self.state["_personality_evolution_note"] = evo_note
                 
                 self._save_state()
                 print(f"[DEEP REFLECTION] Applied - Personality updated, Trust: {self.psyche.psyche.get('trust', 0.3):.2f}")

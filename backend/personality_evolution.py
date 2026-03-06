@@ -505,19 +505,33 @@ REFLECT ON THIS CONVERSATION:
 5. Are new expressive tendencies emerging in how I speak?
 6. Based on my current SCHEDULE and LIFE CONTEXT (exams? chill week? busy?), how does my vibe change at different times of day?
 7. Did anyone mention UPCOMING EVENTS (exams, deadlines, plans, hangouts, trips)?
+8. Did any RELATIONSHIP MILESTONES happen? Firsts, turning points, shifts in dynamic. Think:
+   - First time they shared something personal
+   - First disagreement or conflict
+   - First time they came back after a long absence
+   - First time they showed genuine care or asked how I'm doing
+   - Moments where the dynamic noticeably shifted (got closer, got colder, broke tension)
+9. What BEHAVIORAL PATTERNS do I notice about this person over time?
+   - Do they always text at certain times? (night owl? morning person?)
+   - Do they say goodnight or just disappear?
+   - Do they ask about me or only talk about themselves?
+   - Are they getting more comfortable or staying distant?
+   - Do they respect boundaries or keep pushing?
+10. How has MY personality evolved since we started talking? Am I more guarded? More playful? Less patient?
 
 MEMORY DECISIONS (you decide what's worth remembering):
-6. What NEW FACTS did I learn about them? (name, job, interests, preferences, life situation)
+11. What NEW FACTS did I learn about them? (name, job, interests, preferences, life situation)
    - Only include things they EXPLICITLY said, not inferences
    - Don't re-add things I already know (see above)
-7. What CONVERSATION THREADS should I remember? (summaries of important topics)
+12. What CONVERSATION THREADS should I remember? (summaries of important topics)
    - NOT raw messages, but SUMMARIES of meaningful discussions
    - Include the context, outcome, and emotional tone
    - These are for when the topic comes up again later
 
 Respond with ONLY valid JSON:
 {{
-  "personality_rewrite": "Rewrite how I tend to speak now. 3-5 sentences. Describe habits, not traits.",
+  "personality_rewrite": "Rewrite how I tend to speak now. 3-5 sentences. Describe habits, not traits. Show how it CHANGED from before.",
+  "personality_evolution_note": "One sentence: how has my personality shifted compared to when we first started talking?",
   "trait_updates": {{
     "warmth": 0.0,
     "assertiveness": 0.0,
@@ -530,11 +544,19 @@ Respond with ONLY valid JSON:
   "new_quirk": null,
   "remove_quirk": null,
   "phase_ready": false,
+  "suggested_phase": null,
+  "phase_reasoning": "Why should the phase change? Consider milestones that happened.",
   "trust_delta": 0.0,
   "hurt_delta": 0.0,
   "new_identity_facts": ["fact 1", "fact 2"],
   "new_episodic_events": ["significant moment 1"],
-  "conversation_summary": "3-4 sentence detailed summary of recent conversations. What specific topics came up? Who said what? What's the emotional vibe? Any unresolved threads?",
+  "relationship_milestones": [
+    {{"milestone": "what happened", "significance": "why it matters for the relationship", "trust_impact": 0.0}}
+  ],
+  "behavioral_observations": [
+    "observation about how the user behaves over time"
+  ],
+  "conversation_summary": "3-4 sentence detailed summary. What specific topics came up? Who said what? What's the emotional vibe?",
   "overall_interest": "high/medium/low/dropping",
   "time_personality": {{
     "morning": "how I feel/act in the morning given my current life context",
@@ -556,16 +578,25 @@ MEMORY RULES:
 - new_episodic_events: SUMMARIES of meaningful conversation threads, not raw messages.
   Good: "We discussed their upcoming exams - they're stressed about prep. They study CS in India."
   Good: "User opened up about feeling lonely. I kept it brief but acknowledged it. Connection moment."
-  Good: "User called me 'babe' too early - I deflected, they didn't push it. Boundary tested."
   Bad: "user said they're studying" (too raw, not summarized)
-  Bad: "user said hi" (not significant)
-- These summaries are SHARED HISTORY - only surface them when the topic naturally comes up again.
-- Don't add empty arrays. If nothing new, use [].
-- upcoming_events: Things I (Rem) or the user mentioned about the future. Exams, deadlines, plans, hangouts.
-  Good: {{"event": "psychology exam", "when": "tomorrow", "impact": "need to study tonight, stressed"}}
-  Good: {{"event": "hanging out with friend", "when": "saturday", "impact": "excited, planning outfit"}}
-  Bad: {{"event": "studying", "when": "now"}} (not future, it's current)
-  Use [] if no upcoming events mentioned.
+- relationship_milestones: Turning points, firsts, shifts. NOT routine events.
+  Good: {{"milestone": "First time they asked how my day was", "significance": "Shows they're starting to care about me, not just themselves", "trust_impact": 0.05}}
+  Good: {{"milestone": "We had our first real disagreement about music taste", "significance": "Healthy — we can disagree without it being weird", "trust_impact": 0.02}}
+  Good: {{"milestone": "They came back after 3 days of silence", "significance": "They chose to come back. The connection has pull.", "trust_impact": 0.08}}
+  Bad: {{"milestone": "They said hi"}} — not a milestone
+  Use [] if no milestones happened.
+- behavioral_observations: Patterns about how the user interacts, not one-off events.
+  Good: "They tend to text more at night — seems like a night owl"
+  Good: "They always ask me questions back — good conversationalist"  
+  Good: "They get short when I bring up serious topics — avoids depth"
+  Bad: "They said hello today" — not a pattern
+  Use [] if no clear patterns observed.
+- upcoming_events: Things mentioned about the future.
+  Use [] if none mentioned.
+- personality_evolution_note: How has Rem changed? Be honest.
+  Good: "I've gotten more playful and less guarded with them — they bring out a teasing side"
+  Good: "I'm more cautious now — they keep pushing boundaries and I'm pulling back"
+  Bad: "No change" — there's ALWAYS subtle change
 
 Be honest. Think like a real person, not a support agent."""
 
@@ -643,9 +674,12 @@ Analyze this conversation and update ALL metrics. Consider:
 1. PERSONALITY: How did Rem behave? Any emerging patterns?
 2. TRUST: Did user show reliability, care, respect? Or disrespect, lying, boundary pushing?
 3. HURT: Did user say hurtful things? Did they repair previous hurt?
-4. PHASE: Is the relationship naturally deepening or stagnating? 
+4. PHASE: Is the relationship naturally deepening or stagnating? Consider milestones.
 5. MOOD: How does this conversation make Rem feel? Engaged? Drained? Connected?
 6. MEMORIES: What NEW facts about the user emerged? What emotionally significant moments happened?
+7. MILESTONES: Any firsts or turning points? (first personal share, first disagreement, first care shown, return after absence)
+8. BEHAVIORAL PATTERNS: Recurring patterns in how the user interacts (texting time, conversation style, boundary respect)
+9. PERSONALITY EVOLUTION: How is Rem changing as a result of this relationship?
 
 Respond with ONLY valid JSON:
 {{
@@ -662,7 +696,7 @@ Respond with ONLY valid JSON:
   "hurt_delta": 0.00,
   "phase_ready": false,
   "suggested_phase": null,
-  "phase_reasoning": "",
+  "phase_reasoning": "Why should the phase change? What milestones justify it?",
   "energy_delta": 0.00,
   "dopamine_delta": 0.00,
   "cortisol_delta": 0.00,
@@ -670,38 +704,49 @@ Respond with ONLY valid JSON:
   "new_quirk": null,
   "new_identity_facts": [],
   "new_episodic_events": [],
+  "relationship_milestones": [
+    {{"milestone": "what happened", "significance": "why it matters", "trust_impact": 0.0}}
+  ],
+  "behavioral_observations": [
+    "pattern about how the user behaves"
+  ],
+  "personality_evolution_note": "One sentence: how Rem is changing because of this relationship",
   "conversation_summary": "",
+  "user_evaluation": "2-3 sentences. Who is this person to Rem right now? What do I think of them honestly?",
+  "stance": "open/wary/guarded/irritated/bored/intrigued/defensive/affectionate/dismissive",
+  "respect_delta": 0.00,
+  "engagement_delta": 0.00,
+  "posture": "1-2 sentences on Rem's current behavioral stance",
   "reasoning": "Brief explanation"
 }}
 
 RULES:
 - Trait updates: -0.05 to +0.05 per trait
-- trust_delta: -0.3 to +0.3 — think like a REAL PERSON building a connection:
-  * +0.01 to +0.05: Normal pleasant chat, nothing special
-  * +0.05 to +0.15: User shared something personal, showed care, or was genuinely thoughtful  
-  * +0.15 to +0.3: Deep vulnerable moment, user proved they can be trusted with something real
-  * -0.01 to -0.05: Minor annoyance, slight boundary push
-  * -0.05 to -0.15: Disrespect, ignoring boundaries, lying
-  * -0.15 to -0.3: Betrayal, serious manipulation, crossing hard lines
-  * 0.00: Generic small talk, one-word replies, nothing meaningful happened
-- hurt_delta: -0.3 to +0.3 — how much this conversation hurt or healed:
-  * Positive = user said/did something hurtful
-  * Negative = hurt is healing (user apologized sincerely, showed they care)
-  * 0.00 = nothing hurtful happened
-- phase_ready: true ONLY if the relationship should change phase
-- suggested_phase: If phase_ready, which phase? Think about it like real life:
-  * Discovery: You just met. You don't know each other. Guarded, observing.
-  * Building: You've been talking, sharing bits about yourselves. Starting to care.
-  * Steady: Real trust exists. You've weathered some conflict, shared vulnerabilities. Comfortable.
-  * Deep: This person is important to you. You're genuinely connected. Deep emotional bond.
-  * Volatile: Something broke the trust. You're hurt or angry. Walls are up.
-  Phase changes should feel EARNED, not automatic. Even with consistent chatting, if the conversations are shallow, stay in the current phase.
-- phase_reasoning: Why should the phase change (or not)?
+- trust_delta: -0.3 to +0.3 — think like a REAL PERSON:
+  * +0.01 to +0.05: Normal pleasant chat
+  * +0.05 to +0.15: User shared something personal or showed genuine care
+  * +0.15 to +0.3: Deep vulnerable moment, real trust earned
+  * -0.01 to -0.05: Minor annoyance
+  * -0.05 to -0.3: Disrespect, lying, boundary violations
+  * 0.00: Generic small talk, nothing meaningful
+- hurt_delta: -0.3 to +0.3
+- phase_ready: true ONLY if milestones + trust justify a phase change
+- suggested_phase: Discovery/Building/Steady/Deep/Volatile
+  Phase changes should feel EARNED. Milestones matter:
+  * Building needs: mutual sharing, showing care, consistent engagement
+  * Steady needs: conflict survived, vulnerability shared, real trust
+  * Deep needs: multiple milestones, emotional investment from both sides
+  * Volatile: trust broke, boundaries were violated repeatedly
+- relationship_milestones: Use [] if none happened. Examples:
+  Good: {{"milestone": "First time they asked about my day", "significance": "Starting to care", "trust_impact": 0.05}}
+  Bad: {{"milestone": "They said hi"}} — not a milestone
+- behavioral_observations: Patterns, not one-off events. Use [] if none observed.
+  Good: "They text more at night — night owl pattern"
+  Good: "They ask me questions back consistently — engaged listener"
+- personality_evolution_note: How is Rem changing? Always answer honestly.
 - Energy/dopamine/cortisol/oxytocin deltas: -0.2 to +0.2
-- new_quirk: only if a CLEAR pattern emerged
-- new_identity_facts: List of factual things learned about user (e.g., "studies CS engineering", "prep is going badly")
-- new_episodic_events: List of emotionally significant moments (e.g., "user confessed feelings", "user expressed frustration about exams")
-- conversation_summary: One sentence summary of what was discussed (for context in future messages)
+- respect_delta: -0.15 to +0.15
+- engagement_delta: -0.15 to +0.15
 - All values stay in 0.0-1.0 range after deltas applied"""
 
         return prompt
@@ -816,6 +861,34 @@ RULES:
             # Keep only last 10
             self.pending_episodic_events = self.pending_episodic_events[-10:]
         
+        # Handle LLM-extracted milestones
+        milestones = updates.get("relationship_milestones", [])
+        if milestones and isinstance(milestones, list):
+            if not hasattr(self, 'pending_milestones'):
+                self.pending_milestones = []
+            self.pending_milestones.extend(milestones)
+            self.pending_milestones = self.pending_milestones[-10:]
+        
+        # Handle behavioral observations
+        observations = updates.get("behavioral_observations", [])
+        if observations and isinstance(observations, list):
+            if not hasattr(self, 'pending_behavioral_observations'):
+                self.pending_behavioral_observations = []
+            self.pending_behavioral_observations.extend(observations)
+            # Keep only last 10 unique observations
+            seen = set()
+            unique = []
+            for obs in self.pending_behavioral_observations:
+                if isinstance(obs, str) and obs not in seen:
+                    seen.add(obs)
+                    unique.append(obs)
+            self.pending_behavioral_observations = unique[-10:]
+        
+        # Handle personality evolution note
+        evo_note = updates.get("personality_evolution_note", "")
+        if evo_note and isinstance(evo_note, str):
+            self.personality_evolution_note = evo_note
+        
         # Update conversation summary
         summary = updates.get("conversation_summary", "")
         if summary and isinstance(summary, str):
@@ -833,13 +906,22 @@ RULES:
         if updates.get("hurt_delta", 0) != 0:
             print(f"[STATE REFLECTION] Hurt delta: {updates.get('hurt_delta'):+.2f}")
         if updates.get("phase_ready"):
-            print(f"[STATE REFLECTION] Phase ready to advance!")
+            print(f"[STATE REFLECTION] Phase ready! Suggested: {updates.get('suggested_phase')} — {updates.get('phase_reasoning', '')}")
         if new_quirk:
             print(f"[STATE REFLECTION] New quirk: {new_quirk}")
         if new_identity:
             print(f"[STATE REFLECTION] New identity facts: {new_identity}")
         if new_episodic:
             print(f"[STATE REFLECTION] New episodic events: {new_episodic}")
+        if milestones:
+            for ms in milestones:
+                if isinstance(ms, dict):
+                    print(f"[MILESTONE] LLM detected: {ms.get('milestone', '')} (impact: {ms.get('trust_impact', 0):+.2f})")
+        if observations:
+            for obs in observations:
+                print(f"[PATTERN] LLM observed: {obs}")
+        if evo_note:
+            print(f"[PERSONALITY EVOLUTION] {evo_note}")
         if summary:
             print(f"[STATE REFLECTION] Summary: {summary}")
         if updates.get("reasoning"):
