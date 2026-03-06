@@ -66,8 +66,9 @@ class IdentityMemory:
 class MemorySystem:
     """Manages all memory tiers with temporal decay."""
     
-    def __init__(self, state: Dict[str, Any]):
+    def __init__(self, state: Dict[str, Any], user_id: str = ""):
         self.state = state
+        self.user_id = user_id
         self.memory = state.get("memory_hierarchy", {
             "stm": [],
             "act_threads": [],
@@ -253,6 +254,26 @@ class MemorySystem:
         episodic.append(asdict(entry))
         self.memory["episodic"] = episodic
         
+        # Generate semantic embedding (non-blocking, fails silently)
+        if self.user_id:
+            try:
+                from .semantic_search import get_semantic_search
+                sem = get_semantic_search()
+                emo_weight = "normal"
+                flagged = False
+                if relational_impact > 0.6 or abs(emotional_valence) > 0.6:
+                    emo_weight = "high"
+                    flagged = True
+                elif relational_impact > 0.4:
+                    emo_weight = "medium"
+                if event_type == "relationship_milestone":
+                    emo_weight = "high"
+                    flagged = True
+                sem.store_embedding(self.user_id, "episodic", memory_id, content,
+                                   emo_weight, flagged)
+            except Exception:
+                pass  # Never break memory storage
+        
         return memory_id
     
     def get_episodic(self, event_type: Optional[str] = None, 
@@ -305,6 +326,15 @@ class MemorySystem:
         identity = self.memory.get("identity", [])
         identity.append(asdict(entry))
         self.memory["identity"] = identity
+        
+        # Generate semantic embedding (non-blocking)
+        if self.user_id:
+            try:
+                from .semantic_search import get_semantic_search
+                sem = get_semantic_search()
+                sem.store_embedding(self.user_id, "identity", identity_id, fact)
+            except Exception:
+                pass
         
         return identity_id
     
@@ -417,27 +447,55 @@ class MemorySystem:
     # ========== Enhanced Memory Methods ==========
     
     def get_relevant_memories(self, current_topic: str, recent_messages: List[Dict] = None, user_id: str = "") -> List[Dict[str, Any]]:
-        """Return memories relevant to current conversation using FTS5 search."""
+        """Return memories relevant to current conversation.
+        Uses SEMANTIC search first (meaning-based), with FTS5 keyword fallback."""
         relevant_memories = []
+        uid = user_id or self.user_id
         
-        # Try FTS5 search first
+        # 1. Try semantic search first (meaning-based)
         try:
-            from .memory_search import get_memory_search
-            search_index = get_memory_search()
-            fts_results = search_index.search(user_id or "", current_topic, limit=8)
-            if fts_results:
-                for result in fts_results:
+            from .semantic_search import get_semantic_search
+            sem = get_semantic_search()
+            sem_results = sem.search(uid, current_topic, limit=8)
+            if sem_results:
+                for result in sem_results:
                     relevant_memories.append({
                         "content": result["content"],
                         "type": result["memory_type"],
-                        "metadata": result["metadata"],
-                        "source": "fts5"
+                        "metadata": {
+                            "similarity": result["similarity"],
+                            "emotional_weight": result.get("emotional_weight", "normal"),
+                            "flagged_for_recall": result.get("flagged_for_recall", False)
+                        },
+                        "source": "semantic"
                     })
-                return relevant_memories
+                if len(relevant_memories) >= 4:
+                    return relevant_memories  # Enough semantic results
         except Exception:
-            pass  # Fall through to basic matching
+            pass  # Fall through to FTS5
         
-        # Fallback: basic topic matching
+        # 2. Augment with FTS5 keyword search (catches exact names/terms)
+        try:
+            from .memory_search import get_memory_search
+            search_index = get_memory_search()
+            fts_results = search_index.search(uid, current_topic, limit=8)
+            if fts_results:
+                seen_content = {m["content"][:50] for m in relevant_memories}
+                for result in fts_results:
+                    if result["content"][:50] not in seen_content:
+                        relevant_memories.append({
+                            "content": result["content"],
+                            "type": result["memory_type"],
+                            "metadata": result["metadata"],
+                            "source": "fts5"
+                        })
+                        seen_content.add(result["content"][:50])
+                if relevant_memories:
+                    return relevant_memories[:10]
+        except Exception:
+            pass
+        
+        # 3. Fallback: basic topic matching
         stm = self.get_stm(decay=False)
         episodic = self.get_episodic(min_salience=0.1)
         identity = self.get_identity(min_confidence=0.5)

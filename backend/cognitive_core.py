@@ -50,9 +50,27 @@ class CognitiveCore:
         self.state = self.state_orchestrator.get_state(user_id)
         
         # Core systems
-        self.memory = MemorySystem(self.state)
+        self.memory = MemorySystem(self.state, user_id=user_id)
         self.psyche = PsycheEngine(self.state)
         self.temporal = TemporalAwarenessSystem()
+        
+        # Startup: reindex existing memories for semantic search (non-blocking)
+        try:
+            from .semantic_search import get_semantic_search
+            sem = get_semantic_search()
+            existing_memories = {
+                "episodic": self.memory.get_episodic(min_salience=0.0),
+                "identity": self.memory.get_identity(min_confidence=0.0),
+                "stm_summaries": self.memory.get_stm(decay=False),
+                "learned_facts": self.memory.memory.get("learned_facts", [])
+            }
+            stats = sem.get_stats(user_id)
+            total_existing = sum(stats.values())
+            total_memories = sum(len(v) for v in existing_memories.values())
+            if total_memories > 0 and total_existing < total_memories:
+                sem.reindex_user(user_id, existing_memories)
+        except Exception as e:
+            print(f"[SEMANTIC] Startup reindex skipped: {e}")
         
         # Reasoning systems
         self.semantic_reasoner = SemanticReasoner()

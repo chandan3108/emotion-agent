@@ -2389,6 +2389,17 @@ async def show_memory(ctx: commands.Context):
         ms_text = "\n".join([f"🏆 {m.get('content', '')[:150]}" for m in milestone_eps[-5:]])
         embed.add_field(name="🎯 Relationship Milestones", value=ms_text[:1024], inline=False)
     
+    # Semantic search stats
+    try:
+        from backend.semantic_search import get_semantic_search
+        sem = get_semantic_search()
+        stats = sem.get_stats(user_id)
+        if stats:
+            stats_text = " | ".join([f"{k}: {v}" for k, v in stats.items()])
+            embed.add_field(name="🔍 Semantic Index", value=stats_text, inline=False)
+    except Exception:
+        pass
+    
     # Status: show what needs more messages to populate
     missing = []
     if not stm_summaries and not convo_context:
