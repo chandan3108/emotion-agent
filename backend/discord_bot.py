@@ -556,27 +556,24 @@ Response style: Whatever feels authentic. Depth is natural here.
                 shown = {k: v for k, v in generated_facts.items() if k in relevant}
                 if shown:
                     for key, entry in shown.items():
-                        prompt += f"- {key}: {_fact_value(entry)}\n"
-            # If no relevance info yet (first 5 messages), show up to 3 to avoid empty
-            elif not relevant and generated_facts:
-                for key, entry in list(generated_facts.items())[:3]:
-                    prompt += f"- {key}: {_fact_value(entry)}\n"
-        prompt += "(These are YOUR facts. Don't attribute them to the user.)\n\n"
+                        clean_key = key.replace('_', ' ')
+                        prompt += f"- {clean_key}: {_fact_value(entry)}\n"
+            # If no relevance info yet, do NOT inject random facts — avoids misattribution
+        prompt += "(These are YOUR facts about yourself, Rem. Not the user's. Never assume the user shares these traits.)\n\n"
     
     has_user_info = personal_facts or user_learned_facts
     if has_user_info:
-        prompt += "[ABOUT THEM \u2014 THE USER]\n"
+        prompt += "[ABOUT THE USER — what you've learned about them]\n"
         if personal_facts:
             for pf in personal_facts[:3]:
                 prompt += f"- {pf}\n"
         if user_learned_facts:
             for key, entry in user_learned_facts.items():
-                display_key = key.replace('_', ' ').title()
                 val = _fact_value(entry)
                 recency = _recency_label(entry)
-                prompt += f"- {display_key}: {val} {recency}\n"
-        prompt += """(You learned these through conversation. Reference ONLY when naturally relevant.
-IMPORTANT: If the user JUST told you something in the last few messages, do NOT say "reminds me" or "you mentioned" — you literally just heard it. Only use "I remember you said..." for things from PAST conversations, not the current one.)\n\n"""
+                prompt += f"- {val} {recency}\n"
+        prompt += """(Facts about the USER, not about you. Reference ONLY when naturally relevant.
+IMPORTANT: If the user JUST told you something in the last few messages, do NOT say "reminds me" or "you mentioned" — you literally just heard it. Only use "I remember you said..." for things from PAST conversations.)\n\n"""
     
     if world_knowledge:
         prompt += "[THINGS YOU KNOW]\n"
@@ -1746,20 +1743,28 @@ EXAMPLES OF MISTAKES:
 - User says "I love rock climbing" → DO NOT store as Rem's favorite. That's the USER's interest.
 - Rem says "same here!" about something → Only store if she adds specifics. Generic agreement is NOT a fact.
 
-2. Extract facts the USER shared about THEMSELVES (from "User:" lines only).
+2. Extract facts the USER shared about THEMSELVES or their opinions (from "User:" lines only).
 RULES:
-- Only PERSONAL facts about the user — their major, job, hobbies, where they live, preferences.
-- NOT opinions about Rem: "you're lovely", "you're funny", "I like talking to you" are about REM, not user facts. SKIP these.
-- NOT general statements: "that's cool", "interesting" are reactions, not facts. SKIP.
-- NOT commands or questions: "tell me about X", "can you do Y" are NOT facts. SKIP.
+- Personal facts: major, job, hobbies, location, preferences
+- Opinions about Rem: "you're lovely" → STORE as user's opinion with clear attribution
+- NOT general reactions: "that's cool", "lol", "interesting" are NOT facts. SKIP.
+- NOT commands/questions: "tell me about X" is NOT a fact. SKIP.
 - No duplicates with existing user facts.
-KEY NAMING: Use descriptive keys like "major", "favorite_ice_cream", "commute_time".
+CRITICAL WORDING RULE: Values MUST be written in THIRD PERSON about the user. 
+  Never write "you're" or "I" — write "User [verb]..." so it's clear WHO the fact is about.
+KEY NAMING: Use descriptive keys. Never vague keys like "cs", "opinion", "thing".
 
-EXAMPLES OF MISTAKES TO AVOID:
-- User says "you're lovely" → NOT a user fact. This is a compliment to Rem. SKIP.
-- User says "rem is cool" → NOT a user fact. This is about Rem. SKIP.  
-- User says "I study CS" → YES, store as user_facts: {{"major": "CS"}}
-- User says "cognitive biases are interesting" → NOT a personal fact. SKIP.
+EXAMPLES (correct format):
+- User says "I study CS" → {{"major": "studies computer science"}}
+- User says "you're lovely" → {{"opinion_of_rem": "user thinks Rem is lovely"}}
+- User says "I love pizza" → {{"favorite_food": "loves pizza"}}
+- User says "I'm from Delhi" → {{"location": "from Delhi"}}
+- User says "talking to you is fun" → {{"opinion_of_rem": "user enjoys talking to Rem"}}
+
+WRONG format (never do this):
+- {{"opinion_about_rem": "you're lovely"}} ← "you're" is ambiguous, could mean user or Rem
+- {{"major": "CS"}} ← too short, no context
+- {{"thing": "interesting"}} ← vague garbage
 
 3. Identify if they are actively discussing a SPECIFIC topic (movie, show, book, game, person, event).
 Only if discussed in depth, not just mentioned. Return null if casual chat.
@@ -1900,13 +1905,6 @@ Respond ONLY with JSON:
                     # Reject garbage keys: too short or too vague
                     if len(key) <= 3 or key.lower() in ('cs', 'opinion', 'thing', 'food', 'stuff', 'it', 'yes', 'no'):
                         print(f"[USER FACTS] REJECTED vague key: '{key}: {value}'")
-                        continue
-                    # Cross-validation: reject opinions/compliments about Rem
-                    val_lower = value.lower()
-                    key_lower_check = key.lower()
-                    rem_indicators = ['rem', "you're", 'you are', 'talking to you', 'about rem', 'you look', 'you seem']
-                    if any(ind in val_lower or ind in key_lower_check for ind in rem_indicators):
-                        print(f"[USER FACTS] REJECTED (about Rem, not user): '{key}: {value}'")
                         continue
                     # Dedup
                     key_lower = key.lower().replace("_", " ")
@@ -3194,8 +3192,9 @@ async def show_about_rem(ctx: commands.Context):
     if user_facts:
         uf_lines = []
         for key, val in list(user_facts.items())[:10]:
-            clean_key = key.replace("_", " ").title()
-            uf_lines.append(f"• **{clean_key}**: {_fact_value(val)}")
+            v = _fact_value(val)
+            # Show value directly — values should already be in third person
+            uf_lines.append(f"• {v}")
         uf_text = "\n".join(uf_lines)
         if len(uf_text) > 1024:
             uf_text = uf_text[:1020] + "..."
