@@ -1506,6 +1506,7 @@ async def _extract_self_facts(core, exchanges: list):
     Categorized into: favorites, experiences, preferences.
     """
     import httpx
+    from datetime import datetime, timezone
     
     existing = core.state.get("_self_identity", {})
     existing_str = ", ".join(f"{k}: {_fact_value(v)}" for k, v in existing.items()) if existing else "none yet"
@@ -1621,6 +1622,7 @@ Respond ONLY with JSON:
                 content = content.strip()
             
             result = json.loads(content)
+            print(f"[EXTRACTION] Parsed result keys: {list(result.keys())}")
             
             # --- Self-fact extraction with cross-validation ---
             existing = core.state.get("_self_identity", {})
@@ -1777,7 +1779,9 @@ Respond ONLY with JSON:
                             pass
                 
     except Exception as e:
-        pass
+        print(f"[EXTRACTION ERROR] {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 async def _load_topic_context(core, topic: str):
