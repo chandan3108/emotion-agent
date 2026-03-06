@@ -101,7 +101,11 @@ def build_phase_prompt(
     # Knowledge the user taught REM
     user_taught_knowledge: Dict[str, str] = None,
     # Last schedule activity REM mentioned (for continuity)
-    last_mentioned_activity: Dict[str, str] = None
+    last_mentioned_activity: Dict[str, str] = None,
+    # Named mood state (derived from mood vector)
+    named_mood_state: Dict[str, Any] = None,
+    # User behavioral patterns (timestamps, frequencies)
+    user_patterns: Dict[str, Any] = None
 ) -> str:
     """
     Build prompt with personality-driven behavior and expression guidance.
@@ -197,7 +201,41 @@ LITMUS TEST: "Would a real person say this, or does it sound like an AI being dr
         else:
             prompt += f"Disgust: PRESENT (something feels off - you're pulling back)\n"
     
+    # Named mood state (derived from 14-dim vector + neurochemicals)
+    if named_mood_state:
+        state_name = named_mood_state.get("state", "calm")
+        state_desc = named_mood_state.get("description", "")
+        prompt += f"Emotional State: {state_name} — {state_desc}\n"
+    
     prompt += "\n"
+    
+    # ===== USER BEHAVIORAL PATTERNS (temporal context, no hallucination) =====
+    if user_patterns:
+        pattern_lines = []
+        gap_hours = user_patterns.get("session_gap_hours")
+        if gap_hours is not None:
+            if gap_hours > 168:
+                pattern_lines.append(f"You haven't talked to this person in over a week. Acknowledge naturally if it comes up — don't guilt trip.")
+            elif gap_hours > 48:
+                pattern_lines.append(f"It's been a few days since you last talked. You can acknowledge the gap casually.")
+            elif gap_hours > 12:
+                pattern_lines.append(f"New session — last talked {int(gap_hours)} hours ago.")
+        
+        says_goodnight = user_patterns.get("says_goodnight")
+        if says_goodnight is not None:
+            if says_goodnight:
+                pattern_lines.append("This person usually says goodnight. If they don't, you might notice.")
+            # Don't inject "they never say goodnight" — no guilt tripping
+        
+        late_night = user_patterns.get("talking_unusually_late")
+        if late_night:
+            pattern_lines.append("They're texting later than usual. You can notice this casually: 'you're up late huh'")
+        
+        if pattern_lines:
+            prompt += "[USER PATTERNS — things you've noticed over time]\n"
+            for line in pattern_lines:
+                prompt += f"• {line}\n"
+            prompt += "Use these ONLY if naturally relevant. Don't announce observations robotically.\n\n"
     
     # ===== TIME CONTEXT (circadian rhythm + daily life) =====
     if temporal_context:
@@ -1231,6 +1269,8 @@ async def generate_response(core: CognitiveCore, user_message: str,
         search_cache=core.state.get("_search_cache"),
         user_taught_knowledge=core.state.get("_user_taught_knowledge"),
         last_mentioned_activity=core.state.get("_last_mentioned_activity"),
+        named_mood_state=core.psyche.get_named_mood_state(),
+        user_patterns=core.state.get("_user_patterns"),
     )
     
     # Build message history - include the current user message
@@ -1481,6 +1521,89 @@ async def generate_response(core: CognitiveCore, user_message: str,
         if len(buf) >= 5:
             asyncio.create_task(_extract_self_facts(core, buf.copy()))
             core.state["_self_fact_buffer"] = []
+    
+    # ===== BEHAVIORAL PATTERN TRACKING =====
+    if core:
+        try:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            patterns = core.state.get("_user_patterns", {})
+            
+            # Track session gap
+            last_msg_time = patterns.get("last_message_time")
+            if last_msg_time:
+                try:
+                    last_time = datetime.fromisoformat(last_msg_time.replace("Z", "+00:00"))
+                    gap_hours = (now - last_time).total_seconds() / 3600
+                    patterns["session_gap_hours"] = round(gap_hours, 1)
+                except Exception:
+                    pass
+            
+            patterns["last_message_time"] = now.isoformat()
+            
+            # Track message count
+            patterns["total_messages"] = patterns.get("total_messages", 0) + 1
+            
+            # Detect goodnight patterns
+            msg_lower = user_message.lower() if user_message else ""
+            goodnight_words = ["goodnight", "good night", "gn", "nighty", "night night", "going to sleep", "gonna sleep", "sleeping now"]
+            if any(w in msg_lower for w in goodnight_words):
+                gn_times = patterns.get("goodnight_timestamps", [])
+                gn_times.append(now.isoformat())
+                # Keep last 10
+                patterns["goodnight_timestamps"] = gn_times[-10:]
+                patterns["says_goodnight"] = True
+            
+            # Detect late-night chatting (after midnight local IST)
+            local_hour = (now.hour + 5) % 24 + (30 / 60)  # Rough UTC→IST
+            if local_hour >= 0 and local_hour < 5:
+                patterns["talking_unusually_late"] = True
+            else:
+                patterns["talking_unusually_late"] = False
+            
+            core.state["_user_patterns"] = patterns
+            
+            # ===== RELATIONSHIP MILESTONE DETECTION =====
+            milestones_stored = core.state.get("_milestones_stored", set())
+            if isinstance(milestones_stored, list):
+                milestones_stored = set(milestones_stored)
+            
+            new_milestones = []
+            
+            # First conversation ever
+            if patterns.get("total_messages", 0) == 1 and "first_conversation" not in milestones_stored:
+                new_milestones.append(("first_conversation", "First conversation started — getting to know each other."))
+            
+            # First goodnight
+            gn_list = patterns.get("goodnight_timestamps", [])
+            if len(gn_list) == 1 and "first_goodnight" not in milestones_stored:
+                new_milestones.append(("first_goodnight", "They said goodnight for the first time. Small, but it means they think of you before sleeping."))
+            
+            # First long session (50+ messages)
+            if patterns.get("total_messages", 0) >= 50 and "first_long_session" not in milestones_stored:
+                new_milestones.append(("first_long_session", "Reached 50 messages together — this isn't just casual anymore."))
+            
+            # First return after absence (> 48 hours gap)
+            gap = patterns.get("session_gap_hours", 0)
+            if gap > 48 and patterns.get("total_messages", 0) > 5 and "first_reunion" not in milestones_stored:
+                new_milestones.append(("first_reunion", f"They came back after {int(gap)} hours away. They remembered you."))
+            
+            # Store milestones as episodic memories
+            for milestone_id, milestone_text in new_milestones:
+                core.memory.add_episodic(
+                    event_type="relationship_milestone",
+                    content=milestone_text,
+                    emotional_valence=0.6,
+                    relational_impact=0.7,
+                    evidence_event_ids=[]
+                )
+                milestones_stored.add(milestone_id)
+                print(f"[MILESTONE] Stored: {milestone_id} — {milestone_text}")
+            
+            core.state["_milestones_stored"] = list(milestones_stored)
+            
+        except Exception as e:
+            print(f"[PATTERNS] Tracking error (non-critical): {e}")
     
     # Ensure response_text is defined before returning
     if not response_text:
@@ -2248,6 +2371,12 @@ async def show_memory(ctx: commands.Context):
         kn_text = "\n".join([f"- {m.get('fact', '')[:120]}" for m in learned[-5:]])
         embed.add_field(name="📚 Learned Knowledge", value=kn_text[:1024], inline=False)
     
+    # Show relationship milestones
+    milestone_eps = [m for m in episodic_sorted if m.get("event_type") == "relationship_milestone"]
+    if milestone_eps:
+        ms_text = "\n".join([f"🏆 {m.get('content', '')[:150]}" for m in milestone_eps[-5:]])
+        embed.add_field(name="🎯 Relationship Milestones", value=ms_text[:1024], inline=False)
+    
     # Status: show what needs more messages to populate
     missing = []
     if not stm_summaries and not convo_context:
@@ -2649,29 +2778,15 @@ async def show_personality(ctx: commands.Context):
     else:
         embed.add_field(name="👤 How I See You", value="_(Still figuring you out...)_", inline=False)
     
-    # ===== Current Mood (descriptive, not numbers) =====
-    mood = core.psyche.mood
-    mood_parts = []
-    h = mood.get("happiness", 0.5)
-    s = mood.get("stress", 0.3)
-    a = mood.get("affection", 0.5)
-    ang = mood.get("anger", 0.1)
-    cur = mood.get("curiosity", 0.5)
-    sad = mood.get("sadness", 0.2)
-    
-    if h > 0.65: mood_parts.append("😊 feeling good")
-    elif h < 0.3: mood_parts.append("😔 down")
-    if s > 0.6: mood_parts.append("😰 stressed")
-    if a > 0.65: mood_parts.append("💝 warm towards you")
-    elif a < 0.3: mood_parts.append("🧊 emotionally distant")
-    if ang > 0.4: mood_parts.append("😤 frustrated")
-    if cur > 0.65: mood_parts.append("🔍 curious")
-    if sad > 0.5: mood_parts.append("😢 sad")
-    
-    if not mood_parts:
-        mood_parts.append("😐 neutral")
-    
-    embed.add_field(name="💭 Current Mood", value=", ".join(mood_parts), inline=False)
+    # ===== Current Mood (named state from psyche engine) =====
+    named_mood = core.psyche.get_named_mood_state()
+    mood_emoji = {
+        "calm": "😌", "focused": "🎯", "playful": "😏", "affectionate": "💕",
+        "melancholic": "🌧️", "agitated": "⚡", "withdrawn": "🫥", "energized": "✨"
+    }
+    emoji = mood_emoji.get(named_mood["state"], "😐")
+    mood_text = f'{emoji} **{named_mood["state"].capitalize()}** — {named_mood["description"]}'
+    embed.add_field(name="💭 Current Mood", value=mood_text, inline=False)
     
     # ===== Our Relationship (phase + trust + stance) =====
     phase = core.relationship_phases.current_phase

@@ -534,4 +534,79 @@ class PsycheEngine:
             delta = max(-0.3, min(0.3, float(updates["hurt_delta"] or 0)))
             self.psyche["hurt"] = max(0.0, min(1.0, current_hurt + delta))
             print(f"[HURT] Delta: {delta:+.2f} → New: {self.psyche['hurt']:.2f}")
+    
+    def get_named_mood_state(self) -> Dict[str, Any]:
+        """
+        Derive a named mood state from the 14-dim mood vector + neurochemicals.
+        Returns: {"state": "calm", "description": "...", "intensity": 0.7}
+        
+        No fabrication — purely derived from existing data.
+        """
+        h = self.mood.get("happiness", 0.5)
+        s = self.mood.get("stress", 0.3)
+        a = self.mood.get("affection", 0.5)
+        ang = self.mood.get("anger", 0.1)
+        cur = self.mood.get("curiosity", 0.5)
+        sad = self.mood.get("sadness", 0.2)
+        energy = self.mood.get("energy", 0.5)
+        boredom = self.mood.get("boredom", 0.3)
+        playfulness = self.mood.get("playfulness", 0.4)
+        excitement = self.mood.get("excitement", 0.3)
+        
+        da = self.neurochem.get("da", 0.5)
+        cort = self.neurochem.get("cort", 0.3)
+        oxy = self.neurochem.get("oxy", 0.5)
+        ser = self.neurochem.get("ser", 0.5)
+        
+        # Score each named state by how well it fits the current readings
+        states = {
+            "calm": (
+                0.3 * ser + 0.2 * (1 - s) + 0.2 * (1 - ang) + 0.15 * (1 - cort) + 0.15 * h,
+                "Settled. Not much is pulling at her emotionally."
+            ),
+            "focused": (
+                0.3 * energy + 0.25 * cur + 0.2 * (1 - boredom) + 0.15 * da + 0.1 * (1 - s),
+                "Locked in. Engaged with what's happening, mentally sharp."
+            ),
+            "playful": (
+                0.3 * playfulness + 0.25 * da + 0.2 * h + 0.15 * (1 - s) + 0.1 * excitement,
+                "Light mood. Teasing, jokes, doesn't take things too seriously."
+            ),
+            "affectionate": (
+                0.35 * a + 0.25 * oxy + 0.2 * h + 0.1 * ser + 0.1 * (1 - ang),
+                "Warm. Genuinely caring about the person she's talking to."
+            ),
+            "melancholic": (
+                0.3 * sad + 0.2 * (1 - h) + 0.2 * (1 - da) + 0.15 * cort + 0.15 * (1 - energy),
+                "Quiet sadness. Not dramatic — just a heaviness underneath."
+            ),
+            "agitated": (
+                0.3 * s + 0.25 * cort + 0.2 * ang + 0.15 * (1 - ser) + 0.1 * self.entitlement_debt,
+                "On edge. Responses are sharper, patience is thin."
+            ),
+            "withdrawn": (
+                0.3 * boredom + 0.25 * (1 - energy) + 0.2 * (1 - a) + 0.15 * (1 - da) + 0.1 * self.disgust,
+                "Checked out. Low effort, minimal engagement, not emotionally present."
+            ),
+            "energized": (
+                0.3 * excitement + 0.25 * da + 0.2 * energy + 0.15 * (1 - sad) + 0.1 * cur,
+                "Buzzing. High energy, talkative, enthusiastic."
+            ),
+        }
+        
+        # Find the best-fitting state
+        best_state = "calm"
+        best_score = 0.0
+        for state_name, (score, _) in states.items():
+            if score > best_score:
+                best_score = score
+                best_state = state_name
+        
+        _, description = states[best_state]
+        
+        return {
+            "state": best_state,
+            "description": description,
+            "intensity": round(min(1.0, best_score), 2)
+        }
 
