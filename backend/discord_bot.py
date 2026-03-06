@@ -234,7 +234,26 @@ LITMUS TEST: "Would a real person say this, or does it sound like an AI being dr
                     prompt += f"{status_label} ({act['time']}): {act['activity']}\n"
             elif current_activity:
                 prompt += f"What you're doing right now: {current_activity}\n"
-            prompt += "This is where you are and what you're doing — use it ONLY if asked or if it naturally fits. Don't volunteer your schedule. A real person doesn't announce what they're doing unless someone asks.\n"
+            # Check if REM already mentioned the current activity in recent messages
+            mentioned_activities = []
+            if message_history:
+                activity_keywords = []
+                if upcoming:
+                    activity_keywords = [act['activity'].lower().split()[0] for act in upcoming if act.get('activity')]
+                elif current_activity:
+                    activity_keywords = [current_activity.lower().split()[0]]
+                
+                for m in message_history[-10:]:
+                    if m.get('role') == 'assistant':
+                        msg_lower = m.get('content', '').lower()
+                        for kw in activity_keywords:
+                            if len(kw) > 3 and kw in msg_lower:
+                                mentioned_activities.append(kw)
+            
+            if mentioned_activities:
+                prompt += f"You ALREADY mentioned being busy with this earlier in the conversation. Do NOT bring it up again unless asked. If the activity has changed since you mentioned it, you can naturally say you're done with it (e.g. 'just finished dinner' not 'having dinner' again).\n"
+            else:
+                prompt += "This is where you are and what you're doing — use it ONLY if asked or if it naturally fits. Don't volunteer your schedule.\n"
             if context_str:
                 prompt += f"{context_str}\n"
             prompt += "\n"
