@@ -1156,17 +1156,28 @@ async def generate_response(core: CognitiveCore, user_message: str,
                 last_bot_msg = m.get("content", "")
                 break
         if last_bot_msg and "?" in last_bot_msg:
-            # REM asked a question — check if user's response relates to it
-            bot_words = set(w.lower() for w in last_bot_msg.split() if len(w) > 3)
-            user_words = set(w.lower() for w in user_message.split() if len(w) > 3)
-            # Remove common filler words
-            fillers = {'like', 'just', 'yeah', 'what', 'that', 'this', 'with', 'about', 'have', 'been', 'your', 'from', 'they', 'them', 'were', 'more', 'some', 'than'}
-            bot_words -= fillers
-            user_words -= fillers
-            overlap = bot_words & user_words
-            if len(bot_words) > 2 and len(overlap) == 0:
-                ignored_question = last_bot_msg.strip()
-                print(f"[TOPIC CHANGE] User ignored REM's question: '{ignored_question[:60]}'")
+            user_words_raw = user_message.lower().split()
+            # Short messages are reactions, not topic changes
+            if len(user_words_raw) >= 8:
+                # Check for response signals — these indicate engagement, not topic change
+                response_signals = {
+                    'yes', 'yeah', 'yea', 'yep', 'sure', 'okay', 'ok', 'fine', 'nah',
+                    'no', 'nope', 'dont', "don't", 'stop', 'never', 'maybe', 'probably',
+                    'idk', 'depends', 'kinda', 'sorta', 'true', 'fair', 'agreed',
+                    'remind', 'answer', 'asked', 'question', 'truce', 'allow'
+                }
+                has_response_signal = any(w in response_signals for w in user_words_raw)
+                
+                if not has_response_signal:
+                    bot_words = set(w.lower() for w in last_bot_msg.split() if len(w) > 3)
+                    user_words = set(w for w in user_words_raw if len(w) > 3)
+                    fillers = {'like', 'just', 'yeah', 'what', 'that', 'this', 'with', 'about', 'have', 'been', 'your', 'from', 'they', 'them', 'were', 'more', 'some', 'than'}
+                    bot_words -= fillers
+                    user_words -= fillers
+                    overlap = bot_words & user_words
+                    if len(bot_words) > 2 and len(overlap) == 0:
+                        ignored_question = last_bot_msg.strip()
+                        print(f"[TOPIC CHANGE] User ignored REM's question: '{ignored_question[:60]}'")
     
     system_msg = build_phase_prompt(
         phase=relationship_phase,
