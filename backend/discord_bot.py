@@ -1861,11 +1861,34 @@ Respond ONLY with JSON:
                         print(f"[SELF-IDENTITY] REJECTED vague key: '{key}: {value}'")
                         continue
                     
+                    val_lower = value.lower().strip()
+                    
+                    # Reject too-short values (no real info)
+                    if len(val_lower) < 8:
+                        print(f"[SELF-IDENTITY] REJECTED too short: '{key}: {value}'")
+                        continue
+                    
+                    # Reject generic filler phrases that aren't real personality facts
+                    generic_fillers = [
+                        'people are weird', 'is the best sometimes', 'has varying', 
+                        'are the best', 'can be fun', 'is interesting', 'is cool',
+                        'attended college', 'goes to college', 'is a student',
+                        'has energy', 'feels things', 'is normal', 'does stuff',
+                        'sometimes feels', 'can relate', 'is relatable',
+                    ]
+                    if any(filler in val_lower for filler in generic_fillers):
+                        print(f"[SELF-IDENTITY] REJECTED generic filler: '{key}: {value}'")
+                        continue
+                    
+                    # Reject if it duplicates base identity info
+                    base_identity_terms = ['psychology', 'psych major', 'college student', 
+                                          '30 min commute', 'lives at home']
+                    if any(term in val_lower for term in base_identity_terms):
+                        print(f"[SELF-IDENTITY] REJECTED base identity duplicate: '{key}: {value}'")
+                        continue
+                    
                     # Cross-validation: reject if the fact is a LONG phrase (6+ words)
                     # that appears verbatim in user lines — likely misattributed.
-                    # Short topic terms (e.g., "anime openings", "Arctic Monkeys") are NOT
-                    # rejected since both speakers naturally use the same words.
-                    val_lower = value.lower().strip()
                     word_count = len(val_lower.split())
                     if word_count >= 6 and val_lower in user_lines_text:
                         print(f"[SELF-IDENTITY] REJECTED '{key}: {value}' — matches user's words, not Rem's")

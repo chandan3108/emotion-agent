@@ -949,8 +949,25 @@ class CognitiveCore:
                 # Store LLM-extracted identity facts (using correct function signature)
                 new_identity = updates.get("new_identity_facts", [])
                 if new_identity and isinstance(new_identity, list):
+                    # Rem's known traits — identity facts should NOT contain these
+                    rem_traits = {'psychology', 'psych', 'indie music', 'billie eilish', 'arctic monkeys', 
+                                  'adele', 'college student', 'lives at home', 'commute', '30 min',
+                                  'rem likes', 'rem enjoys', 'rem listens'}
+                    # Also check Rem's generated self-identity
+                    self_identity = self.state.get("_self_identity", {})
+                    for sk, sv in self_identity.items():
+                        val = sv.get("v", sv) if isinstance(sv, dict) else str(sv)
+                        if isinstance(val, str) and len(val) > 3:
+                            rem_traits.add(val.lower()[:30])
+                    
                     for fact in new_identity:
                         if isinstance(fact, str) and len(fact) > 3:
+                            fact_lower = fact.lower()
+                            # Cross-validate: reject if it matches Rem's known traits
+                            is_rem_fact = any(trait in fact_lower for trait in rem_traits)
+                            if is_rem_fact:
+                                print(f"[DEEP REFLECTION] REJECTED identity (Rem's trait, not user's): {fact}")
+                                continue
                             # Check for duplicates before storing
                             existing = self.memory.get_identity(min_confidence=0.5)
                             already_exists = any(
@@ -1204,12 +1221,14 @@ RECENT CONVERSATION:
 {recent_text}
 
 EXTRACT:
-1. IDENTITY FACTS — things the USER explicitly said about themselves.
+1. IDENTITY FACTS — things the USER explicitly said about THEMSELVES.
    RULES:
    - Only from USER messages, never from Rem's messages
    - Must be explicit: "I'm a CS major" → ✅. Rem saying "you seem smart" → ❌
    - Don't infer. Don't assume. Only what they literally said.
    - Use their name if known: "Chandu studies CS" not "User studies CS"
+   - NEVER include Rem's own traits: music taste, psychology, college details — those are ABOUT REM
+   - If Rem said "I like indie music" that is NOT a user identity fact
 
 2. EPISODIC MEMORIES — significant moments from Rem's perspective.
    RULES:
@@ -1278,6 +1297,16 @@ Empty arrays [] if nothing worth extracting."""
             
             # Store identity facts (skip [knowledge] prefix — those come from knowledge grounding)
             new_identity = result.get("identity_facts", [])
+            # Rem's known traits — reject if fact matches these
+            rem_traits = {'psychology', 'psych', 'indie music', 'billie eilish', 'arctic monkeys', 
+                          'adele', 'college student', 'lives at home', 'commute', '30 min',
+                          'rem likes', 'rem enjoys', 'rem listens'}
+            self_identity = self.state.get("_self_identity", {})
+            for sk, sv in self_identity.items():
+                val = sv.get("v", sv) if isinstance(sv, dict) else str(sv)
+                if isinstance(val, str) and len(val) > 3:
+                    rem_traits.add(val.lower()[:30])
+            
             for fact in new_identity:
                 if isinstance(fact, str) and len(fact) > 3:
                     # Skip if already exists
@@ -1285,6 +1314,11 @@ Empty arrays [] if nothing worth extracting."""
                         continue
                     # Skip knowledge facts (handled by knowledge grounding)
                     if fact.startswith("[knowledge]"):
+                        continue
+                    # Cross-validate: reject Rem's own traits
+                    fact_lower = fact.lower()
+                    if any(trait in fact_lower for trait in rem_traits):
+                        print(f"[MEMORY CONSOLIDATION] REJECTED identity (Rem's trait): {fact}")
                         continue
                     identity_id = self.memory.promote_to_identity(
                         fact=fact, confidence=0.8, evidence_count=1

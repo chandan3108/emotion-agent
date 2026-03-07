@@ -198,7 +198,24 @@ def extract_facts_from_search(query: str, results: List[Dict[str, str]]) -> List
                 fact += "."
             facts.append(fact)
     
-    return facts[:2]  # Max 2 facts per search
+    # Quality filter: reject dictionary definitions and garbage
+    filtered = []
+    for fact in facts:
+        fact_lower = fact.lower()
+        # Reject dictionary definitions
+        if any(p in fact_lower for p in ['means there is', 'definition:', 'is defined as', 
+               'idiom', 'uk us', 'informal', 'formal', 'noun', 'adjective', 'verb',
+               'still unsure', 'best way to use']):
+            continue
+        # Reject too short
+        if len(fact.strip()) < 20:
+            continue
+        # Reject if it looks like a phrase explanation, not real knowledge
+        if fact_lower.startswith('"') and 'means' in fact_lower:
+            continue
+        filtered.append(fact)
+    
+    return filtered[:2]  # Max 2 facts per search
 
 
 def detect_user_correction(message: str, message_history: List[Dict]) -> Optional[str]:

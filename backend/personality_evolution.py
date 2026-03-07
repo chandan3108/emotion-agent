@@ -572,9 +572,13 @@ Respond with ONLY valid JSON:
 }}
 
 MEMORY RULES:
-- new_identity_facts: ONLY explicit facts they stated. NOT inferences. NOT duplicates.
+- new_identity_facts: ONLY facts about THE USER. Never about yourself (Rem).
+  These are things the USER explicitly said about THEMSELVES.
   Good: "studies computer science", "lives in India", "preparing for exams"
   Bad: "seems stressed" (inference), "likes talking to me" (inference)
+  BAD (CRITICAL): "listens to indie music" when REM said this → that's YOUR preference, not theirs
+  BAD: "enjoys psychology" when that's YOUR major → don't store your own traits as user facts
+  If unsure whether the user or Rem said something, leave it OUT.
 - new_episodic_events: SUMMARIES of meaningful conversation threads, not raw messages.
   Good: "We discussed their upcoming exams - they're stressed about prep. They study CS in India."
   Good: "User opened up about feeling lonely. I kept it brief but acknowledged it. Connection moment."
