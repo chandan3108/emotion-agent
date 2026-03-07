@@ -34,3 +34,4 @@ Thumbs.db
 .gemini/
 state.db
 memory_search.db
+semantic_memory.db
