@@ -816,7 +816,8 @@ class CognitiveCore:
                 current_stance=self.psyche.stance,
                 current_respect=self.psyche.respect,
                 current_engagement=self.psyche.engagement,
-                entitlement_debt=self.psyche.entitlement_debt
+                entitlement_debt=self.psyche.entitlement_debt,
+                emotional_complexity=self.relationship_phases.get_emotional_complexity()
             )
             
             if updates:

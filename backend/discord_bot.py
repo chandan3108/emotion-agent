@@ -107,7 +107,9 @@ def build_phase_prompt(
     # User behavioral patterns (timestamps, frequencies)
     user_patterns: Dict[str, Any] = None,
     # LLM-extracted behavioral observations about the user
-    behavioral_observations: list = None
+    behavioral_observations: list = None,
+    # Complex emotions simmering beneath the surface (phase-gated)
+    emotional_undercurrents: list = None
 ) -> str:
     """
     Build prompt with personality-driven behavior and expression guidance.
@@ -507,6 +509,23 @@ Response style: Whatever feels authentic. Depth is natural here.
         prompt += "[YOUR CURRENT STATE]\n"
         prompt += "\n".join(state_lines) + "\n"
         prompt += "(Let these naturally color your tone. Don't announce them.)\n\n"
+    
+    # ===== EMOTIONAL UNDERCURRENTS (complex emotions, phase-gated) =====
+    if emotional_undercurrents:
+        uc_lines = []
+        for uc in emotional_undercurrents:
+            if isinstance(uc, dict):
+                emotion = uc.get("emotion", "")
+                intensity = uc.get("intensity", 0)
+                trigger = uc.get("trigger", "")
+                if emotion and intensity > 0:
+                    uc_lines.append(f"  {emotion}: {intensity:.1f} ({trigger})")
+        if uc_lines:
+            prompt += "[EMOTIONAL UNDERCURRENTS]\n"
+            prompt += "These feelings are simmering beneath the surface. Don't announce them.\n"
+            prompt += "Let them subtly color your behavior — shorter patience, loaded questions,\n"
+            prompt += "testing loyalty, seeking reassurance, or pulling away.\n"
+            prompt += "\n".join(uc_lines) + "\n\n"
     
     
     # ===== MEMORIES (context for situational awareness, not for direct quoting) =====
@@ -1266,6 +1285,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         named_mood_state=core.psyche.get_named_mood_state(),
         user_patterns=core.state.get("_user_patterns"),
         behavioral_observations=core.state.get("_behavioral_observations"),
+        emotional_undercurrents=core.personality_evolution.emotional_undercurrents,
     )
     
     # Build message history - include the current user message

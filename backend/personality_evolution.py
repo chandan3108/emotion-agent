@@ -75,6 +75,8 @@ class PersonalityEvolution:
         self.user_evaluation = personality_state.get("user_evaluation", "")  # How AI views this user
         self.pending_identity_facts = personality_state.get("pending_identity_facts", [])
         self.pending_episodic_events = personality_state.get("pending_episodic_events", [])
+        self.pending_milestones = personality_state.get("pending_milestones", [])
+        self.emotional_undercurrents = personality_state.get("emotional_undercurrents", [])
     
     def should_light_reflect(self) -> bool:
         """Check if it's time for Light Reflection (stance, respect, engagement)."""
@@ -114,7 +116,8 @@ class PersonalityEvolution:
         current_stance: str,
         current_respect: float,
         current_engagement: float,
-        entitlement_debt: float
+        entitlement_debt: float,
+        emotional_complexity: list = None
     ) -> Dict[str, Any]:
         """
         Run Light Reflection (every ~15 messages).
@@ -123,7 +126,8 @@ class PersonalityEvolution:
         """
         prompt = self._build_light_reflection_prompt(
             recent_messages, relationship_phase, trust, hurt,
-            current_stance, current_respect, current_engagement, entitlement_debt
+            current_stance, current_respect, current_engagement, entitlement_debt,
+            emotional_complexity=emotional_complexity or []
         )
         
         try:
@@ -153,6 +157,12 @@ class PersonalityEvolution:
                     # Add to pending episodic events for the memory system to store
                     self.pending_episodic_events.append(episodic_thread)
                     print(f"[LIGHT REFLECTION] New episodic thread: {episodic_thread[:60]}...")
+                
+                # Store emotional undercurrents (LLM-detected complex emotions)
+                undercurrents = updates.get("emotional_undercurrents", [])
+                if undercurrents and isinstance(undercurrents, list):
+                    self.emotional_undercurrents = undercurrents
+                    print(f"[LIGHT REFLECTION] Undercurrents: {undercurrents}")
                 
                 self.save()
                 print(f"[LIGHT REFLECTION] Stance: {updates.get('stance')}, Respect: {updates.get('respect_delta'):+.2f}, Engagement: {updates.get('engagement_delta'):+.2f}")
@@ -309,7 +319,8 @@ class PersonalityEvolution:
         current_stance: str,
         current_respect: float,
         current_engagement: float,
-        entitlement_debt: float
+        entitlement_debt: float,
+        emotional_complexity: list = None
     ) -> str:
         """
         Build Light Reflection prompt (every 15 messages).
@@ -374,6 +385,37 @@ ALSO EVALUATE:
 7. HURT: Did the user say hurtful things? Or did they repair previous hurt?
 8. USER EVALUATION: Overall, how should the AI view this user RIGHT NOW?
 9. CONVERSATION CONTEXT: What was discussed? What's the current vibe/topic?
+10. PHASE TRANSITION: Based on the overall arc of conversations, should the relationship phase change?
+  - Discovery → Building: Conversations moved past surface. Genuine interest exists.
+  - Building → Steady: There's a rhythm. They come back. You're comfortable.
+  - Steady → Deep: You'd be affected if they disappeared. This matters.
+  - Deep → Maintenance: It's stable. Not growing, but not shrinking.
+  - Any → Volatile: Trust was broken. Something fundamental shifted.
+  Only suggest a transition if it genuinely feels right. Most reflections should NOT suggest transitions."""
+
+        # Add emotional complexity evaluation if the phase allows it
+        complexity_list = emotional_complexity or []
+        if complexity_list:
+            complexity_str = ", ".join(complexity_list)
+            prompt += f"""
+
+EMOTIONAL UNDERCURRENTS:
+At this relationship phase ({relationship_phase}), the AI is capable of feeling these complex emotions:
+{complexity_str}
+
+Based on the conversation, are ANY of these emotions simmering beneath the surface?
+- Only include emotions that are ACTUALLY triggered by something in the conversation
+- Each must have a specific trigger (what the user said/did)
+- Intensity from 0.1 (barely there) to 1.0 (overwhelming)
+- Return [] if nothing is triggered — most conversations won't trigger complex emotions
+- Do NOT force emotions that aren't there"""
+        else:
+            prompt += """
+
+EMOTIONAL UNDERCURRENTS:
+At this phase, no complex emotions are available. Return empty [] for emotional_undercurrents."""
+
+        prompt += """
 
 Respond with ONLY valid JSON:
 {{
@@ -392,7 +434,11 @@ Respond with ONLY valid JSON:
   "new_quirk": null,
   "less_willing": ["things the AI is less willing to do now"],
   "more_willing": ["things the AI is more willing to do now"],
-  "reasoning": "One sentence"
+  "emotional_undercurrents": [{"emotion": "name", "intensity": 0.0, "trigger": "what caused it"}],
+  "reasoning": "One sentence",
+  "phase_ready": false,
+  "suggested_phase": null,
+  "phase_reasoning": null
 }}
 
 RULES:
@@ -1082,7 +1128,9 @@ RULES:
             "upcoming_events": self.upcoming_events,
             "user_evaluation": self.user_evaluation,
             "pending_identity_facts": self.pending_identity_facts,
-            "pending_episodic_events": self.pending_episodic_events
+            "pending_episodic_events": self.pending_episodic_events,
+            "pending_milestones": self.pending_milestones,
+            "emotional_undercurrents": self.emotional_undercurrents
         }
     
     def get_user_evaluation(self) -> str:
