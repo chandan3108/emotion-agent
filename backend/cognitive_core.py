@@ -1724,7 +1724,20 @@ Empty arrays [] if nothing worth extracting."""
         # Sync upcoming events from personality_evolution into state
         # so daily_life.py can read them when generating schedules
         if hasattr(self.personality_evolution, 'upcoming_events') and self.personality_evolution.upcoming_events:
+            old_events = set(e.get("event", "") for e in self.state.get("_upcoming_events", []) if isinstance(e, dict))
             self.state["_upcoming_events"] = self.personality_evolution.upcoming_events
+            new_events = set(e.get("event", "") for e in self.personality_evolution.upcoming_events if isinstance(e, dict))
+            
+            # If new events were added, refresh the schedule to incorporate them
+            if new_events - old_events:
+                from .daily_life import refresh_schedule_for_new_events
+                import asyncio
+                try:
+                    refreshed = await refresh_schedule_for_new_events(self.state)
+                    if refreshed:
+                        print(f"[COGNITIVE] Schedule refreshed to incorporate new events: {new_events - old_events}")
+                except Exception as e:
+                    print(f"[COGNITIVE] Schedule refresh failed: {e}")
     
     def _get_agent_state(self) -> Dict[str, Any]:
         """Get current agent state for LLM prompt."""

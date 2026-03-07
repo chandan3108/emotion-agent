@@ -383,10 +383,56 @@ async def ensure_daily_schedule(state: Dict[str, Any]) -> str:
         "date": today,
         "schedule": schedule,
         "overrides": [],  # Fresh overrides for new day
-        "generated_at": now.isoformat()
+        "generated_at": now.isoformat(),
+        "events_at_generation": list(state.get("_upcoming_events", []))  # Track what events existed when generated
     }
     
     return get_current_activity(state)
+
+
+async def refresh_schedule_for_new_events(state: Dict[str, Any]) -> bool:
+    """
+    Check if new events were added since the schedule was generated.
+    If so, regenerate the schedule to incorporate them.
+    
+    Returns True if schedule was regenerated, False otherwise.
+    """
+    schedule_data = state.get("_daily_schedule", {})
+    if not schedule_data.get("schedule"):
+        return False
+    
+    # Compare current events vs what existed at generation time
+    current_events = state.get("_upcoming_events", [])
+    events_at_gen = schedule_data.get("events_at_generation", [])
+    
+    # Quick check — if same count and same event names, skip
+    current_names = {e.get("event", "") for e in current_events if isinstance(e, dict)}
+    gen_names = {e.get("event", "") for e in events_at_gen if isinstance(e, dict)}
+    
+    new_events = current_names - gen_names
+    if not new_events:
+        return False
+    
+    print(f"[DAILY LIFE] New events detected since schedule was generated: {new_events}")
+    print(f"[DAILY LIFE] Regenerating today's schedule to incorporate new events...")
+    
+    # Regenerate
+    now = datetime.now(IST)
+    schedule = await generate_daily_schedule(state)
+    
+    # Preserve existing overrides (user-made plans)
+    existing_overrides = schedule_data.get("overrides", [])
+    
+    state["_daily_schedule"] = {
+        "date": now.strftime("%Y-%m-%d"),
+        "schedule": schedule,
+        "overrides": existing_overrides,
+        "generated_at": now.isoformat(),
+        "events_at_generation": list(current_events)
+    }
+    
+    print(f"[DAILY LIFE] Schedule regenerated with {len(new_events)} new events")
+    return True
 
 
 async def evaluate_plan_request(
