@@ -474,8 +474,19 @@ class KnowledgeGrounding:
                 print(f"[KNOWLEDGE] Inquiry → 50/50 → NO (say idk, user can teach)")
                 return result
         else:
-            print(f"[KNOWLEDGE] No trigger matched — skipping")
-            return result
+            # No keyword trigger, but LLM classifier said needs_search — use 50/50 like an inquiry
+            if classification.get("needs_search") and search_query:
+                if random.random() < 0.5:
+                    result["mode"] = "inquiry_search"
+                    result["pretend_known"] = True
+                    print(f"[KNOWLEDGE] LLM-detected topic → 50/50 → YES (search + pretend known)")
+                else:
+                    result["mode"] = "implicit_skip"
+                    print(f"[KNOWLEDGE] LLM-detected topic → 50/50 → NO (say idk)")
+                    return result
+            else:
+                print(f"[KNOWLEDGE] No trigger matched — skipping")
+                return result
         
         # Step 6: Search and store in learned_facts
         print(f"[KNOWLEDGE] Searching: {search_query}")
