@@ -12,8 +12,8 @@ import random
 
 
 class CircadianPhase(Enum):
-    MORNING = "morning"      # 06:00-10:00
-    AFTERNOON = "afternoon"  # 10:00-17:00
+    MORNING = "morning"      # 06:00-12:00
+    AFTERNOON = "afternoon"  # 12:00-17:00
     EVENING = "evening"      # 17:00-22:00
     LATE_NIGHT = "late_night"  # 22:00-02:00
     NIGHT = "night"         # 02:00-06:00
@@ -63,8 +63,8 @@ class TemporalAwarenessSystem:
         Determine circadian phase based on hour.
         
         Phases:
-        - Morning (06:00-10:00): Drier tone, shorter messages, formal, lower warmth
-        - Afternoon (10:00-17:00): Baseline behavior
+        - Morning (06:00-12:00): Drier tone, shorter messages, formal, lower warmth
+        - Afternoon (12:00-17:00): Baseline behavior
         - Evening (17:00-21:00): Warmer, more affectionate, longer, relaxed
         - Late-night (22:00-02:00): Higher vulnerability, more impulsivity, poetic, playful
         - Night (02:00-06:00): Minimal, tired, withdrawn
@@ -74,9 +74,9 @@ class TemporalAwarenessSystem:
         
         hour = timestamp.hour
         
-        if 6 <= hour < 10:
+        if 6 <= hour < 12:
             return CircadianPhase.MORNING
-        elif 10 <= hour < 17:
+        elif 12 <= hour < 17:
             return CircadianPhase.AFTERNOON
         elif 17 <= hour < 22:
             return CircadianPhase.EVENING

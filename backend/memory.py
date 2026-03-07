@@ -555,27 +555,60 @@ class MemorySystem:
     
     async def reason_about_memories(self, current_context: Dict[str, Any], 
                                    recent_messages: List[Dict] = None) -> Dict[str, Any]:
-        """Use LLM to reason about memory relevance instead of hardcoded logic."""
+        """Use semantic search + LLM to reason about memory relevance."""
         from .agent import INFERENCE_URL, MODEL_ID
         import httpx
         import os
         
-        # Get candidate memories
-        all_memories = self.get_stm(decay=False) + self.get_episodic(min_salience=0.1) + self.get_identity(min_confidence=0.5)
+        current_topic = current_context.get('topic', 'general')
         
-        if not all_memories:
+        # Step 1: Use semantic search to find meaning-based candidates
+        candidate_memories = []
+        try:
+            from .semantic_search import get_semantic_search
+            sem = get_semantic_search()
+            sem_results = sem.search(self.user_id, current_topic, limit=15, min_similarity=0.2)
+            if sem_results:
+                for r in sem_results:
+                    candidate_memories.append({
+                        "content": r["content"],
+                        "type": r["memory_type"],
+                        "similarity": r["similarity"],
+                        "source": "semantic"
+                    })
+                print(f"[MEMORY REASONING] Semantic search found {len(sem_results)} candidates")
+        except Exception as e:
+            print(f"[MEMORY REASONING] Semantic search failed: {e}")
+        
+        # Step 2: Augment with recent STM (always relevant) and all identity facts (tiny, prevents hallucination)
+        recent_stm = self.get_stm(decay=False)[-5:]
+        identity_facts = self.get_identity(min_confidence=0.5)
+        
+        seen_content = {m["content"][:50] for m in candidate_memories}
+        for mem in recent_stm + identity_facts:
+            content = mem.get("content", mem.get("fact", ""))
+            if content and content[:50] not in seen_content:
+                candidate_memories.append(mem)
+                seen_content.add(content[:50])
+        
+        # Step 3: If semantic search returned nothing, fall back to raw episodic + identity
+        if not candidate_memories:
+            candidate_memories = self.get_stm(decay=False) + self.get_episodic(min_salience=0.1) + self.get_identity(min_confidence=0.5)
+            print(f"[MEMORY REASONING] Semantic empty, using {len(candidate_memories)} raw memories")
+        
+        if not candidate_memories:
             return {"relevant_memories": [], "reasoning": "No memories available"}
         
-        # Build LLM prompt for memory reasoning
+        # Step 4: LLM filters the pre-curated candidates
         prompt = f"""You are a memory reasoning system. Your job is to determine which memories are relevant to the current conversation.
 
 CURRENT CONTEXT:
-- Topic: {current_context.get('topic', 'general')}
+- Topic: {current_topic}
 - Relationship Phase: {current_context.get('phase', 'Discovery')}
 - Recent messages: {[m.get('content', '')[:50] + '...' for m in (recent_messages or [])[-3:]]}
 
 CANDIDATE MEMORIES:
-{self._format_memories_for_llm(all_memories[:10])}
+{self._format_memories_for_llm(candidate_memories[:20])}
 
 TASK:
 1. Analyze each memory for relevance to CURRENT CONTEXT
@@ -599,7 +632,6 @@ RESPONSE FORMAT:
 Be selective. Only include memories that genuinely add value to the current conversation."""
 
         try:
-            # Rate limiter removed — only main response is rate-limited
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
                     INFERENCE_URL,
@@ -621,8 +653,8 @@ Be selective. Only include memories that genuinely add value to the current conv
                     relevant_memories = []
                     for item in llm_response.get("relevant_memories", []):
                         idx = item.get("memory_index", 0)
-                        if idx < len(all_memories):
-                            memory = all_memories[idx].copy()
+                        if idx < len(candidate_memories):
+                            memory = candidate_memories[idx].copy()
                             memory["relevance_score"] = item.get("relevance_score", 0.5)
                             memory["llm_reasoning"] = item.get("reasoning", "")
                             memory["emotional_weight"] = item.get("emotional_weight", 0.5)
@@ -636,7 +668,7 @@ Be selective. Only include memories that genuinely add value to the current conv
             print(f"[ERROR] LLM memory reasoning failed: {e}")
         
         # Fallback to basic logic
-        return {"relevant_memories": all_memories[:5], "reasoning": "LLM failed, using fallback"}
+        return {"relevant_memories": candidate_memories[:5], "reasoning": "LLM failed, using fallback"}
     
     def _format_memories_for_llm(self, memories: List[Dict]) -> str:
         """Format memories for LLM consumption."""

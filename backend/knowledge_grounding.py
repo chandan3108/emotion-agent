@@ -442,17 +442,9 @@ class KnowledgeGrounding:
         if not search_query and not is_explicit:
             return result
         
-        # For explicit mode with no good query, use conversation context
+        # For explicit mode with no good query, use the original user message
         if is_explicit and not search_query:
-            # Extract topic from recent bot/user messages
-            if message_history:
-                for m in reversed(message_history[-5:]):
-                    content = m.get("content", "").strip()
-                    if len(content) > 5 and m.get("role") == "user":
-                        search_query = content[:60]
-                        break
-            if not search_query:
-                search_query = user_message
+            search_query = user_message
         
         # Also check learned_facts for the search query specifically
         query_facts = memory_system.get_learned_facts(query=search_query)

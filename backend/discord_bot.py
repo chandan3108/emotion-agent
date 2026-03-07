@@ -438,14 +438,12 @@ Response style: Whatever feels authentic. Depth is natural here.
 """
     prompt += "\n"
     
-    # ===== MOOD-BASED TONE GUIDANCE =====
-    # Pass the full mood vector so the LLM can blend emotions organically
-    # instead of snapping to a few rigid labels
-    psyche_state = psyche_state if psyche_state is not None else {}
-    mood = psyche_state.get("mood", {})
+    # ===== UNIFIED EMOTIONAL STATE (mood + neurochemicals + energy in one block) =====
+    neurochem = neurochem or {}
+    mood_said = set()  # Track what mood vector already covered
+    state_lines = []
     
-    # Build a rich mood description — only include non-neutral dimensions
-    mood_lines = []
+    # Mood dimensions first
     mood_labels = {
         "happiness": ("content/happy", "low/flat"),
         "stress": ("tense/on-edge", "relaxed"),
@@ -465,65 +463,51 @@ Response style: Whatever feels authentic. Depth is natural here.
         if val is None:
             continue
         if val > 0.65:
-            mood_lines.append(f"  {dim}: {val:.1f} — {high_desc}")
+            state_lines.append(f"  {dim}: {val:.1f} — {high_desc}")
+            mood_said.add(dim)
         elif val < 0.3:
-            mood_lines.append(f"  {dim}: {val:.1f} — {low_desc}")
-    
-    if mood_lines:
-        prompt += "[YOUR CURRENT EMOTIONAL STATE]\n"
-        prompt += "\n".join(mood_lines) + "\n"
-        prompt += "(Let these naturally color your tone and energy. Don't announce them.)\n\n"
-    
-    # ===== BODY STATE (neurochemicals + energy — only add what mood didn't already say) =====
-    neurochem = neurochem or {}
-    mood_said = set()  # Track what mood vector already covered
-    for dim, val in (mood or {}).items():
-        if val is not None and (val > 0.65 or val < 0.3):
+            state_lines.append(f"  {dim}: {val:.1f} — {low_desc}")
             mood_said.add(dim)
     
-    body_lines = []
-    
+    # Neurochemicals — only add what mood didn't already say
     da = neurochem.get("dopamine", 0.5)
     cort = neurochem.get("cortisol", 0.3)
     oxy = neurochem.get("oxytocin", 0.5)
     ser = neurochem.get("serotonin", 0.5)
     endo = neurochem.get("endorphins", 0.5)
     
-    # Dopamine: skip if mood already flagged boredom or excitement
     if "boredom" not in mood_said and "excitement" not in mood_said:
         if da > 0.7:
-            body_lines.append("Stimulated — this conversation is rewarding.")
+            state_lines.append("  stimulation: high — this conversation is rewarding")
         elif da < 0.3:
-            body_lines.append("Understimulated — less willing to invest effort.")
+            state_lines.append("  stimulation: low — less willing to invest effort")
     
-    # Cortisol: skip if mood already flagged stress or anxiety
     if "stress" not in mood_said and "anxiety" not in mood_said:
         if cort > 0.6:
-            body_lines.append("Physiologically tense — shorter fuse, reactive.")
+            state_lines.append("  tension: high — shorter fuse, reactive")
     
-    # Oxytocin: skip if mood already flagged affection
     if "affection" not in mood_said:
         if oxy > 0.7:
-            body_lines.append("Feeling bonded — protective, warm.")
+            state_lines.append("  bonding: high — protective, warm")
         elif oxy < 0.3:
-            body_lines.append("No sense of bonding — detached.")
+            state_lines.append("  bonding: low — detached")
     
-    # Serotonin + Endorphins: mood vector never covers these, always include
     if ser < 0.3:
-        body_lines.append("Mood unstable — shifts easily.")
+        state_lines.append("  stability: low — mood shifts easily")
     if endo > 0.7:
-        body_lines.append("Physically comfortable — light, easygoing.")
+        state_lines.append("  comfort: high — light, easygoing")
     
-    # Energy: always useful
+    # Energy
     if energy < 0.3:
-        body_lines.append("Low energy — shorter replies, less elaboration.")
+        state_lines.append("  energy: low — shorter replies, less elaboration")
     elif energy > 0.75:
-        body_lines.append("High energy — more capacity to engage.")
+        state_lines.append("  energy: high — more capacity to engage")
     
-    if body_lines:
-        prompt += "[BODY STATE]\n"
-        prompt += "; ".join(body_lines) + "\n"
-        prompt += "(Undercurrents, not things to announce.)\n\n"
+    if state_lines:
+        prompt += "[YOUR CURRENT STATE]\n"
+        prompt += "\n".join(state_lines) + "\n"
+        prompt += "(Let these naturally color your tone. Don't announce them.)\n\n"
+    
     
     # ===== MEMORIES (context for situational awareness, not for direct quoting) =====
     # These inform your understanding, not your words
@@ -707,8 +691,10 @@ If it says "keeps replies short" — then keep them short.
     if conversation_context:
         prompt += f"[RECENT CONTEXT]\n{conversation_context}\n(Don't constantly reference this. Only if naturally relevant.)\n\n"
     
-    # ===== STM SUMMARIES (compressed conversation history beyond message window) =====
-    if stm_summaries:
+    # ===== STM SUMMARIES (FALLBACK — only if conversation_summary is empty) =====
+    # conversation_summary (line 632) and stm_summaries cover the same history.
+    # Only inject stm_summaries if the primary conversation_summary was missing.
+    if stm_summaries and not conversation_summary:
         import re as _re_stm
         summary_texts = []
         for s in stm_summaries[-3:]:
@@ -1997,7 +1983,7 @@ Respond ONLY with JSON:
             if active_topic and isinstance(active_topic, str) and active_topic.lower() not in ("null", "none", ""):
                 current_ctx = core.state.get("_topic_context", {})
                 if current_ctx.get("topic", "").lower() != active_topic.lower():
-                    # Check self-identity (already updated with this batch's new facts)
+                    # Check self-identity to see if Rem already knows this topic
                     identity = core.state.get("_self_identity", {})
                     topic_lower = active_topic.lower()
                     rem_knows = any(
@@ -2007,12 +1993,12 @@ Respond ONLY with JSON:
                     )
                     
                     if rem_knows:
-                        print(f"[TOPIC CONTEXT] REM knows '{active_topic}' — loading facts")
-                        asyncio.create_task(_load_topic_context(core, active_topic))
+                        print(f"[TOPIC CONTEXT] REM knows '{active_topic}' — deepening knowledge")
                     else:
-                        # Track topic but don't search — she doesn't know it
-                        print(f"[TOPIC CONTEXT] Topic '{active_topic}' detected, REM doesn't know it — no search")
-                        core.state["_topic_context"] = {"topic": active_topic, "facts": [], "loaded_at": ""}
+                        print(f"[TOPIC CONTEXT] New topic '{active_topic}' — learning about it")
+                    
+                    # Always search for topic context, whether Rem knows it or not
+                    asyncio.create_task(_load_topic_context(core, active_topic))
             elif not active_topic or active_topic in ("null", "None", "none"):
                 # No specific topic — clear old context if stale
                 current_ctx = core.state.get("_topic_context", {})
