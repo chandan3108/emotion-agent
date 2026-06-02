@@ -46,6 +46,7 @@ export default function SettingsPage() {
       const result = await resetUser();
       if (typeof window !== "undefined") {
         localStorage.removeItem("rem_chat_messages");
+        localStorage.removeItem("rem_date_sessions");
       }
       setResetMessage(result.message || "Reset complete");
       setResetConfirm(false);

@@ -261,6 +261,7 @@ export default function ChatPage() {
       try {
         setMessages([]);
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem("rem_date_sessions");
         setToast("Resetting persona...");
         await resetUser();
         setXp(null);

@@ -503,69 +503,143 @@ export default function DatePage() {
             </div>
           </>
         ) : (
-          /* INACTIVE MODE: PAST DATES LISTING */
-          <>
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)" }}>
-              <h3 style={{ fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-                📚 Past Date Records
-              </h3>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
-                Browse diaries of your past sessions with Rem
-              </p>
-            </div>
+          /* INACTIVE MODE: PAST DATES LISTING OR ARCHIVED DIALOGUE */
+          selectedSessionId ? (
+            <>
+              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)" }}>
+                <button
+                  onClick={() => setSelectedSessionId(null)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--accent-primary)",
+                    fontSize: "0.75rem",
+                    cursor: "pointer",
+                    padding: 0,
+                    marginBottom: 8,
+                    display: "block",
+                    fontWeight: 600
+                  }}
+                >
+                  ← Back to Records List
+                </button>
+                <h3 style={{ fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                  📖 Archived Date Dialogue
+                </h3>
+                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+                  Location: {selectedSession?.location} ({selectedSession?.activity})
+                </p>
+              </div>
 
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10
-              }}
-            >
-              {sessions.length === 0 ? (
-                <div style={{ display: "flex", flex: 1, alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "0.875rem", fontStyle: "italic", textAlign: "center", padding: 20 }}>
-                  No past dates recorded yet.<br />Go schedule a date to begin!
-                </div>
-              ) : (
-                sessions.map((sess) => {
-                  const isSelected = selectedSession?.id === sess.id;
-                  return (
+              <div
+                style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  padding: "24px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14
+                }}
+              >
+                {displayedMessages.length === 0 ? (
+                  <div style={{ display: "flex", flex: 1, alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "0.875rem", fontStyle: "italic" }}>
+                    No messages recorded for this date.
+                  </div>
+                ) : (
+                  displayedMessages.map((msg, i) => (
                     <div
-                      key={sess.id}
-                      onClick={() => setSelectedSessionId(sess.id)}
+                      key={i}
                       style={{
-                        padding: "12px 16px",
-                        borderRadius: 12,
-                        background: isSelected ? "rgba(151, 117, 250, 0.08)" : "rgba(255, 255, 255, 0.02)",
-                        border: isSelected ? "1px solid rgba(151, 117, 250, 0.3)" : "1px solid var(--border-subtle)",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease"
+                        alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                        maxWidth: "85%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        justifyContent: msg.role === "user" ? "flex-end" : "flex-start"
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#fff" }}>
-                          📍 {sess.location}
-                        </span>
-                        <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
-                          {formatDate(sess.startTime)}
-                        </span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                          {sess.activity}
-                        </span>
-                        <span style={{ fontSize: "0.6875rem", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: 4, color: "var(--text-muted)" }}>
-                          {sess.messages.length} lines
-                        </span>
+                      <div
+                        style={{
+                          background: msg.role === "user" ? "linear-gradient(135deg, rgba(124, 92, 231, 0.15), rgba(151, 117, 250, 0.08))" : "rgba(255, 255, 255, 0.02)",
+                          border: msg.role === "user" ? "1px solid rgba(151, 117, 250, 0.12)" : "1px solid var(--border-subtle)",
+                          borderRadius: msg.role === "user" ? "14px 14px 2px 14px" : "14px 14px 14px 2px",
+                          padding: "10px 14px",
+                          fontSize: "0.8125rem",
+                          lineHeight: 1.5,
+                          color: "#fff"
+                        }}
+                      >
+                        {parseDialogue(msg.content)}
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </>
+                  ))
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-subtle)" }}>
+                <h3 style={{ fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                  📚 Past Date Records
+                </h3>
+                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+                  Browse diaries of your past sessions with Rem
+                </p>
+              </div>
+
+              <div
+                style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  padding: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10
+                }}
+              >
+                {sessions.length === 0 ? (
+                  <div style={{ display: "flex", flex: 1, alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "0.875rem", fontStyle: "italic", textAlign: "center", padding: 20 }}>
+                    No past dates recorded yet.<br />Go schedule a date to begin!
+                  </div>
+                ) : (
+                  sessions.map((sess) => {
+                    const isSelected = selectedSession?.id === sess.id;
+                    return (
+                      <div
+                        key={sess.id}
+                        onClick={() => setSelectedSessionId(sess.id)}
+                        style={{
+                          padding: "12px 16px",
+                          borderRadius: 12,
+                          background: isSelected ? "rgba(151, 117, 250, 0.08)" : "rgba(255, 255, 255, 0.02)",
+                          border: isSelected ? "1px solid rgba(151, 117, 250, 0.3)" : "1px solid var(--border-subtle)",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#fff" }}>
+                            📍 {sess.location}
+                          </span>
+                          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
+                            {formatDate(sess.startTime)}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                            {sess.activity}
+                          </span>
+                          <span style={{ fontSize: "0.6875rem", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: 4, color: "var(--text-muted)" }}>
+                            {sess.messages.length} lines
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )
         )}
       </div>
 
