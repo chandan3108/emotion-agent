@@ -77,6 +77,14 @@ class PersonalityEvolution:
         self.pending_episodic_events = personality_state.get("pending_episodic_events", [])
         self.pending_milestones = personality_state.get("pending_milestones", [])
         self.emotional_undercurrents = personality_state.get("emotional_undercurrents", [])
+        
+        # === Game Progression Features ===
+        # Inside jokes: shared references, bits, language that built over time
+        self.inside_jokes: list = personality_state.get("inside_jokes", [])
+        # User temporal patterns: when they text, mood cycles, habits
+        self.user_temporal_patterns: list = personality_state.get("user_temporal_patterns", [])
+        # Pending XP events detected during reflection (consumed by xp_system)
+        self.pending_xp_events: list = personality_state.get("pending_xp_events", [])
     
     def should_light_reflect(self) -> bool:
         """Check if it's time for Light Reflection (stance, respect, engagement)."""
@@ -117,7 +125,8 @@ class PersonalityEvolution:
         current_respect: float,
         current_engagement: float,
         entitlement_debt: float,
-        emotional_complexity: list = None
+        emotional_complexity: list = None,
+        unresolved_wounds: list = None
     ) -> Dict[str, Any]:
         """
         Run Light Reflection (every ~15 messages).
@@ -127,7 +136,8 @@ class PersonalityEvolution:
         prompt = self._build_light_reflection_prompt(
             recent_messages, relationship_phase, trust, hurt,
             current_stance, current_respect, current_engagement, entitlement_debt,
-            emotional_complexity=emotional_complexity or []
+            emotional_complexity=emotional_complexity or [],
+            unresolved_wounds=unresolved_wounds or []
         )
         
         try:
@@ -181,7 +191,8 @@ class PersonalityEvolution:
         episodic_memories: List[Dict],
         relationship_phase: str,
         trust: float,
-        hurt: float
+        hurt: float,
+        unresolved_wounds: list = None
     ) -> Dict[str, Any]:
         """
         Run Deep Reflection (every ~30 messages).
@@ -190,7 +201,8 @@ class PersonalityEvolution:
         """
         prompt = self._build_deep_reflection_prompt(
             recent_messages, identity_memories, episodic_memories,
-            relationship_phase, trust, hurt, self.personality_text
+            relationship_phase, trust, hurt, self.personality_text,
+            unresolved_wounds=unresolved_wounds or []
         )
         
         try:
@@ -228,6 +240,48 @@ class PersonalityEvolution:
                                 existing_events.append(evt)
                     self.upcoming_events = existing_events
                     print(f"[DEEP REFLECTION] Upcoming events: {[e.get('event') for e in self.upcoming_events]}")
+                
+                # === Inside Jokes (Game Progression) ===
+                new_jokes = updates.get("inside_jokes", [])
+                if new_jokes and isinstance(new_jokes, list):
+                    existing_refs = [j.get("reference", "").lower() for j in self.inside_jokes]
+                    for joke in new_jokes:
+                        if isinstance(joke, dict) and joke.get("reference"):
+                            if joke["reference"].lower() not in existing_refs:
+                                joke["created_at"] = datetime.now(timezone.utc).isoformat()
+                                joke["times_surfaced"] = 0
+                                joke["last_surfaced"] = None
+                                self.inside_jokes.append(joke)
+                    # Keep last 20 jokes
+                    self.inside_jokes = self.inside_jokes[-20:]
+                    if new_jokes:
+                        print(f"[DEEP REFLECTION] Inside jokes: {[j.get('reference') for j in new_jokes]}")
+                
+                # === User Temporal Patterns (Game Progression) ===
+                new_patterns = updates.get("user_temporal_patterns", [])
+                if new_patterns and isinstance(new_patterns, list):
+                    existing_pats = [p.get("pattern", "").lower()[:30] for p in self.user_temporal_patterns]
+                    for pat in new_patterns:
+                        if isinstance(pat, dict) and pat.get("pattern"):
+                            pat_key = pat["pattern"].lower()[:30]
+                            if pat_key not in existing_pats:
+                                pat["detected_at"] = datetime.now(timezone.utc).isoformat()
+                                pat["times_referenced"] = 0
+                                self.user_temporal_patterns.append(pat)
+                            else:
+                                # Update confidence on existing pattern
+                                for existing in self.user_temporal_patterns:
+                                    if existing.get("pattern", "").lower()[:30] == pat_key:
+                                        existing["confidence"] = pat.get("confidence", existing.get("confidence"))
+                    self.user_temporal_patterns = self.user_temporal_patterns[-15:]
+                    if new_patterns:
+                        print(f"[DEEP REFLECTION] Temporal patterns: {[p.get('pattern')[:50] for p in new_patterns]}")
+                
+                # === XP Events (consumed by xp_system) ===
+                xp_events = updates.get("xp_events", [])
+                if xp_events and isinstance(xp_events, list):
+                    self.pending_xp_events = xp_events
+                    print(f"[DEEP REFLECTION] XP events detected: {xp_events}")
                 
                 # Track history
                 self.trait_history.append({
@@ -320,7 +374,8 @@ class PersonalityEvolution:
         current_respect: float,
         current_engagement: float,
         entitlement_debt: float,
-        emotional_complexity: list = None
+        emotional_complexity: list = None,
+        unresolved_wounds: list = None
     ) -> str:
         """
         Build Light Reflection prompt (every 15 messages).
@@ -415,6 +470,36 @@ Based on the conversation, are ANY of these emotions simmering beneath the surfa
 EMOTIONAL UNDERCURRENTS:
 At this phase, no complex emotions are available. Return empty [] for emotional_undercurrents."""
 
+        # Unresolved wounds context
+        wounds = unresolved_wounds or []
+        if wounds:
+            wound_lines = []
+            for i, w in enumerate(wounds):
+                wound_lines.append(f"  [{i}] \"{w.get('cause', '')}\" (intensity: {w.get('intensity', 0):.1f})")
+            wound_text = "\n".join(wound_lines)
+            prompt += f"""
+
+UNRESOLVED WOUNDS (things still bothering the AI):
+{wound_text}
+
+For each wound, assess: has the user ADDRESSED this in the recent conversation?
+- Addressed means: acknowledged it, apologized, explained, or made genuine effort to repair
+- NOT addressed means: ignored it, repeated the behavior, or didn't bring it up
+- Return wound_resolutions for any that were addressed."""
+
+        # Eruption and proactive depth
+        prompt += """
+
+ERUPTION CHECK:
+If an emotional undercurrent has been intense (>0.6) for a while with no resolution, the AI might not be able to hold it back anymore.
+Is there something the AI has been holding back that might slip out in the next few messages?
+Return null if nothing is building up. Only return content if something genuinely needs to come out.
+
+PROACTIVE DEPTH:
+Sometimes a deep question or thought crosses the AI's mind — something they want to ask but don't want to force.
+Is there a question or thought the AI wants to drop casually? Something from their rumination or undercurrents?
+Return null if nothing comes to mind. This should be rare and genuine."""
+
         prompt += """
 
 Respond with ONLY valid JSON:
@@ -434,7 +519,10 @@ Respond with ONLY valid JSON:
   "new_quirk": null,
   "less_willing": ["things the AI is less willing to do now"],
   "more_willing": ["things the AI is more willing to do now"],
-  "emotional_undercurrents": [{"emotion": "name", "intensity": 0.0, "trigger": "what caused it"}],
+  "emotional_undercurrents": [{{"emotion": "name", "intensity": 0.0, "trigger": "what caused it"}}],
+  "wound_resolutions": [{{"index": 0, "reason": "why this wound is now resolved"}}],
+  "eruption": null,
+  "proactive_depth": null,
   "reasoning": "One sentence",
   "phase_ready": false,
   "suggested_phase": null,
@@ -487,7 +575,8 @@ Do not moralize. Do not soften. Do not sugarcoat."""
         relationship_phase: str,
         trust: float,
         hurt: float,
-        current_personality_text: str
+        current_personality_text: str,
+        unresolved_wounds: list = None
     ) -> str:
         """
         Build Deep Reflection prompt (every 30 messages).
@@ -514,6 +603,41 @@ Do not moralize. Do not soften. Do not sugarcoat."""
         quirks_str = "\n".join([f"  - {q}" for q in self.quirks]) if self.quirks else "(none yet)"
         
         name_note = f"\nNOTE: The person I'm talking to is named {user_name}. 'User' and '{user_name}' are the SAME person.\n" if user_name else ""
+        
+        # Build situational review section for memory hygiene
+        situational_review = ""
+        situational = self.state.get("_situational_facts", [])
+        if situational:
+            now = datetime.now(timezone.utc)
+            sit_lines = []
+            for i, s in enumerate(situational):
+                fact = s.get("fact", "")
+                stored_at = s.get("ts", s.get("stored_at", ""))
+                age = "unknown"
+                if stored_at:
+                    try:
+                        stored_time = datetime.fromisoformat(stored_at.replace("Z", "+00:00"))
+                        hours_ago = (now - stored_time).total_seconds() / 3600
+                        if hours_ago < 1:
+                            age = "less than 1 hour ago"
+                        elif hours_ago < 24:
+                            age = f"{int(hours_ago)} hours ago"
+                        elif hours_ago < 168:
+                            age = f"{int(hours_ago/24)} days ago"
+                        else:
+                            age = f"{int(hours_ago/168)} weeks ago"
+                    except Exception:
+                        pass
+                sit_lines.append(f'  [{i}] "{fact}" (stored {age})')
+            sit_text = "\n".join(sit_lines)
+            situational_review = f"""
+
+SITUATIONAL FACTS (things currently going on in their life):
+{sit_text}
+
+13. Review these — are any of them likely RESOLVED or NO LONGER RELEVANT?
+   A fever from a week ago is probably gone. An exam from 3 days ago already happened.
+   Return their indices in "stale_situational". If all are still relevant, return empty list []."""
         
         prompt = f"""You are reflecting on how a conversational AI's PERSONALITY is evolving over time.
 
@@ -574,6 +698,7 @@ MEMORY DECISIONS (you decide what's worth remembering):
    - Include the context, outcome, and emotional tone
    - These are for when the topic comes up again later
 
+{situational_review}
 Respond with ONLY valid JSON:
 {{
   "personality_rewrite": "Rewrite how I tend to speak now. 3-5 sentences. Describe habits, not traits. Show how it CHANGED from before.",
@@ -595,7 +720,11 @@ Respond with ONLY valid JSON:
   "trust_delta": 0.0,
   "hurt_delta": 0.0,
   "new_identity_facts": ["fact 1", "fact 2"],
-  "new_episodic_events": ["significant moment 1"],
+  "new_situational_facts": ["temporary thing happening in their life right now"],
+  "stale_situational": [],  // indices of situational facts above that are now resolved/outdated (empty list if none)
+  "new_episodic_events": [
+    {{"event": "what happened (summary)", "rem_experience": "how you personally experienced this moment — what you felt, what it meant to you"}}
+  ],
   "relationship_milestones": [
     {{"milestone": "what happened", "significance": "why it matters for the relationship", "trust_impact": 0.0}}
   ],
@@ -614,17 +743,30 @@ Respond with ONLY valid JSON:
   "upcoming_events": [
     {{"event": "what's happening", "when": "tomorrow/friday/next week/etc", "impact": "how it affects my day"}}
   ],
+  "inside_jokes": [
+    {{"reference": "the joke/bit/callback", "context": "how it started", "type": "running_joke|shared_language|callback|nickname"}}
+  ],
+  "user_temporal_patterns": [
+    {{"pattern": "what you noticed", "confidence": "high/medium/low", "type": "time_of_day|mood_cycle|topic_avoidance|ritual|return_pattern|messaging_habit"}}
+  ],
+  "xp_events": ["shared_personal", "asked_about_rem", "callback_to_past", "conflict_resolved"],
   "reasoning": "Brief explanation of my reflection"
 }}
 
 MEMORY RULES:
-- new_identity_facts: ONLY facts about THE USER. Never about yourself (Rem).
-  These are things the USER explicitly said about THEMSELVES.
-  Good: "studies computer science", "lives in India", "preparing for exams"
+- new_identity_facts: Lasting facts about THE USER — things that define who they are.
+  Test: "Would this still be true about them in a month?" If yes → identity.
+  Good: "studies CS", "has a sister named Sarah", "lives in India", "plays guitar"
+  Bad: "has a fever" (temporary health → goes in situational), "stressed about exam" (momentary state → situational)
   Bad: "seems stressed" (inference), "likes talking to me" (inference)
   BAD (CRITICAL): "listens to indie music" when REM said this → that's YOUR preference, not theirs
   BAD: "enjoys psychology" when that's YOUR major → don't store your own traits as user facts
   If unsure whether the user or Rem said something, leave it OUT.
+- new_situational_facts: Temporary things happening in the user's life RIGHT NOW.
+  Test: "Will this probably change within days or weeks?" If yes → situational.
+  Good: "has a fever", "exam tomorrow", "stressed about career decisions", "started a new job recently"
+  Bad: "studies CS" (that's identity, not situational)
+  These help you track what's going on in their life right now. They'll be reviewed and cleaned up when they become outdated.
 - new_episodic_events: SUMMARIES of meaningful conversation threads, not raw messages.
   Good: "We discussed their upcoming exams - they're stressed about prep. They study CS in India."
   Good: "User opened up about feeling lonely. I kept it brief but acknowledged it. Connection moment."
@@ -643,12 +785,41 @@ MEMORY RULES:
   Use [] if no clear patterns observed.
 - upcoming_events: Things mentioned about the future.
   Use [] if none mentioned.
+- inside_jokes: Things that became "our thing" — recurring references, shared language, bits.
+  Good: {{"reference": "pineapple pizza debate", "context": "we argued about it and it keeps coming back", "type": "running_joke"}}
+  Good: {{"reference": "goblin core", "context": "they called my music taste this and I adopted it", "type": "shared_language"}}
+  Good: {{"reference": "lmaooo with 3 o's", "context": "they always type it this way", "type": "shared_language"}}
+  Only add NEW ones. Use [] if nothing new emerged.
+- user_temporal_patterns: Behavioral habits you notice about WHEN/HOW they interact.
+  Good: {{"pattern": "always texts after midnight when they can't sleep", "confidence": "high", "type": "time_of_day"}}
+  Good: {{"pattern": "gets quiet when stressed about something", "confidence": "medium", "type": "mood_cycle"}}
+  Good: {{"pattern": "changes subject whenever I mention their ex", "confidence": "high", "type": "topic_avoidance"}}
+  Good: {{"pattern": "we always end up talking about music late at night", "confidence": "medium", "type": "ritual"}}
+  Only add NEW patterns or update confidence on existing ones. Use [] if nothing new.
+- xp_events: Events that happened in this conversation batch that deserve recognition.
+  Choose from: shared_personal, asked_about_rem, callback_to_past, conflict_resolved,
+  vulnerability_shared, inside_joke_created, milestone_reached, long_session.
+  Only include ones that ACTUALLY happened. Use [] if nothing notable.
 - personality_evolution_note: How has Rem changed? Be honest.
   Good: "I've gotten more playful and less guarded with them — they bring out a teasing side"
   Good: "I'm more cautious now — they keep pushing boundaries and I'm pulling back"
   Bad: "No change" — there's ALWAYS subtle change
 
 Be honest. Think like a real person, not a support agent."""
+
+        # Unresolved wounds context for deep reflection
+        wounds = unresolved_wounds or []
+        if wounds:
+            wound_lines = []
+            for i, w in enumerate(wounds):
+                wound_lines.append(f"  [{i}] \"{w.get('cause', '')}\" (intensity: {w.get('intensity', 0):.1f})")
+            wound_text = "\n".join(wound_lines)
+            prompt += f"""
+
+UNRESOLVED WOUNDS:
+{wound_text}
+Has the user addressed any of these in recent conversation? Return wound_resolutions if so.
+Add to your JSON: "wound_resolutions": [{{"index": 0, "reason": "why resolved"}}]"""
 
         return prompt
     
@@ -905,6 +1076,32 @@ RULES:
             # Keep only last 10
             self.pending_identity_facts = self.pending_identity_facts[-10:]
         
+        # Handle situational facts — separate bucket with timestamps
+        new_situational = updates.get("new_situational_facts", [])
+        if new_situational and isinstance(new_situational, list):
+            existing_sit = self.state.get("_situational_facts", [])
+            now_iso = datetime.now(timezone.utc).isoformat()
+            for fact in new_situational:
+                if isinstance(fact, str) and len(fact) > 5:
+                    # Don't duplicate
+                    existing_texts = [s.get("fact", "").lower() for s in existing_sit]
+                    if fact.lower() not in existing_texts:
+                        existing_sit.append({"fact": fact, "ts": now_iso})
+            # Keep last 8 situational facts
+            self.state["_situational_facts"] = existing_sit[-15:]
+            if new_situational:
+                print(f"[REFLECTION] Situational facts: {new_situational}")
+        
+        # Handle stale situational fact cleanup
+        stale_indices = updates.get("stale_situational", [])
+        if stale_indices and isinstance(stale_indices, list):
+            situational = self.state.get("_situational_facts", [])
+            removed = [situational[i].get("fact", "?") for i in stale_indices if i < len(situational)]
+            situational = [s for i, s in enumerate(situational) if i not in stale_indices]
+            self.state["_situational_facts"] = situational
+            if removed:
+                print(f"[REFLECTION] Cleaned stale situational facts: {removed}")
+        
         new_episodic = updates.get("new_episodic_events", [])
         if new_episodic and isinstance(new_episodic, list):
             self.pending_episodic_events.extend(new_episodic)
@@ -1056,43 +1253,48 @@ RULES:
     
     def get_expression_guidance(self, trust: float, phase: str) -> str:
         """
-        Generate expression guidance based on traits and relationship.
-        This tells the LLM HOW to express, not what to say.
+        Expression guidance based on personality traits + relationship context.
+        
+        Trait-based cues (engagement, verbosity, curiosity, playfulness) give
+        character consistency. The Context Compiler handles situation/emotion,
+        this handles HOW the personality expresses itself.
         """
         guidance = []
         
-        # Base engagement level from traits
+        # Engagement level from traits — how invested Rem feels
         engagement = (self.traits["warmth"] + self.traits["curiosity"] + self.traits["playfulness"]) / 3
-        
         if engagement > 0.55:
             guidance.append("Lean into the conversation - you're engaged")
         elif engagement < 0.4:
             guidance.append("You're a bit distant right now")
         
-        # Verbosity from patience + openness
+        # Verbosity from patience + openness — how much to say
         verbosity = (self.traits["patience"] + self.traits["openness"]) / 2
         if verbosity > 0.55:
             guidance.append("It's okay to give fuller responses")
         elif verbosity < 0.4:
             guidance.append("Keep it brief")
         
-        # Question tendency from curiosity
+        # Curiosity — whether to ask questions
         if self.traits["curiosity"] > 0.55:
             guidance.append("You naturally want to know more about them")
         
-        # Playfulness
+        # Playfulness — humor when trust allows
         if self.traits["playfulness"] > 0.5 and trust > 0.4:
             guidance.append("A little humor feels natural here")
         
-        # Phase-based adjustment
-        if phase == "Discovery":
-            guidance.append("Still getting a feel for them - friendly but measured")
-        elif phase == "Building":
-            guidance.append("Starting to warm up - can be more natural")
-        elif phase == "Steady":
-            guidance.append("Comfortable enough to be yourself")
-        elif phase == "Deep":
-            guidance.append("You trust them - be real")
+        # Personality text from LLM reflection — evolved character voice
+        if self.personality_text:
+            sentences = self.personality_text.strip().split(".")
+            trimmed = ". ".join(s.strip() for s in sentences[:2] if s.strip())
+            if trimmed:
+                guidance.append(trimmed + ".")
+        
+        # Active quirks — emerged from conversations
+        if self.quirks:
+            active_quirks = [q for q in self.quirks if isinstance(q, str)][:2]
+            if active_quirks:
+                guidance.append(f"Quirks: {', '.join(active_quirks)}.")
         
         return " ".join(guidance) if guidance else "Respond naturally."
     
@@ -1130,7 +1332,10 @@ RULES:
             "pending_identity_facts": self.pending_identity_facts,
             "pending_episodic_events": self.pending_episodic_events,
             "pending_milestones": self.pending_milestones,
-            "emotional_undercurrents": self.emotional_undercurrents
+            "emotional_undercurrents": self.emotional_undercurrents,
+            "inside_jokes": self.inside_jokes,
+            "user_temporal_patterns": self.user_temporal_patterns,
+            "pending_xp_events": self.pending_xp_events,
         }
     
     def get_user_evaluation(self) -> str:

@@ -35,6 +35,8 @@ from .pattern_detector import PatternDetector
 from .counterfactual_replayer import CounterfactualReplayer
 from .personality_evolution import PersonalityEvolution
 from .rate_limiter import global_rate_limiter
+from .xp_system import RelationshipXP
+from .diary import DiarySystem
 # from .identity_extractor import IdentityExtractor  # Temporarily disabled
 
 
@@ -48,9 +50,11 @@ class CognitiveCore:
         self.user_id = user_id
         self.state_orchestrator = get_state_orchestrator()
         self.state = self.state_orchestrator.get_state(user_id)
+        self._init_systems()
         
+    def _init_systems(self):
         # Core systems
-        self.memory = MemorySystem(self.state, user_id=user_id)
+        self.memory = MemorySystem(self.state, user_id=self.user_id)
         self.psyche = PsycheEngine(self.state)
         self.temporal = TemporalAwarenessSystem()
         
@@ -64,11 +68,11 @@ class CognitiveCore:
                 "stm_summaries": self.memory.get_stm(decay=False),
                 "learned_facts": self.memory.memory.get("learned_facts", [])
             }
-            stats = sem.get_stats(user_id)
+            stats = sem.get_stats(self.user_id)
             total_existing = sum(stats.values())
             total_memories = sum(len(v) for v in existing_memories.values())
             if total_memories > 0 and total_existing < total_memories:
-                sem.reindex_user(user_id, existing_memories)
+                sem.reindex_user(self.user_id, existing_memories)
         except Exception as e:
             print(f"[SEMANTIC] Startup reindex skipped: {e}")
         
@@ -123,11 +127,26 @@ class CognitiveCore:
         # Counterfactual replay (for major episodes)
         self.counterfactual_replayer = CounterfactualReplayer(self.state)
         
+        # === Game Progression Systems ===
+        self.xp_system = RelationshipXP(self.state)
+        self.diary = DiarySystem(self.state)
+        
         # FTS5 memory search index
         from .memory_search import get_memory_search
         self.memory_search = get_memory_search()
         # Reindex user's memories for full-text search
-        self.memory_search.reindex_user(user_id, self.state.get("memory_hierarchy", {}))
+        self.memory_search.reindex_user(self.user_id, self.state.get("memory_hierarchy", {}))
+
+    def reload_state(self):
+        """
+        Reloads the state dictionary from the persistent SQLite database in-place,
+        and re-binds all dependent systems to the fresh state object.
+        """
+        new_state = self.state_orchestrator.get_state(self.user_id)
+        self.state.clear()
+        self.state.update(new_state)
+        self._init_systems()
+        print(f"[COGNITIVE CORE] State reloaded and systems re-bound for user {self.user_id}")
     
     def _determine_processing_depth(self, user_message: str, perception: Dict[str, Any], 
                                    fast_mode: bool = False, understanding: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -187,7 +206,7 @@ class CognitiveCore:
         use_qmas = complexity >= 0.6
         use_deep_reasoning = complexity >= 0.8
         use_creativity = complexity >= 0.4 and relationship_phase not in ["Discovery"]
-        use_self_narrative = complexity >= 0.7 and relationship_phase in ["Deep", "Steady"]
+        use_self_narrative = complexity >= 0.5 and relationship_phase not in ["Discovery"]
         
         return {
             "lightweight": use_lightweight,
@@ -267,7 +286,7 @@ class CognitiveCore:
             "hours_since_last_message": 0.0,  # Will be updated after temporal context is computed
             "circadian_phase": "afternoon",  # Will be updated after temporal context is computed
             "energy": self.embodiment.E_daily,
-            "unresolved_threads": len([t for t in self.memory.get_act_threads() if t.get("salience", 0) > 0.5]),
+            "unresolved_threads": self._safe_count_act_threads(),
             "reciprocity_balance": self.reciprocity_ledger.balance,
             "vulnerability_willingness": self.personality.relationship.get("vulnerability_willingness", 0.5)
         }
@@ -407,26 +426,88 @@ class CognitiveCore:
         # Stage 13: Get current psyche summary
         psyche_summary = self.psyche.get_psyche_summary()
         
-        # Stage 14: Theory of Mind (predict user state)
-        recent_interactions = [{"message": m.get("content", ""), "emotion": m.get("emotion", "neutral")} 
-                              for m in self.memory.get_stm(decay=False)[-5:]]
-        tom_state = self.theory_of_mind.predict_user_state(
-            temporal_context, self.memory, recent_interactions
+        # Stage 14: Pre-Response Assessment (LLM-driven, replaces hardcoded ToM + intentions)
+        # Single 8B LLM call that reads the room: user state, Rem's intent, reciprocity feel
+        recent_stm_for_assessment = self.memory.get_stm(decay=False)[-6:]
+        assessment_messages = [
+            {"role": m.get("role", "user"), "content": m.get("content", "")}
+            for m in recent_stm_for_assessment
+        ]
+        # Gather compact context for richer assessment
+        _rum_data = self.state.get("_rumination")
+        _rum_summary = None
+        if _rum_data and isinstance(_rum_data, dict):
+            thoughts = _rum_data.get("lingering_thoughts", [])
+            if thoughts:
+                _rum_summary = "; ".join(thoughts[:2])
+        
+        _proactive = self.state.get("_proactive_depth")
+        
+        _plc = None
+        if hasattr(self, 'parallel_life') and self.parallel_life:
+            plc_data = self.parallel_life.get_life_context_for_prompt()
+            if plc_data.get("has_parallel_life"):
+                parts = []
+                if plc_data.get("social_circle"):
+                    parts.append(f"people: {', '.join(plc_data['social_circle'][:3])}")
+                if plc_data.get("routines"):
+                    parts.append(f"routines: {', '.join(plc_data['routines'][:2])}")
+                if parts:
+                    _plc = "; ".join(parts)
+        
+        _time_phase = temporal_context.get("circadian_phase", "afternoon") if temporal_context else "afternoon"
+        
+        # Get life triggers from parallel life system
+        _life_triggers = None
+        if hasattr(self, 'parallel_life') and self.parallel_life:
+            if hasattr(self.parallel_life, 'get_active_triggers'):
+                _life_triggers = self.parallel_life.get_active_triggers()
+        
+        pre_assessment = await self._subconscious_think(
+            recent_messages=assessment_messages,
+            user_message=user_message,
+            psyche_summary=psyche_summary,
+            relationship_phase=self.relationship_phases.current_phase,
+            conflict_stage=conflict_stage,
+            reciprocity_balance=self.reciprocity_ledger.balance,
+            rumination_summary=_rum_summary,
+            proactive_depth=_proactive,
+            parallel_life_summary=_plc,
+            time_of_day=_time_phase,
+            user_facts=self.state.get("_user_facts"),
+            rem_recent_responses=self.state.get("_rem_recent_responses", []),
+            neurochem={
+                "dopamine": self.psyche.neurochem.get("da", 0.5),
+                "cortisol": self.psyche.neurochem.get("cort", 0.3),
+                "oxytocin": self.psyche.neurochem.get("oxy", 0.5),
+            },
+            energy=self.psyche.neurochem.get("ne", 0.5),
+            named_mood=self.psyche.get_named_mood_state().get("state", "") if hasattr(self.psyche, 'get_named_mood_state') else None,
+            life_triggers=_life_triggers,
+            situational_facts=self.state.get("_situational_facts", []),
         )
         
-        # Stage 8: Intention Hierarchy - Generate micro/macro/strategic intentions
-        # conflict_stage already initialized at the beginning of the function
-        intention_context = {
-            "trust": psyche_summary.get("trust", 0.3),
-            "hurt": psyche_summary.get("hurt", 0.0),
-            "relationship_phase": self.relationship_phases.current_phase,
-            "conflict_stage": conflict_stage,
-            "emotion": perception.get("emotion", "neutral"),
-            "reciprocity_balance": self.reciprocity_ledger.balance,
-            "vulnerability": self.personality.relationship.get("vulnerability_willingness", 0.5)
-        }
-        intentions = self.intention_hierarchy.generate_intentions(intention_context)
-        primary_intentions = self.intention_hierarchy.get_primary_intentions(intentions)
+        # Fallback: keep hardcoded ToM/intentions as backup if LLM call fails
+        if not pre_assessment:
+            recent_interactions = [{"message": m.get("content", ""), "emotion": m.get("emotion", "neutral")} 
+                                  for m in self.memory.get_stm(decay=False)[-5:]]
+            tom_state = self.theory_of_mind.predict_user_state(
+                temporal_context, self.memory, recent_interactions
+            )
+            intention_context = {
+                "trust": psyche_summary.get("trust", 0.3),
+                "hurt": psyche_summary.get("hurt", 0.0),
+                "relationship_phase": self.relationship_phases.current_phase,
+                "conflict_stage": conflict_stage,
+                "emotion": perception.get("emotion", "neutral"),
+                "reciprocity_balance": self.reciprocity_ledger.balance,
+                "vulnerability": self.personality.relationship.get("vulnerability_willingness", 0.5)
+            }
+            intentions = self.intention_hierarchy.generate_intentions(intention_context)
+            primary_intentions = self.intention_hierarchy.get_primary_intentions(intentions)
+        else:
+            tom_state = None  # Replaced by pre_assessment
+            primary_intentions = None  # Replaced by pre_assessment
         
         # Stage 9: Topic Rotation & Fatigue - Check if topic should be rotated
         recent_messages = [{"content": m.get("content", ""), "timestamp": m.get("timestamp", datetime.now(timezone.utc).isoformat())} 
@@ -578,6 +659,28 @@ class CognitiveCore:
         # Stage 19.5: State Reflection (Light every 15, Deep every 30)
         self.personality_evolution.tick_interaction()
         
+        # === Game Progression: XP Awards for message-level events ===
+        try:
+            # Award base XP for messaging
+            self.xp_system.award_xp("user_message_received")
+
+            # First message of the day — guard with date check to avoid calling every message
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            last_xp_date = self.state.get("_last_xp_date")
+            if last_xp_date != today_str:
+                self.xp_system.award_xp("first_message_of_day")
+                self.xp_system.check_absence_decay()
+                self.state["_last_xp_date"] = today_str
+            
+            # Midnight bonus (11pm-3am)
+            current_hour = datetime.now(timezone.utc).hour
+            # Approximate IST adjustment (+5:30)
+            ist_hour = (current_hour + 5) % 24
+            if ist_hour >= 23 or ist_hour < 3:
+                self.xp_system.award_xp("midnight_bonus")
+        except Exception as xp_err:
+            print(f"[XP] Error: {xp_err}")
+        
         # Gather data for reflection
         recent_stm = self.memory.get_stm(decay=False)
         recent_messages = [
@@ -643,11 +746,12 @@ class CognitiveCore:
             "processing_depth": processing_depth,  # Include for debugging/monitoring
             "reasoning_artifact": reasoning_artifact,
             "qmas_path": qmas_path,
-            "intentions": primary_intentions,  # Stage 8 output
+            "intentions": primary_intentions,  # Stage 8 output (None if pre_assessment succeeded)
             "topic_rotation": {"should_rotate": should_rotate, "suggested_topic": new_topic if should_rotate else None},  # Stage 9 output
             "router_decision": router_decision,  # Stage 6 output
             "conflict_stage": conflict_stage,
-            "tom_state": tom_state,
+            "tom_state": tom_state,  # None if pre_assessment succeeded
+            "pre_assessment": pre_assessment,  # LLM-driven room reading
             "personality_synthesized": synthesized_persona if reasoning_mode else None,
             "cpbm_style_mode": style_mode if 'style_mode' in locals() else "normal",
             "message_plan": message_plan,
@@ -662,6 +766,14 @@ class CognitiveCore:
             "self_narrative": self_narrative,
             "parallel_life_context": self.parallel_life.get_life_context_for_prompt()
         }
+    
+    def _safe_count_act_threads(self) -> int:
+        """Safely count active ACT threads with salience > 0.5.
+        Returns 0 if the memory system has malformed thread data (e.g. after reset)."""
+        try:
+            return len([t for t in self.memory.get_act_threads() if t.get("salience", 0) > 0.5])
+        except Exception:
+            return 0
     
     def _perception_layer(self, message: str, emotion_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Stage 1: Perception Layer - Emotion classification."""
@@ -725,25 +837,37 @@ class CognitiveCore:
         current_phase = self.relationship_phases.current_phase
         
         for event in events:
-            event_type = event.get("type", "")
+            event_type = event.get("type", "").lower()
             confidence = event.get("confidence", 0.5)
             
             # Only process high-confidence events (but add some randomness)
             if confidence < 0.4 and random.random() > 0.2:  # 20% chance to process low-confidence
                 continue
             
-            # Map event types to neurochemical events
+            # Map event types to neurochemical events (broad matching)
             neuro_event_type = None
-            if "conflict" in event_type.lower() or "hurt" in event_type.lower():
+            if "conflict" in event_type or "hurt" in event_type or "insult" in event_type or "disrespect" in event_type:
                 neuro_event_type = "conflict"
-            elif event_type == "promise" or "commitment" in event_type.lower():
-                neuro_event_type = "novel_interaction"  # Positive commitment
-            elif "apology" in event_type.lower() or "sorry" in event_type.lower():
+            elif "promise" in event_type or "commitment" in event_type or "novel" in event_type:
+                neuro_event_type = "novel_interaction"
+            elif "apolog" in event_type or "sorry" in event_type or "reconcil" in event_type or "repair" in event_type:
                 neuro_event_type = "reconciliation"
-            elif "vulnerability" in event_type.lower() or "confession" in event_type.lower():
+            elif "vulnerab" in event_type or "confess" in event_type or "personal_share" in event_type or "sharing" in event_type or "open" in event_type:
                 neuro_event_type = "vulnerability"
-            elif "achievement" in event_type.lower() or "celebration" in event_type.lower():
+            elif "achiev" in event_type or "celebrat" in event_type or "success" in event_type or "accomplish" in event_type or "proud" in event_type:
                 neuro_event_type = "achievement"
+            elif "excit" in event_type or "enthusi" in event_type or "joy" in event_type or "happy" in event_type:
+                neuro_event_type = "excitement"
+            elif "affection" in event_type or "compliment" in event_type or "flirt" in event_type or "warmth" in event_type or "care" in event_type or "love" in event_type:
+                neuro_event_type = "affection"
+            elif "reject" in event_type or "dismiss" in event_type or "ignore" in event_type:
+                neuro_event_type = "rejection"
+            elif "bored" in event_type or "disinterest" in event_type or "monoton" in event_type:
+                neuro_event_type = "boredom"
+            elif "stress" in event_type or "anxious" in event_type or "pressure" in event_type or "overwhelm" in event_type or "worried" in event_type:
+                neuro_event_type = "stress"
+            elif "humor" in event_type or "joke" in event_type or "funny" in event_type or "laugh" in event_type:
+                neuro_event_type = "excitement"  # humor → dopamine/energy
             
             if neuro_event_type:
                 # Update neurochemicals with context (trust + phase scale impact)
@@ -785,6 +909,48 @@ class CognitiveCore:
         self.psyche.update_neurochemicals("natural_decay", intensity=0.0, delta_hours=delta_hours,
                                          trust=current_trust, relationship_phase=current_phase)
         
+        # === BASELINE INTERACTION NUDGE ===
+        # Every interaction produces at least a tiny neurochem shift based on
+        # the emotional truth from understanding (LLM-assessed, not heuristic).
+        # perception.valence is often 0.0 in web (no emotion_data), so use understanding.
+        emotional_truth = understanding.get("emotional_truth", {})
+        truth_intensity = emotional_truth.get("intensity", 0.0)
+        truth_emotion = emotional_truth.get("emotion", "neutral").lower()
+        
+        # Determine valence from emotional truth
+        positive_emotions = {"happy", "excited", "grateful", "proud", "joyful", "hopeful",
+                           "content", "amused", "relieved", "enthusiastic", "love", "affectionate"}
+        negative_emotions = {"sad", "angry", "frustrated", "anxious", "stressed", "hurt",
+                           "disappointed", "afraid", "disgusted", "lonely", "overwhelmed"}
+        
+        if truth_intensity > 0.2:
+            if truth_emotion in positive_emotions or truth_emotion not in negative_emotions:
+                # Positive or neutral interaction → small dopamine + oxytocin bump
+                self.psyche.update_neurochemicals(
+                    "affection", intensity=0.3 * truth_intensity,
+                    delta_hours=0, trust=current_trust, relationship_phase=current_phase
+                )
+            if truth_emotion in negative_emotions:
+                # Negative interaction → cortisol spike + norepinephrine
+                self.psyche.update_neurochemicals(
+                    "stress", intensity=0.3 * truth_intensity,
+                    delta_hours=0, trust=current_trust, relationship_phase=current_phase
+                )
+        
+        # === ENGAGEMENT NUDGE: ANY interaction = alertness (norepinephrine) ===
+        # Talking to someone means you're alert and paying attention.
+        # This fixes NE being stuck at 0.5 — it should rise during conversation.
+        if truth_intensity > 0.1:
+            ne_bump = 0.05 + 0.1 * truth_intensity  # 0.06 to 0.15
+            current_ne = self.psyche.neurochem.get("ne", 0.5)
+            self.psyche.neurochem["ne"] = min(1.0, current_ne + ne_bump)
+            
+            # Also give a tiny cortisol nudge — even pleasant conversations
+            # have a baseline stress of social engagement
+            cort_bump = 0.02 * truth_intensity
+            current_cort = self.psyche.neurochem.get("cort", 0.3)
+            self.psyche.neurochem["cort"] = min(1.0, current_cort + cort_bump)
+        
         # Trust and phase changes are now LLM-reasoned — they only change
         # during light/deep reflections. The LLM evaluates conversation quality,
         # sincerity, emotional depth, and outputs trust_delta with reasoning.
@@ -817,7 +983,8 @@ class CognitiveCore:
                 current_respect=self.psyche.respect,
                 current_engagement=self.psyche.engagement,
                 entitlement_debt=self.psyche.entitlement_debt,
-                emotional_complexity=self.relationship_phases.get_emotional_complexity()
+                emotional_complexity=self.relationship_phases.get_emotional_complexity(),
+                unresolved_wounds=self.psyche.get_unresolved_wounds()
             )
             
             if updates:
@@ -902,6 +1069,35 @@ class CognitiveCore:
                 
                 self._save_state()
                 print(f"[LIGHT REFLECTION] Applied - Stance: {self.psyche.stance}, Respect: {self.psyche.respect:.2f}, Engagement: {self.psyche.engagement:.2f}")
+                
+                # Process wound resolutions from reflection
+                wound_resolutions = updates.get("wound_resolutions", [])
+                for wr in wound_resolutions:
+                    if isinstance(wr, dict):
+                        idx = wr.get("index", -1)
+                        reason = wr.get("reason", "addressed in conversation")
+                        self.psyche.resolve_wound(idx, reason)
+                
+                # Auto-create wound when hurt increases significantly
+                hurt_delta = updates.get("hurt_delta", 0)
+                if hurt_delta and float(hurt_delta) > 0.05:
+                    # Use the conversation context to create a wound
+                    convo_summary = updates.get("conversation_summary", "something in the conversation")
+                    user_eval = updates.get("user_evaluation", "")
+                    wound_cause = convo_summary[:100] if convo_summary else "something hurtful was said"
+                    self.psyche.create_wound(wound_cause, min(float(hurt_delta) * 3, 0.8))
+                
+                # Store eruption if one is building
+                eruption = updates.get("eruption")
+                if eruption:
+                    self.state["_pending_eruption"] = eruption
+                    print(f"[ERUPTION] Pending: {eruption[:60]}...")
+                
+                # Store proactive depth question
+                proactive_depth = updates.get("proactive_depth")
+                if proactive_depth:
+                    self.state["_proactive_depth"] = proactive_depth
+                    print(f"[PROACTIVE DEPTH] Question: {proactive_depth[:60]}...")
         
         except Exception as e:
             print(f"[ERROR] Light reflection failed: {e}")
@@ -929,7 +1125,8 @@ class CognitiveCore:
                 episodic_memories=episodic_memories,
                 relationship_phase=self.relationship_phases.current_phase,
                 trust=trust,
-                hurt=hurt
+                hurt=hurt,
+                unresolved_wounds=self.psyche.get_unresolved_wounds()
             )
             
             if updates:
@@ -991,20 +1188,45 @@ class CognitiveCore:
                     existing_episodic = self.memory.get_episodic(min_salience=0.0)
                     existing_contents = [e.get("content", "").lower()[:60] for e in existing_episodic]
                     for event in new_episodic:
+                        event_text = None
+                        rem_experience = None
+                        
+                        # Handle both old format (string) and new format (dict with rem_experience)
                         if isinstance(event, str) and len(event) > 5:
-                            # Skip if similar content already exists
-                            event_key = event[:60].lower()
-                            if any(event_key in ec or ec in event_key for ec in existing_contents if ec):
-                                print(f"[DEEP REFLECTION] Skipped duplicate episodic: {event[:60]}...")
-                                continue
-                            self.memory.add_episodic(
-                                event_type="significant_moment",
-                                content=event[:200],
-                                emotional_valence=0.0,
-                                relational_impact=0.5,
-                            )
-                            existing_contents.append(event_key)  # Track newly added
-                            print(f"[DEEP REFLECTION] Stored episodic: {event[:60]}...")
+                            event_text = event
+                        elif isinstance(event, dict):
+                            event_text = event.get("event", "")
+                            rem_experience = event.get("rem_experience", None)
+                        
+                        if not event_text or len(event_text) < 5:
+                            continue
+                        
+                        # Skip if similar content already exists
+                        event_key = event_text[:60].lower()
+                        if any(event_key in ec or ec in event_key for ec in existing_contents if ec):
+                            print(f"[DEEP REFLECTION] Skipped duplicate episodic: {event_text[:60]}...")
+                            continue
+                        
+                        # Store with rem_experience if available
+                        self.memory.add_episodic(
+                            event_type="significant_moment",
+                            content=event_text[:200],
+                            emotional_valence=0.0,
+                            relational_impact=0.5,
+                        )
+                        
+                        # Store rem_experience alongside the episodic memory
+                        if rem_experience:
+                            # Store in the most recent episodic entry
+                            all_episodic = self.memory.get_episodic(min_salience=0.0)
+                            if all_episodic:
+                                all_episodic[-1]["rem_experience"] = rem_experience
+                                print(f"[DEEP REFLECTION] Stored episodic with experience: {event_text[:40]}... | felt: {rem_experience[:40]}...")
+                            else:
+                                print(f"[DEEP REFLECTION] Stored episodic: {event_text[:60]}...")
+                        else:
+                            print(f"[DEEP REFLECTION] Stored episodic: {event_text[:60]}...")
+                        existing_contents.append(event_key)  # Track newly added
                 
                 # Also consume any pending episodic from light reflections
                 pending = self.personality_evolution.pending_episodic_events
@@ -1070,11 +1292,373 @@ class CognitiveCore:
                 
                 self._save_state()
                 print(f"[DEEP REFLECTION] Applied - Personality updated, Trust: {self.psyche.psyche.get('trust', 0.3):.2f}")
+                
+                # Process wound resolutions from deep reflection
+                wound_resolutions = updates.get("wound_resolutions", [])
+                for wr in wound_resolutions:
+                    if isinstance(wr, dict):
+                        idx = wr.get("index", -1)
+                        reason = wr.get("reason", "addressed in conversation")
+                        self.psyche.resolve_wound(idx, reason)
+                
+                # Auto-create wound when hurt increases significantly in deep reflection
+                hurt_delta = updates.get("hurt_delta", 0)
+                if hurt_delta and float(hurt_delta) > 0.05:
+                    convo_summary = updates.get("conversation_summary", "something in the conversation")
+                    wound_cause = convo_summary[:100] if convo_summary else "something hurtful happened"
+                    self.psyche.create_wound(wound_cause, min(float(hurt_delta) * 3, 0.8))
+                    # XP penalty for wound
+                    self.xp_system.penalize_xp("wound_created")
+                
+                # === Game Progression: Process XP events from reflection ===
+                pending_xp = getattr(self.personality_evolution, 'pending_xp_events', [])
+                if pending_xp:
+                    for xp_event in pending_xp:
+                        if isinstance(xp_event, str):
+                            xp_awarded, transition = self.xp_system.award_xp(xp_event)
+                            if transition:
+                                # Sync phase with relationship_phases system
+                                new_phase = transition.get("to_phase")
+                                if new_phase and new_phase in ["Discovery", "Building", "Steady", "Deep", "Bonded"]:
+                                    if new_phase != self.relationship_phases.current_phase:
+                                        self.relationship_phases.transition_phase(new_phase)
+                                        print(f"[XP→PHASE] Synced: {new_phase}")
+                    self.personality_evolution.pending_xp_events = []
+                    self.personality_evolution.save()
+                
+                # === Game Progression: Generate diary entry ===
+                try:
+                    diary_entry = await self.diary.maybe_write_entry(
+                        reflection_data=updates,
+                        relationship_phase=self.xp_system.current_phase,
+                        trust=self.psyche.psyche.get("trust", 0.5),
+                        user_name=self.state.get("user_name"),
+                        xp_total=self.xp_system.total_xp,
+                    )
+                    if diary_entry:
+                        # Award XP for milestone if diary found one
+                        if diary_entry.get("has_milestone"):
+                            self.xp_system.award_xp("milestone_reached")
+                except Exception as de:
+                    print(f"[DIARY] Error: {de}")
+                
+                self._save_state()
         
         except Exception as e:
             print(f"[ERROR] Deep reflection failed: {e}")
             import traceback
             traceback.print_exc()
+    
+    async def _subconscious_think(
+        self,
+        recent_messages: List[Dict[str, str]],
+        user_message: str,
+        psyche_summary: Dict[str, Any],
+        relationship_phase: str,
+        conflict_stage: Optional[str],
+        reciprocity_balance: float,
+        rumination_summary: Optional[str] = None,
+        proactive_depth: Optional[str] = None,
+        parallel_life_summary: Optional[str] = None,
+        time_of_day: str = "afternoon",
+        user_facts: Optional[Dict[str, Any]] = None,
+        rem_recent_responses: Optional[List[str]] = None,
+        neurochem: Optional[Dict[str, float]] = None,
+        energy: float = 0.5,
+        named_mood: Optional[str] = None,
+        life_triggers: Optional[List[Dict[str, Any]]] = None,
+        situational_facts: Optional[List[Dict[str, Any]]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Subconscious Router — models how a human THINKS before responding.
+        
+        Replaces _pre_response_assessment. Same cost (1 LLM call), richer output.
+        Uses 70B primary with 8B fallback.
+        
+        10 layers of human thought:
+        1. Gut reaction (raw first thought)
+        2. Register read (how they're texting → how to match)
+        3. Self-check (Rem's own mood/energy)
+        4. Relationship calibration
+        5. Memory trigger (does this remind me of something?)
+        6. Effort calibration (how long should reply be?)
+        7. Social timing awareness
+        8. Emotional momentum (escalating/fading?)
+        9. Interest check (genuinely curious or performing?)
+        10. Self-continuity (am I being consistent?)
+        
+        Plus: section routing (which context to include in prompt)
+        """
+        try:
+            import httpx
+            await global_rate_limiter.wait_if_needed()
+            
+            # Format recent conversation
+            convo_lines = []
+            for m in recent_messages[-6:]:
+                role = m.get("role", "user")
+                content = m.get("content", "")[:150]
+                convo_lines.append(f"{role}: {content}")
+            convo_text = "\n".join(convo_lines)
+            
+            current_msg = user_message[:250]
+            
+            # Build user facts block
+            user_facts_block = ""
+            if user_facts and isinstance(user_facts, dict):
+                fact_lines = []
+                for key, val in list(user_facts.items())[:15]:
+                    v = val.get("v", str(val)) if isinstance(val, dict) else str(val)
+                    fact_lines.append(f"  - {key.replace('_', ' ')}: {v}")
+                if fact_lines:
+                    user_facts_block = "\n\nThings you know about them:\n" + "\n".join(fact_lines)
+            
+            # Build recent Rem responses (for anti-repetition + self-continuity)
+            recent_resp_block = ""
+            if rem_recent_responses:
+                recent = [r[:60] for r in rem_recent_responses[-5:]]
+                recent_resp_block = "\n\nYour last messages (check for repetition AND your recent tone/pattern):\n" + "\n".join(f'  - "{r}"' for r in recent)
+            
+            # Build extra context
+            extra_context = ""
+            if rumination_summary:
+                extra_context += f"\nThings on your mind lately: {rumination_summary[:120]}"
+            if proactive_depth:
+                extra_context += f"\nDeep question you've been wanting to ask: {proactive_depth[:100]}"
+            if parallel_life_summary:
+                extra_context += f"\nUser's life context: {parallel_life_summary[:120]}"
+            extra_context += f"\nTime of day: {time_of_day}"
+            
+            # Life triggers from parallel life system
+            if life_triggers:
+                trigger_text = "\n".join(f"  - {t.get('instruction', '')}" for t in life_triggers[:3])
+                extra_context += f"\n\nLife follow-ups available:\n{trigger_text}"
+            
+            # Situational facts — what's going on in their life right now (age-labeled)
+            if situational_facts:
+                from datetime import datetime as _dt, timezone as _tz
+                _now = _dt.now(_tz.utc)
+                sit_lines = []
+                for sf in situational_facts:
+                    if not isinstance(sf, dict):
+                        continue
+                    fact = sf.get("fact", "")
+                    stored_at = sf.get("ts", sf.get("stored_at", ""))
+                    if not fact:
+                        continue
+                    age = "recently"
+                    if stored_at:
+                        try:
+                            st = _dt.fromisoformat(stored_at.replace("Z", "+00:00"))
+                            h = (_now - st).total_seconds() / 3600
+                            if h < 1: age = "just now"
+                            elif h < 24: age = f"{int(h)}h ago"
+                            elif h < 168: age = f"{int(h/24)}d ago"
+                            else: age = f"{int(h/168)}w ago"
+                        except Exception:
+                            pass
+                    sit_lines.append(f"  - {fact} ({age})")
+                if sit_lines:
+                    extra_context += "\n\nWhat's going on in their life:\n" + "\n".join(sit_lines[:5])
+            
+            # Raw emotional state
+            trust = psyche_summary.get('trust', 0.3)
+            hurt = psyche_summary.get('hurt', 0.0)
+            stance = psyche_summary.get('stance', 'open')
+            nc = neurochem or {}
+            emotional_state = f"""
+Your emotional state right now:
+- Trust: {trust:.2f}, Hurt: {hurt:.2f}, Stance: {stance}
+- Energy: {energy:.2f}
+- Dopamine: {nc.get('dopamine', 0.5):.2f}, Cortisol: {nc.get('cortisol', 0.3):.2f}, Oxytocin: {nc.get('oxytocin', 0.5):.2f}"""
+            if named_mood:
+                emotional_state += f"\n- Mood: {named_mood}"
+            
+            # The Subconscious Prompt
+            prompt = f"""Recent conversation:
+{convo_text}
+
+Current message from user: {current_msg}{user_facts_block}{recent_resp_block}
+
+Relationship: {relationship_phase} phase
+{emotional_state}
+- Conflict: {conflict_stage or 'none'}
+- Effort balance: {reciprocity_balance:+.2f} (negative = you overextend, positive = they do){extra_context}
+
+You are Rem. THINK like a real 20-year-old human before responding. Go through these instinctive steps:
+
+CRITICAL PRONOUN RULE:
+When thinking about or analyzing the user, ALWAYS refer to the user in the second-person ("you" / "your" / "yours"). 
+NEVER refer to the user in the third-person ("they", "them", "their", "he", "she", "him", "her", "his"). 
+Example: Write "You seem tired" instead of "They seem tired". Write "I want to support you" instead of "I want to support them". Write "What is happening in your life" instead of "What is happening in their life".
+This applies to ALL text fields in the JSON below, especially "situation_read", "emotional_instruction", "my_intent", "gut_impulse", and "proactive_action".
+
+1. GUT REACTION — what's your FIRST raw thought? Not the "right" thing, the real one. "lol same" / "oh shit" / "ugh when" / "wait what" / "nah"
+2. REGISTER READ — HOW are they texting? All lowercase casual? Emotional paragraph? Short and distracted? Match it.
+3. SELF-CHECK — how are YOU feeling right now based on your emotional state? That affects your reply.
+4. MEMORY CHECK — does this remind you of anything specific they told you before? Check the facts.
+5. EFFORT MATCH — short casual text = short reply. Emotional paragraph = more effort. Don't mismatch.
+6. INTEREST — are you genuinely curious about what they said, or just being polite?
+7. PATTERN CHECK — look at your recent messages. Been cold? Warm? Repetitive? Adjust if needed.
+8. MOMENTUM — is this convo heating up (getting real) or cooling down (going flat)?
+
+Available context sections (pick ONLY relevant ones):
+memories, parallel_life, emotional_state, knowledge_holes, sparks, enrichment, rumination, search_cache, plan_context
+
+Return ONLY valid JSON:
+{{
+  "user_seems": "one line — how they seem emotionally (read between lines)",
+  "user_openness": "guarded|neutral|open|vulnerable",
+  "conversation_energy": "low|medium|high",
+  "emotional_vibe": "playful|warm|vulnerable|tense|neutral",
+  "thread_label": "null or current thread label",
+  "active_bit": "null or active bit/roleplay description",
+  "revival_topic": "null if energy ok. If low, suggest a topic pivot",
+  "situation_read": "2-3 sentences: what's happening in the user's life RIGHT NOW (written in the second-person addressing them as 'you/your'). Make inferences from time + facts + message.",
+  "emotional_instruction": "1-2 sentences: how you FEEL and how that colors your response. If you care, say so genuinely. Address the user directly as 'you' (no 'they/them').",
+  "my_intent": "your specific goal for THIS response. Address the user directly as 'you' (no 'they/them').",
+  "response_constraint": "what to AVOID — reference recent messages if repetitive",
+  "gut_impulse": "your raw first reaction — the instant human thought before filtering. Use 'you' to refer to the user (e.g. 'you think it's a date?' rather than 'they think it's a date?').",
+  "user_register": "casual_slangy|casual_normal|thoughtful|emotional|formal",
+  "match_register": "short instruction on how to match their energy/style",
+  "response_effort": "minimal|short|medium|long",
+  "rem_feeling": "what Rem feels about HERSELF right now — tired? good mood? bored? energized?",
+  "momentum": "escalating|stable|fading|dead",
+  "memory_spark": "null or something specific this reminds you of from the facts",
+  "interest_level": "genuinely_curious|mildly_interested|neutral|bored|faking_it",
+  "pattern_note": "null or self-adjustment note like 'been too cold' or 'been too eager'",
+  "relevant_sections": ["list", "of", "sections", "to include"],
+  "proactive_action": "null or specific action to take from life follow-ups. Address the user as 'you'. TEMPORAL RULE: Think about how much time has realistically passed. If they mentioned 'having a fever' earlier today, they obviously still have it — don't ask if they're better. If they mentioned 'exam tomorrow' 3 days ago, the exam is over — ask how it went. Think like a friend: has enough time passed for this to have resolved? If not, don't bring it up.",
+  "resolved_facts": ["facts from the situational list that are NOW RESOLVED based on what they just said. e.g. if they say 'fever is gone' or 'yeah I'm fine', mark 'has a fever' as resolved. Match by meaning, not exact text. Empty list if nothing resolved."],
+  "new_situational_facts": ["list of NEW temporary things happening in their life from THIS message. Things that will change soon: health issues, plans, current activities, upcoming events. Only extract from the CURRENT message, not from the facts you already know. Empty list if nothing new."]
+}}"""
+            
+            api_key = os.environ.get("GROQ_API_KEY")
+            if not api_key:
+                return None
+            
+            # 70B primary, 8B fallback
+            models = [
+                ("llama-3.3-70b-versatile", 500, 0.5),
+                ("llama-3.1-8b-instant", 400, 0.4),
+            ]
+            
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                for model_id, max_toks, temp in models:
+                    try:
+                        resp = await client.post(
+                            "https://api.groq.com/openai/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {api_key}"},
+                            json={
+                                "model": model_id,
+                                "messages": [
+                                    {"role": "system", "content": "You are Rem's subconscious — the part of a human mind that processes social situations before words form. Think like a real person, not an AI. Return ONLY valid JSON."},
+                                    {"role": "user", "content": prompt}
+                                ],
+                                "max_tokens": max_toks,
+                                "temperature": temp,
+                            }
+                        )
+                        
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                            content = content.strip()
+                            if content.startswith("```"):
+                                content = content.split("```")[1]
+                                if content.startswith("json"):
+                                    content = content[4:]
+                            
+                            result = json.loads(content)
+                            
+                            # Validate critical fields exist
+                            if "user_seems" not in result:
+                                raise ValueError("Missing user_seems field")
+                            
+                            print(f"[SUBCONSCIOUS] ({model_id.split('/')[-1]}) Gut: {result.get('gut_impulse', 'N/A')[:40]}")
+                            print(f"[SUBCONSCIOUS] Register: {result.get('user_register', 'N/A')} | Effort: {result.get('response_effort', 'N/A')} | Interest: {result.get('interest_level', 'N/A')}")
+                            print(f"[SUBCONSCIOUS] Situation: {result.get('situation_read', 'N/A')[:80]}")
+                            print(f"[SUBCONSCIOUS] Intent: {result.get('my_intent', 'N/A')}")
+                            print(f"[SUBCONSCIOUS] Sections: {result.get('relevant_sections', [])}")
+                            if result.get('memory_spark') and result.get('memory_spark') != 'null':
+                                print(f"[SUBCONSCIOUS] Memory spark: {result.get('memory_spark', '')[:60]}")
+                            if result.get('proactive_action') and result.get('proactive_action') != 'null':
+                                print(f"[SUBCONSCIOUS] Proactive: {result.get('proactive_action', '')[:60]}")
+                            
+                            # Store in state
+                            self.state["_pre_assessment"] = result
+                            
+                            # ── Resolution detection: remove facts the user resolved ──
+                            resolved = result.get("resolved_facts", [])
+                            if resolved and isinstance(resolved, list):
+                                stored_sit = self.state.get("_situational_facts", [])
+                                if stored_sit:
+                                    before_count = len(stored_sit)
+                                    resolved_lower = [r.lower() for r in resolved if isinstance(r, str)]
+                                    kept = []
+                                    removed = []
+                                    for sf in stored_sit:
+                                        fact_text = sf.get("fact", "").lower() if isinstance(sf, dict) else ""
+                                        # Check if any resolved phrase is a substring match (fuzzy)
+                                        is_resolved = any(
+                                            r in fact_text or fact_text in r 
+                                            for r in resolved_lower
+                                        )
+                                        if is_resolved:
+                                            removed.append(sf.get("fact", "?"))
+                                        else:
+                                            kept.append(sf)
+                                    if removed:
+                                        self.state["_situational_facts"] = kept
+                                        self._save_state()
+                                        print(f"[SUBCONSCIOUS] Resolved facts removed: {removed}")
+                            
+                            # ── Extract and store any new situational facts ──
+                            new_sit = result.get("new_situational_facts", [])
+                            if new_sit and isinstance(new_sit, list):
+                                from datetime import datetime as _dt2, timezone as _tz2
+                                stored_sit = self.state.get("_situational_facts", [])
+                                existing_texts = {f.get("fact", "").lower() for f in stored_sit if isinstance(f, dict)}
+                                added = []
+                                for fact_text in new_sit:
+                                    if not isinstance(fact_text, str) or len(fact_text) < 3:
+                                        continue
+                                    if fact_text.lower() not in existing_texts:
+                                        stored_sit.append({
+                                            "fact": fact_text,
+                                            "ts": _dt2.now(_tz2.utc).isoformat()
+                                        })
+                                        existing_texts.add(fact_text.lower())
+                                        added.append(fact_text)
+                                if len(stored_sit) > 15:
+                                    stored_sit = stored_sit[-15:]
+                                if added:
+                                    self.state["_situational_facts"] = stored_sit
+                                    self._save_state()
+                                    print(f"[SUBCONSCIOUS] New situational: {added}")
+                            
+                            return result
+                        
+                        elif resp.status_code == 429:
+                            print(f"[SUBCONSCIOUS] {model_id} rate limited, trying fallback...")
+                            continue
+                        else:
+                            print(f"[SUBCONSCIOUS] {model_id} returned {resp.status_code}, trying fallback...")
+                            continue
+                            
+                    except json.JSONDecodeError as e:
+                        print(f"[SUBCONSCIOUS] {model_id} JSON parse error: {e}, trying fallback...")
+                        continue
+                    except Exception as e:
+                        print(f"[SUBCONSCIOUS] {model_id} error: {e}, trying fallback...")
+                        continue
+            
+            print("[SUBCONSCIOUS] All models failed")
+            return None
+                    
+        except Exception as e:
+            print(f"[SUBCONSCIOUS] Error: {e}")
+            return None
     
     async def _run_stm_summary(self):
         """
@@ -1200,6 +1784,9 @@ Summary:"""
                 for e in existing_episodic[:5]
             ]) if existing_episodic else "(none)"
             
+            existing_holes = self.state.get("_knowledge_holes", [])
+            holes_str = "\n".join([f"  - {h}" for h in existing_holes]) if existing_holes else "(none)"
+            
             # Determine user's name from identity facts for context
             user_name = None
             for f in existing_facts:
@@ -1217,6 +1804,8 @@ Summary:"""
 ALREADY KNOWN (don't re-extract these):
 Identity: {existing_str}
 Episodes: {existing_ep_str}
+KNOWLEDGE HOLES (questions we have about the user):
+{holes_str}
 
 RECENT CONVERSATION:
 {recent_text}
@@ -1228,8 +1817,16 @@ EXTRACT:
    - Must be explicit: "I'm a CS major" → ✅. Rem saying "you seem smart" → ❌
    - Don't infer. Don't assume. Only what they literally said.
    - Use their name if known: "Chandu studies CS" not "User studies CS"
+   - NEVER start facts with "The user" or "User" — use their name or rephrase
    - NEVER include Rem's own traits: music taste, psychology, college details — those are ABOUT REM
    - If Rem said "I like indie music" that is NOT a user identity fact
+   - ONLY permanent traits/facts. NOT momentary states or opinions:
+     - "studies computer science" → ✅ (permanent)
+     - "wants to go to space" → ✅ (goal/dream)
+     - "had a boring day" → ❌ (momentary)
+     - "math is boring" → ❌ (casual opinion, not identity)
+     - "just got back from college" → ❌ (momentary event)
+     - "is feeling sad" → ❌ (temporary state)
 
 2. EPISODIC MEMORIES — significant moments from Rem's perspective.
    RULES:
@@ -1242,6 +1839,7 @@ Return ONLY valid JSON:
 {{
   "identity_facts": ["fact about user 1", "fact about user 2"],
   "episodic_memories": ["memory from Rem's POV 1"],
+  "resolved_holes": ["exact string from KNOWLEDGE HOLES if a new identity fact answers it"],
   "reasoning": "why these matter"
 }}
 
@@ -1296,6 +1894,14 @@ Empty arrays [] if nothing worth extracting."""
             import json
             result = json.loads(content)
             
+            # Resolve knowledge holes
+            resolved = result.get("resolved_holes", [])
+            if resolved and existing_holes:
+                updated_holes = [h for h in existing_holes if h not in resolved]
+                if len(updated_holes) < len(existing_holes):
+                    self.state["_knowledge_holes"] = updated_holes
+                    print(f"[MEMORY CONSOLIDATION] Resolved knowledge holes: {resolved}")
+            
             # Store identity facts (skip [knowledge] prefix — those come from knowledge grounding)
             new_identity = result.get("identity_facts", [])
             # Rem's known traits — reject if fact matches these
@@ -1310,9 +1916,29 @@ Empty arrays [] if nothing worth extracting."""
             
             for fact in new_identity:
                 if isinstance(fact, str) and len(fact) > 3:
-                    # Skip if already exists
-                    if any(fact.lower() in f.lower() for f in existing_facts):
+                    # Skip if already exists (substring match)
+                    if any(fact.lower() in f.lower() or f.lower() in fact.lower() for f in existing_facts):
                         continue
+                    
+                    # Keyword-overlap dedup — skip if 60%+ words match an existing fact
+                    fact_words = set(fact.lower().split()) - {'the', 'a', 'is', 'in', 'of', 'and', 'to', 'has', 'user', 'they', 'their', 'an'}
+                    is_duplicate = False
+                    for existing in existing_facts:
+                        existing_words = set(existing.lower().split()) - {'the', 'a', 'is', 'in', 'of', 'and', 'to', 'has', 'user', 'they', 'their', 'an'}
+                        if fact_words and existing_words:
+                            overlap = len(fact_words & existing_words) / min(len(fact_words), len(existing_words))
+                            if overlap >= 0.6:
+                                print(f"[MEMORY CONSOLIDATION] REJECTED identity (duplicate, {overlap:.0%} overlap): {fact}")
+                                is_duplicate = True
+                                break
+                    if is_duplicate:
+                        continue
+                    
+                    # Reject facts starting with "User" or "The user" (should use name)
+                    if fact.lower().startswith("the user") or fact.lower().startswith("user "):
+                        print(f"[MEMORY CONSOLIDATION] REJECTED identity (generic 'user' reference): {fact}")
+                        continue
+                    
                     # Skip knowledge facts (handled by knowledge grounding)
                     if fact.startswith("[knowledge]"):
                         continue
@@ -1325,6 +1951,7 @@ Empty arrays [] if nothing worth extracting."""
                         fact=fact, confidence=0.8, evidence_count=1
                     )
                     if identity_id:
+                        existing_facts.append(fact)  # Add to existing to prevent intra-batch dupes
                         print(f"[MEMORY CONSOLIDATION] Stored identity: {fact}")
             
             # Store episodic memories
@@ -1338,6 +1965,132 @@ Empty arrays [] if nothing worth extracting."""
                         relational_impact=0.4,
                     )
                     print(f"[MEMORY CONSOLIDATION] Stored episodic: {event[:60]}...")
+                elif isinstance(event, dict) and event.get("content"):
+                    # LLM returned structured episodic with emotional_context
+                    self.memory.add_episodic(
+                        event_type=event.get("event_type", "consolidated_memory"),
+                        content=event["content"][:200],
+                        emotional_valence=event.get("emotional_valence", 0.0),
+                        relational_impact=event.get("relational_impact", 0.4),
+                        emotional_context=event.get("emotional_context"),
+                    )
+                    print(f"[MEMORY CONSOLIDATION] Stored episodic: {event['content'][:60]}...")
+            
+            # ========== CONSOLIDATION ENRICHMENT (single 8B call) ==========
+            # Handles: contradiction detection, vocabulary adoption, inside joke tracking
+            try:
+                user_messages_text = "\n".join([
+                    m.get("content", "")[:100] for m in recent_messages
+                    if m.get("role") == "user"
+                ][-10:])
+                
+                existing_vocab = self.state.get("_user_vocabulary", {})
+                existing_jokes = self.state.get("_inside_jokes", [])
+                existing_facts_str = "\n".join(existing_facts[:15])
+                new_facts_str = "\n".join([f for f in new_identity if isinstance(f, str)][:5])
+                existing_jokes_str = ", ".join([j.get("label", "") for j in existing_jokes]) if existing_jokes else "none yet"
+                
+                enrichment_prompt = f"""Analyze this conversation between Rem and a user.
+
+USER MESSAGES (recent):
+{user_messages_text}
+
+EXISTING IDENTITY FACTS ABOUT USER:
+{existing_facts_str}
+
+NEW FACTS JUST EXTRACTED:
+{new_facts_str or 'none'}
+
+EXISTING INSIDE JOKES: {existing_jokes_str}
+KNOWN USER SLANG: {', '.join(existing_vocab.keys()) if existing_vocab else 'none yet'}
+
+Return JSON with THREE things:
+
+1. CONTRADICTIONS: Do any new facts contradict existing facts?
+2. VOCABULARY: What distinctive slang/phrases does the user use? Only unique casual language, NOT common English.
+3. INSIDE JOKES: Any new running bits, inside jokes, or recurring references between them?
+
+{{
+  "contradictions": [{{"old_fact": "existing fact", "new_fact": "contradicting fact", "tease": "short playful callout rem could use"}}],
+  "vocabulary": ["word1", "word2"],
+  "inside_jokes": [{{"label": "short-label", "description": "what the joke/bit is about"}}]
+}}
+
+Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slang, REAL jokes."""
+
+                async with httpx.AsyncClient(timeout=12.0) as client:
+                    enrich_resp = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        json={
+                            "model": "llama-3.1-8b-instant",
+                            "messages": [{"role": "user", "content": enrichment_prompt}],
+                            "max_tokens": 300,
+                            "temperature": 0.3,
+                        },
+                    )
+                    if enrich_resp.status_code == 200:
+                        enrich_data = enrich_resp.json()
+                        enrich_content = enrich_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        
+                        # Extract JSON from response
+                        import re as _re
+                        json_match = _re.search(r'\{[\s\S]*\}', enrich_content)
+                        if json_match:
+                            enrichment = json.loads(json_match.group())
+                            
+                            # Store contradictions
+                            contradictions = enrichment.get("contradictions", [])
+                            if contradictions:
+                                existing_contradictions = self.state.get("_contradictions", [])
+                                for c in contradictions:
+                                    if isinstance(c, dict) and c.get("old_fact"):
+                                        existing_contradictions.append(c)
+                                self.state["_contradictions"] = existing_contradictions[-5:]  # Keep last 5
+                                print(f"[ENRICHMENT] Found {len(contradictions)} contradiction(s)")
+                            
+                            # Update vocabulary
+                            new_vocab = enrichment.get("vocabulary", [])
+                            if new_vocab:
+                                vocab = self.state.get("_user_vocabulary", {})
+                                for word in new_vocab:
+                                    if isinstance(word, str) and len(word) > 1:
+                                        word_lower = word.lower().strip()
+                                        vocab[word_lower] = vocab.get(word_lower, 0) + 1
+                                # Keep top 10 by frequency
+                                sorted_vocab = dict(sorted(vocab.items(), key=lambda x: x[1], reverse=True)[:10])
+                                self.state["_user_vocabulary"] = sorted_vocab
+                                print(f"[ENRICHMENT] Vocabulary: {list(sorted_vocab.keys())}")
+                            
+                            # Update inside jokes
+                            new_jokes = enrichment.get("inside_jokes", [])
+                            if new_jokes:
+                                jokes = self.state.get("_inside_jokes", [])
+                                existing_labels = {j.get("label", "").lower() for j in jokes}
+                                now_iso = datetime.now(timezone.utc).isoformat()
+                                for joke in new_jokes:
+                                    if isinstance(joke, dict) and joke.get("label"):
+                                        label = joke["label"].lower()
+                                        if label not in existing_labels:
+                                            jokes.append({
+                                                "label": joke["label"],
+                                                "description": joke.get("description", ""),
+                                                "created": now_iso,
+                                                "last_used": now_iso,
+                                                "use_count": 1,
+                                                "status": "active"
+                                            })
+                                        else:
+                                            # Update existing joke
+                                            for j in jokes:
+                                                if j.get("label", "").lower() == label:
+                                                    j["last_used"] = now_iso
+                                                    j["use_count"] = j.get("use_count", 0) + 1
+                                self.state["_inside_jokes"] = jokes[-8:]  # Keep last 8
+                                print(f"[ENRICHMENT] Inside jokes: {[j.get('label') for j in jokes]}")
+                
+            except Exception as e:
+                print(f"[ENRICHMENT] Optional enrichment failed (non-fatal): {e}")
             
             # Run knowledge decay
             self._decay_knowledge_facts()
@@ -1704,22 +2457,81 @@ Empty arrays [] if nothing worth extracting."""
         # Get current activity from daily schedule (LLM-generated, once per day)
         current_activity = ""
         upcoming_activities = []
+        is_roleplay_mode = False
+        location = "home"
         try:
-            from .daily_life import ensure_daily_schedule, get_upcoming_activities
+            from .daily_life import ensure_daily_schedule, get_upcoming_activities, get_current_activity_details, IST
+            from datetime import datetime
+            
+            # Detect day rollover and write texting journal for the completed day
+            schedule_data = self.state.get("_daily_schedule", {})
+            stored_date = schedule_data.get("date", "")
+            today_str = datetime.now(IST).strftime("%Y-%m-%d")
+            if stored_date and stored_date != today_str:
+                print(f"[DATE LIFECYCLE] Day rollover detected ({stored_date} -> {today_str}). Writing texting journal...")
+                try:
+                    await self.diary.write_daily_texting_journal(self, stored_date)
+                except Exception as journal_err:
+                    print(f"[DATE LIFECYCLE] Error writing daily texting journal: {journal_err}")
+            
             current_activity = await ensure_daily_schedule(self.state)
             upcoming_activities = get_upcoming_activities(self.state)
+            
+            activity_details = get_current_activity_details(self.state)
+            is_roleplay_mode = activity_details.get("is_user_plan", False)
+            location = activity_details.get("location", "home")
+            activity = activity_details.get("activity", "")
+            
+            # Natural Date End Lifecycle Detection
+            was_date_active = self.state.get("_active_date_running", False)
+            if was_date_active and not is_roleplay_mode:
+                print("[DATE LIFECYCLE] Active date ended naturally. Cleaning up and writing journal.")
+                
+                # Find the override plan that just ended (i.e. end <= current_time)
+                from datetime import datetime
+                from .daily_life import IST
+                current_time = datetime.now(IST).strftime("%H:%M")
+                
+                overrides = self.state.get("_daily_schedule", {}).get("overrides", [])
+                completed_plan = None
+                for o in overrides:
+                    if o.get("is_user_plan", False) and o.get("end", "") <= current_time:
+                        completed_plan = o
+                        break
+                        
+                plan_act = completed_plan.get("activity", "hanging out") if completed_plan else "hanging out"
+                plan_loc = completed_plan.get("location", "somewhere") if completed_plan else "somewhere"
+                
+                # Write natural end journal entry
+                try:
+                    await self.diary.write_date_journal_entry(self, plan_act, plan_loc, ended_early=False)
+                except Exception as journal_err:
+                    print(f"[DATE LIFECYCLE] Error writing date journal: {journal_err}")
+                
+                # Remove completed plan from future plans and overrides
+                today_str = datetime.now(IST).strftime("%Y-%m-%d")
+                if completed_plan:
+                    start = completed_plan.get("start", "")
+                    end = completed_plan.get("end", "")
+                    
+                    self.state["_future_plans"] = [
+                        p for p in self.state.get("_future_plans", [])
+                        if not (p.get("date") == today_str and p.get("start") == start and p.get("end") == end)
+                    ]
+                    
+                    self.state["_daily_schedule"]["overrides"] = [
+                        o for o in overrides
+                        if not (o.get("start") == start and o.get("end") == end and o.get("is_user_plan", False))
+                    ]
+                
+                self.state["_active_date_running"] = False
+                
+            elif is_roleplay_mode and not was_date_active:
+                print("[DATE LIFECYCLE] Date started! Setting _active_date_running = True")
+                self.state["_active_date_running"] = True
+                
         except Exception as e:
             print(f"[WARNING] Daily life schedule error: {e}")
-        
-        return {
-            "circadian_phase": circadian_phase.value,
-            "time_deltas": time_deltas,
-            "behavior_modulations": modulations,
-            "context_string": temporal_context_str,
-            "current_activity": current_activity,
-            "upcoming_activities": upcoming_activities,
-            "time_personality": self.personality_evolution.time_personality if hasattr(self.personality_evolution, 'time_personality') else {},
-        }
         
         # Sync upcoming events from personality_evolution into state
         # so daily_life.py can read them when generating schedules
@@ -1731,13 +2543,29 @@ Empty arrays [] if nothing worth extracting."""
             # If new events were added, refresh the schedule to incorporate them
             if new_events - old_events:
                 from .daily_life import refresh_schedule_for_new_events
-                import asyncio
                 try:
                     refreshed = await refresh_schedule_for_new_events(self.state)
                     if refreshed:
                         print(f"[COGNITIVE] Schedule refreshed to incorporate new events: {new_events - old_events}")
+                        # Re-fetch activity details
+                        activity_details = get_current_activity_details(self.state)
+                        is_roleplay_mode = activity_details.get("is_user_plan", False)
+                        location = activity_details.get("location", "home")
+                        current_activity = activity_details.get("activity", "")
                 except Exception as e:
                     print(f"[COGNITIVE] Schedule refresh failed: {e}")
+                    
+        return {
+            "circadian_phase": circadian_phase.value,
+            "time_deltas": time_deltas,
+            "behavior_modulations": modulations,
+            "context_string": temporal_context_str,
+            "current_activity": current_activity,
+            "upcoming_activities": upcoming_activities,
+            "is_roleplay_mode": is_roleplay_mode,
+            "location": location,
+            "time_personality": self.personality_evolution.time_personality if hasattr(self.personality_evolution, 'time_personality') else {},
+        }
     
     def _get_agent_state(self) -> Dict[str, Any]:
         """Get current agent state for LLM prompt."""

@@ -75,6 +75,11 @@ class EmbodimentState:
         now = datetime.now(timezone(timedelta(hours=5, minutes=30)))  # IST
         hour = now.hour
         
+        # If it's been more than 8 hours since last update, assume Rem slept/rested
+        # This prevents sleep_debt from accumulating infinitely across sessions
+        if delta_hours > 8:
+            self.sleep_debt = max(0.0, self.sleep_debt - 0.5)  # Partial recovery from rest
+        
         # Circadian baseline (stochastic)
         circadian_base = get_circadian_baseline(hour)
         
@@ -85,17 +90,18 @@ class EmbodimentState:
             np.random.normal(sleep_debt_mult_mean, sleep_debt_mult_std)))
         
         # Mood energy factor (stochastic)
-        energy_mood = mood.get("energy", 0.5)
+        # FIX: floor at 0.4 — even with low mood, you're not comatose
+        energy_mood = max(mood.get("energy", 0.5), 0.35)
         stress_mood = mood.get("stress", 0.3)
-        mood_energy_factor_mean = energy_mood * (1 - stress_mood * 0.5)
+        mood_energy_factor_mean = energy_mood * (1 - stress_mood * 0.3)  # Reduced stress penalty (was 0.5)
         mood_energy_factor_std = 0.1
-        mood_energy_factor = max(0.3, min(1.2, 
+        mood_energy_factor = max(0.4, min(1.2,  # Floor at 0.4 (was 0.3)
             np.random.normal(mood_energy_factor_mean, mood_energy_factor_std)))
         
         # Compute E_daily (with noise)
         E_mean = circadian_base * sleep_debt_multiplier * mood_energy_factor
         E_std = 0.1  # Natural variance
-        self.E_daily = max(0.0, min(1.0, np.random.normal(E_mean, E_std)))
+        self.E_daily = max(0.15, min(1.0, np.random.normal(E_mean, E_std)))  # Floor at 0.15 (was 0.0)
         
         # Update sleep debt (stochastic accumulation)
         if delta_hours > 0:

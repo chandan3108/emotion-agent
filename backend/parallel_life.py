@@ -264,4 +264,73 @@ class ParallelLifeAwareness:
     def save_to_state(self):
         """Save life context to state."""
         self.state["parallel_life_context"] = self.life_context
+    
+    def get_active_triggers(self) -> List[Dict[str, Any]]:
+        """
+        Generate SPECIFIC, actionable follow-up triggers based on user's life.
+        
+        Returns a list of trigger dicts with:
+        - type: follow_up|social_check|routine_check
+        - priority: 1 (highest) - 5 (lowest)
+        - instruction: specific, natural-sounding instruction
+        """
+        triggers = []
+        now = datetime.now(timezone.utc)
+        
+        # 1. Event follow-ups — things that should have happened by now
+        for event in self.life_context.get("life_events", []):
+            ts = event.get("timestamp", "")
+            if not ts:
+                continue
+            try:
+                event_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                continue
+            
+            hours_since = (now - event_time).total_seconds() / 3600
+            followed_up = event.get("followed_up", False)
+            desc = event.get("description", "")
+            
+            # If event was mentioned 2-48 hours ago and not followed up
+            if 2 < hours_since < 48 and not followed_up and desc:
+                triggers.append({
+                    "type": "follow_up",
+                    "priority": 2,
+                    "instruction": f"Ask how their {desc.lower()[:50]} went — casually, like 'so how'd that go' not 'how was your {desc.lower()[:30]}?'",
+                    "event_idx": self.life_context["life_events"].index(event),
+                })
+        
+        # 2. Social check-ins — people mentioned but not discussed recently
+        for person in self.life_context.get("social_circle", []):
+            name = person.get("name", "")
+            last_mentioned = person.get("last_mentioned", person.get("first_mentioned", ""))
+            if not last_mentioned or not name:
+                continue
+            try:
+                last_time = datetime.fromisoformat(last_mentioned.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                continue
+            
+            days_since = (now - last_time).days
+            mention_count = person.get("mention_count", 0)
+            
+            # If person was mentioned 3+ times but not in last 3 days
+            if mention_count >= 2 and days_since >= 3:
+                relation = person.get("relationship_type", "")
+                rel_hint = f" ({relation})" if relation and relation != "unknown" else ""
+                triggers.append({
+                    "type": "social_check",
+                    "priority": 4,
+                    "instruction": f"Haven't heard about {name}{rel_hint} in {days_since} days. Bring them up naturally if relevant.",
+                })
+        
+        # Sort by priority (lowest number = highest priority)
+        triggers.sort(key=lambda t: t.get("priority", 5))
+        return triggers[:3]  # Max 3 triggers
+    
+    def mark_event_followed_up(self, event_idx: int):
+        """Mark an event as followed up so we don't keep triggering."""
+        events = self.life_context.get("life_events", [])
+        if 0 <= event_idx < len(events):
+            events[event_idx]["followed_up"] = True
 

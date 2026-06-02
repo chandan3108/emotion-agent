@@ -203,42 +203,78 @@ def get_current_activity(state: Dict[str, Any]) -> str:
     Get REM's current activity from today's schedule.
     Checks for overrides first, then falls back to scheduled activity.
     """
+    details = get_current_activity_details(state)
+    return details.get("activity", "just chilling")
+
+
+def get_current_activity_details(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Get detailed current activity including overrides and locations.
+    Returns:
+        {
+            "activity": str,
+            "is_user_plan": bool,
+            "location": str
+        }
+    """
     schedule_data = state.get("_daily_schedule", {})
-    
-    # Check for overrides (plans made with user)
     overrides = schedule_data.get("overrides", [])
     now = datetime.now(IST)
     current_time = now.strftime("%H:%M")
     
+    # Check overrides first
     for override in overrides:
         start = override.get("start", "")
         end = override.get("end", "")
         if start <= current_time < end:
-            return override.get("activity", "")
-    
+            return {
+                "activity": override.get("activity", ""),
+                "is_user_plan": override.get("is_user_plan", False),
+                "location": override.get("location", "hanging out")
+            }
+            
     # Normal schedule lookup
     schedule = schedule_data.get("schedule", [])
-    if not schedule:
-        return ""
-    
     for block in schedule:
         start = block.get("start", "00:00")
         end = block.get("end", "23:59")
         
-        # Handle midnight rollover (e.g., 23:00 → 02:00)
+        # Handle midnight rollover
+        is_active = False
         if end < start:
-            # Block crosses midnight
             if current_time >= start or current_time < end:
-                return block.get("activity", "just chilling")
+                is_active = True
         else:
             if start <= current_time < end:
-                return block.get("activity", "just chilling")
-    
-    # If between 02:00-06:00, assume sleeping
+                is_active = True
+                
+        if is_active:
+            activity = block.get("activity", "just chilling")
+            # Assign logical locations to routine activities
+            location = "home"
+            if "college" in activity.lower() or "class" in activity.lower() or "campus" in activity.lower():
+                location = "college campus"
+            elif "commute" in activity.lower() or "heading" in activity.lower() or "driving" in activity.lower():
+                location = "commute"
+            return {
+                "activity": activity,
+                "is_user_plan": False,
+                "location": location
+            }
+            
+    # Default sleeping
     if 2 <= now.hour < 6:
-        return "sleeping"
-    
-    return "just chilling"
+        return {
+            "activity": "sleeping",
+            "is_user_plan": False,
+            "location": "home (in bed)"
+        }
+        
+    return {
+        "activity": "just chilling",
+        "is_user_plan": False,
+        "location": "home"
+    }
 
 
 def get_upcoming_activities(state: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -281,16 +317,10 @@ def get_upcoming_activities(state: Dict[str, Any]) -> List[Dict[str, str]]:
     return result
 
 
-def override_schedule(state: Dict[str, Any], start: str, end: str, activity: str):
+def override_schedule(state: Dict[str, Any], start: str, end: str, activity: str, location: str = "hanging out", is_user_plan: bool = True):
     """
     Override a time block in today's schedule.
     Used when the user makes plans with REM.
-    
-    Args:
-        state: The bot's state dict
-        start: Start time "HH:MM"
-        end: End time "HH:MM"  
-        activity: What REM will be doing instead
     """
     schedule_data = state.get("_daily_schedule", {})
     if "overrides" not in schedule_data:
@@ -306,17 +336,92 @@ def override_schedule(state: Dict[str, Any], start: str, end: str, activity: str
         "start": start,
         "end": end,
         "activity": activity,
+        "location": location,
+        "is_user_plan": is_user_plan,
         "created_at": datetime.now(IST).isoformat()
     })
     
     state["_daily_schedule"] = schedule_data
-    print(f"[DAILY LIFE] Schedule override: {start}-{end} = {activity}")
+    print(f"[DAILY LIFE] Schedule override: {start}-{end} = {activity} at {location}")
+
+
+def add_future_plan(state: Dict[str, Any], date_str: str, start: str, end: str, activity: str, location: str):
+    """
+    Saves a future plan to state["_future_plans"].
+    """
+    if "_future_plans" not in state:
+        state["_future_plans"] = []
+        
+    # Remove any existing plan that overlaps on the same day/time
+    state["_future_plans"] = [
+        p for p in state["_future_plans"]
+        if not (p.get("date") == date_str and p.get("start") < end and p.get("end") > start)
+    ]
+    
+    state["_future_plans"].append({
+        "date": date_str,
+        "start": start,
+        "end": end,
+        "activity": activity,
+        "location": location,
+        "created_at": datetime.now(IST).isoformat()
+    })
+    print(f"[DAILY LIFE] Added future plan: {date_str} {start}-{end} = {activity} at {location}")
+
+
+def _sync_future_plans_to_overrides(state: Dict[str, Any], today: str):
+    """
+    Copies any future plans scheduled for today into the daily schedule's overrides.
+    """
+    future_plans = state.get("_future_plans", [])
+    if not future_plans:
+        return
+        
+    schedule_data = state.get("_daily_schedule", {})
+    overrides = schedule_data.get("overrides", [])
+    
+    # Filter plans for today
+    today_plans = [p for p in future_plans if p.get("date") == today]
+    if not today_plans:
+        return
+        
+    # Check if they are already in overrides
+    changed = False
+    for plan in today_plans:
+        start = plan.get("start", "")
+        end = plan.get("end", "")
+        activity = plan.get("activity", "")
+        location = plan.get("location", "hanging out")
+        
+        exists = any(
+            o.get("start") == start and o.get("end") == end and o.get("activity") == activity
+            for o in overrides
+        )
+        if not exists:
+            # Remove any overlapping override
+            overrides = [
+                o for o in overrides
+                if not (o.get("start") < end and o.get("end") > start)
+            ]
+            overrides.append({
+                "start": start,
+                "end": end,
+                "activity": activity,
+                "location": location,
+                "is_user_plan": True,
+                "created_at": plan.get("created_at")
+            })
+            changed = True
+            
+    if changed:
+        schedule_data["overrides"] = overrides
+        state["_daily_schedule"] = schedule_data
+        print(f"[DAILY LIFE] Synced {len(today_plans)} future plans to today's overrides")
 
 
 def get_upcoming_schedule(state: Dict[str, Any], hours_ahead: int = 4) -> List[Dict[str, str]]:
     """
     Get the next few hours of schedule (for context in prompt).
-    Useful so the bot can mention "I have to go soon" or "nothing planned later".
     """
     schedule_data = state.get("_daily_schedule", {})
     schedule = schedule_data.get("schedule", [])
@@ -331,14 +436,12 @@ def get_upcoming_schedule(state: Dict[str, Any], hours_ahead: int = 4) -> List[D
     
     upcoming = []
     
-    # Merge schedule and overrides, overrides take priority
+    # Merge schedule and overrides
     for block in schedule:
         start = block.get("start", "00:00")
         end = block.get("end", "23:59")
         
-        # Check if this block is in the upcoming window  
         if end > current_time and start < end_time:
-            # Check if overridden
             overridden = any(
                 o.get("start", "") <= start and o.get("end", "") >= end
                 for o in overrides
@@ -346,24 +449,19 @@ def get_upcoming_schedule(state: Dict[str, Any], hours_ahead: int = 4) -> List[D
             if not overridden:
                 upcoming.append(block)
     
-    # Add relevant overrides
     for override in overrides:
         start = override.get("start", "")
         end = override.get("end", "")
         if end > current_time and start < end_time:
             upcoming.append(override)
-    
-    # Sort by start time
+            
     upcoming.sort(key=lambda x: x.get("start", ""))
-    
     return upcoming
 
 
 async def ensure_daily_schedule(state: Dict[str, Any]) -> str:
     """
     Ensure today's schedule exists. Generate if needed.
-    Returns the current activity.
-    Called from the pipeline on each message.
     """
     now = datetime.now(IST)
     today = now.strftime("%Y-%m-%d")
@@ -372,40 +470,35 @@ async def ensure_daily_schedule(state: Dict[str, Any]) -> str:
     stored_date = schedule_data.get("date", "")
     
     if stored_date == today and schedule_data.get("schedule"):
-        # Already have today's schedule
+        _sync_future_plans_to_overrides(state, today)
         return get_current_activity(state)
     
-    # New day — generate fresh schedule (clears yesterday's overrides too)
     print(f"[DAILY LIFE] Generating new schedule for {today}")
     schedule = await generate_daily_schedule(state)
     
     state["_daily_schedule"] = {
         "date": today,
         "schedule": schedule,
-        "overrides": [],  # Fresh overrides for new day
+        "overrides": [],
         "generated_at": now.isoformat(),
-        "events_at_generation": list(state.get("_upcoming_events", []))  # Track what events existed when generated
+        "events_at_generation": list(state.get("_upcoming_events", []))
     }
     
+    _sync_future_plans_to_overrides(state, today)
     return get_current_activity(state)
 
 
 async def refresh_schedule_for_new_events(state: Dict[str, Any]) -> bool:
     """
     Check if new events were added since the schedule was generated.
-    If so, regenerate the schedule to incorporate them.
-    
-    Returns True if schedule was regenerated, False otherwise.
     """
     schedule_data = state.get("_daily_schedule", {})
     if not schedule_data.get("schedule"):
         return False
     
-    # Compare current events vs what existed at generation time
     current_events = state.get("_upcoming_events", [])
     events_at_gen = schedule_data.get("events_at_generation", [])
     
-    # Quick check — if same count and same event names, skip
     current_names = {e.get("event", "") for e in current_events if isinstance(e, dict)}
     gen_names = {e.get("event", "") for e in events_at_gen if isinstance(e, dict)}
     
@@ -416,11 +509,8 @@ async def refresh_schedule_for_new_events(state: Dict[str, Any]) -> bool:
     print(f"[DAILY LIFE] New events detected since schedule was generated: {new_events}")
     print(f"[DAILY LIFE] Regenerating today's schedule to incorporate new events...")
     
-    # Regenerate
     now = datetime.now(IST)
     schedule = await generate_daily_schedule(state)
-    
-    # Preserve existing overrides (user-made plans)
     existing_overrides = schedule_data.get("overrides", [])
     
     state["_daily_schedule"] = {
@@ -431,6 +521,7 @@ async def refresh_schedule_for_new_events(state: Dict[str, Any]) -> bool:
         "events_at_generation": list(current_events)
     }
     
+    _sync_future_plans_to_overrides(state, now.strftime("%Y-%m-%d"))
     print(f"[DAILY LIFE] Schedule regenerated with {len(new_events)} new events")
     return True
 
@@ -442,51 +533,45 @@ async def evaluate_plan_request(
 ) -> Optional[Dict[str, Any]]:
     """
     Detect if user is proposing future plans and decide if REM adjusts.
-    
-    Uses a cheap LLM call to:
-    1. Detect if the message contains a plan/time proposal
-    2. Check what REM has scheduled at that time
-    3. Decide based on relationship state whether to accept/decline/negotiate
-    
-    Returns None if no plan detected, or a dict with the decision.
     """
-    # Quick pre-filter — skip if message doesn't look like a plan
     plan_indicators = [
         "let's ", "lets ", "wanna ", "want to ", "can we ", "how about ",
         "tonight", "later today", "meet up", "call me", "talk at",
         "hang out", "come over", "o'clock", " pm", " am",
         "at 7", "at 8", "at 9", "at 10", "at 11", "at 12",
-        "around ", "should we", "free at", "free tonight", "free later"
+        "around ", "should we", "free at", "free tonight", "free later",
+        "tomorrow", " bbq", "korean bbq", " dinner", " lunch", " date"
     ]
     msg_lower = user_message.lower()
     if not any(indicator in msg_lower for indicator in plan_indicators):
         return None
     
-    # Get schedule context
     schedule_data = state.get("_daily_schedule", {})
     schedule = schedule_data.get("schedule", [])
     if not schedule:
         return None
     
-    # Get relationship metrics
     trust = psyche_state.get("trust", 0.5)
     engagement = psyche_state.get("engagement", 0.5)
     phase = psyche_state.get("relationship_phase", "Discovery")
     hurt = psyche_state.get("hurt", 0.0)
     
-    # Build schedule summary for LLM (only future blocks)
     now = datetime.now(IST)
+    current_date_str = now.strftime("%Y-%m-%d")
+    day_name = now.strftime("%A")
+    
     schedule_text = "\n".join(
         f"  {b.get('start','?')}-{b.get('end','?')}: {b.get('activity','?')}"
         for b in schedule
         if b.get("end", "00:00") > now.strftime("%H:%M")
     )
     
-    prompt = f"""Analyze this message from a user chatting with Rem (a college girl):
+    prompt = f"""Today's date is: {current_date_str} ({day_name})
 
+Analyze this message from a user chatting with Rem (a college girl):
 Message: "{user_message}"
 
-Question 1: Is the user proposing or suggesting a specific future plan/activity/time to do something together?
+Question 1: Is the user proposing or suggesting a specific plan/activity/time to do something together (either today, tomorrow, or some future day/date)?
 If NO, respond with just: {{"detected": false}}
 If YES, continue:
 
@@ -505,7 +590,16 @@ Based on her relationship with this person and what she has planned, would Rem:
 - "maybe": be noncommittal, say she'll see (medium trust, or unsure)
 
 Respond ONLY with valid JSON:
-{{"detected": true, "proposed_time": "HH:MM", "proposed_end": "HH:MM", "proposed_activity": "what they want to do", "conflicts_with": "what Rem has planned at that time or empty string", "decision": "accept/decline/maybe", "reasoning": "brief 1-line reason from Rem's perspective"}}"""
+{{
+  "detected": true,
+  "proposed_date": "YYYY-MM-DD (the exact date they proposed. If they said 'tomorrow', compute it relative to {current_date_str}. If they said 'today' or didn't specify a day, it is {current_date_str}. If they named a weekday like 'Wednesday', calculate the next upcoming Wednesday's date.)",
+  "proposed_time": "HH:MM",
+  "proposed_end": "HH:MM (if they didn't specify an end, assume it lasts 1 or 2 hours depending on the activity, e.g. 1 hour for coffee/call, 2 hours for dinner/movie)",
+  "proposed_activity": "what they want to do (e.g. Korean BBQ date, study session)",
+  "location": "location/environment for this activity (e.g. Korean BBQ restaurant, cafe, library, my room, movie theater). If not specified, make a realistic guess based on the activity.",
+  "decision": "accept/decline/maybe",
+  "reasoning": "brief 1-line reason from Rem's perspective"
+}}"""
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -515,7 +609,7 @@ Respond ONLY with valid JSON:
                 json={
                     "model": SCHEDULE_MODEL,
                     "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 200,
+                    "max_tokens": 250,
                     "temperature": 0.7,
                 },
             )
@@ -526,7 +620,6 @@ Respond ONLY with valid JSON:
             data = resp.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
             
-            # Parse JSON
             if "```" in content:
                 content = content.split("```")[1]
                 if content.startswith("json"):
@@ -534,18 +627,21 @@ Respond ONLY with valid JSON:
                 content = content.strip()
             
             result = json.loads(content)
-            
             if not result.get("detected"):
                 return None
             
-            # If accepted, apply the override
             if result.get("decision") == "accept":
+                proposed_date = result.get("proposed_date", "")
                 proposed_start = result.get("proposed_time", "")
                 proposed_end = result.get("proposed_end", "")
                 activity = result.get("proposed_activity", "hanging out with user")
+                location = result.get("location", "hanging out")
                 
-                if proposed_start and proposed_end:
-                    override_schedule(state, proposed_start, proposed_end, activity)
+                if proposed_date and proposed_start and proposed_end:
+                    add_future_plan(state, proposed_date, proposed_start, proposed_end, activity, location)
+                    # If it happens to be for today, sync it immediately
+                    if proposed_date == current_date_str:
+                        _sync_future_plans_to_overrides(state, current_date_str)
             
             print(f"[DAILY LIFE] Plan evaluation: {result.get('decision', '?')} — {result.get('reasoning', '?')}")
             return result

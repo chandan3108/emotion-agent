@@ -273,7 +273,13 @@ class TemporalAwarenessSystem:
         # Build natural context string
         context_parts = []
         
-        # Time of day (natural, not robotic)
+        # Actual day, date, and time (critical for temporal awareness)
+        day_name = now.strftime("%A")  # "Thursday"
+        date_str = now.strftime("%B %d, %Y")  # "March 27, 2026"
+        time_str = now.strftime("%I:%M %p").lstrip("0")  # "10:03 PM"
+        context_parts.append(f"It's {day_name}, {date_str}, {time_str} ({self.user_timezone}).")
+        
+        # Time of day phase (natural, not robotic)
         phase_names = {
             CircadianPhase.MORNING: "morning",
             CircadianPhase.AFTERNOON: "afternoon",

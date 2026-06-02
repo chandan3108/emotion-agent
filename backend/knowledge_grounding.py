@@ -36,6 +36,8 @@ async def _llm_classify_factual(message: str, recent_context: str) -> Dict[str, 
 IMPORTANT: Look at the CONVERSATION CONTEXT to understand what the user is actually talking about.
 If the user says something like "search it up" or "look it up", figure out WHAT they want searched from the context.
 
+CRITICAL: You ARE "Rem" — an AI chatbot. NEVER search for yourself. If the user mentions "rem" in casual conversation (e.g. "prescribe me a dose of rem", "rem you're so..."), that is about YOU, not about Re:Zero or anything else. Do NOT trigger a search for it.
+
 Recent conversation context:
 {recent_context}
 
@@ -165,12 +167,25 @@ def extract_facts_from_search(query: str, results: List[Dict[str, str]]) -> List
     """
     Extract concise factual statements from search results.
     Prioritizes Tavily's AI answer, falls back to snippet extraction.
-    Filters out non-English results.
+    Filters out non-English results and fictional character contamination.
     """
+    # Blocklist: reject results about these topics (prevent Rem = Re:Zero confusion)
+    CONTENT_BLOCKLIST = [
+        're:zero', 're zero', 'subaru', 'emilia', 'roswaal', 'isekai',
+        'light novel', 'web novel', 'ram and rem', 'rem and ram',
+        'rezero', 'natsuki subaru'
+    ]
     facts = []
     
     for r in results[:4]:
         snippet = r.get("snippet", "")
+        title = r.get("title", "")
+        combined_text = (snippet + " " + title).lower()
+        
+        # Skip results matching content blocklist (e.g. Re:Zero contamination)
+        if any(blocked in combined_text for blocked in CONTENT_BLOCKLIST):
+            print(f"[KNOWLEDGE] REJECTED result (blocklist): {title[:50]}")
+            continue
         
         # If this is Tavily's AI answer, use it directly (best quality)
         if r.get('is_answer'):
@@ -185,7 +200,17 @@ def extract_facts_from_search(query: str, results: List[Dict[str, str]]) -> List
                 continue
         
         # Skip promotional/useless snippets
-        useless_patterns = ['find out more', 'try out', 'click here', 'subscribe', 'sign up']
+        useless_patterns = [
+            'find out more', 'try out', 'click here', 'subscribe', 'sign up',
+            'watch now', 'stream now', 'start free trial', 'start your free',
+            'available on', 'download the app', 'join now', 'log in',
+            'crunchyroll', 'funimation', 'hulu', 'netflix.com',
+            'watch all episodes', 'episode guide', 'buy tickets',
+            'add to watchlist', 'add to cart', 'shop now', 'order now',
+            'terms of service', 'privacy policy', 'cookie policy',
+            'top 10 best', 'top 20 best', 'you might also like',
+            'related articles', 'trending now', 'homepage',
+        ]
         if any(p in snippet.lower() for p in useless_patterns):
             continue
         
@@ -216,34 +241,6 @@ def extract_facts_from_search(query: str, results: List[Dict[str, str]]) -> List
         filtered.append(fact)
     
     return filtered[:2]  # Max 2 facts per search
-
-
-def detect_user_correction(message: str, message_history: List[Dict]) -> Optional[str]:
-    """
-    Detect when the user is correcting the bot.
-    Patterns: "actually X", "no it's X", "X*" (asterisk correction), "not X, Y"
-    """
-    message_lower = message.strip().lower()
-    
-    # Asterisk correction: "jjk*", "naruto*"
-    if message.strip().endswith("*") and len(message.strip()) < 30:
-        correction = message.strip().rstrip("*").strip()
-        if correction:
-            for m in reversed(message_history[-3:]):
-                if m.get("role") == "assistant":
-                    bot_said = m.get("content", "")
-                    return f"{correction} (correcting bot's reference to something else)"
-            return correction
-    
-    # "actually..." corrections
-    if message_lower.startswith("actually") or message_lower.startswith("no,") or message_lower.startswith("no "):
-        return message.strip()
-    
-    # "it's X not Y" pattern
-    if "not " in message_lower and ("it's" in message_lower or "its" in message_lower):
-        return message.strip()
-    
-    return None
 
 
 def _cheap_pre_filter(message: str, understanding: Dict[str, Any]) -> bool:
@@ -339,33 +336,30 @@ class KnowledgeGrounding:
         }
         
         msg_lower = user_message.lower().strip()
-        
-        # Step 0: Check for user corrections first (always, no pre-filter)
-        correction = detect_user_correction(user_message, message_history or [])
-        if correction:
-            result["is_correction"] = True
-            search_results = await search_web(correction)
-            if search_results:
-                facts = extract_facts_from_search(correction, search_results)
-                for fact in facts:
-                    memory_system.store_learned_fact(fact, "user_correction", correction)
-                    result["new_facts"].append(fact)
-                    result["has_knowledge"] = True
-                result["searched"] = True
-            else:
-                memory_system.store_learned_fact(
-                    f"User corrected me: {correction}",
-                    "user_correction", correction
-                )
-            result["mode"] = "explicit"
-            return result
-        
+
         # Step 1: Cheap pre-filter — skip obvious non-factual messages
         if not _cheap_pre_filter(user_message, understanding):
             return result
         
         # Step 2: Determine trigger category
-        is_search_command = any(kw in msg_lower for kw in self.SEARCH_COMMANDS)
+        # Search commands: must be an IMPERATIVE/COMMAND, not conversational use of the word "search"
+        # e.g., "search black clover" ✓, "look it up" ✓, "done search?" ✗, "did you search?" ✗
+        is_search_command = False
+        # Fast path: if message STARTS with a search keyword, it's always a command
+        if any(msg_lower.startswith(kw) for kw in self.SEARCH_COMMANDS):
+            is_search_command = True
+        else:
+            for kw in self.SEARCH_COMMANDS:
+                if kw in msg_lower:
+                    # Verify it's a command, not a question about searching
+                    kw_pos = msg_lower.find(kw)
+                    prefix = msg_lower[:kw_pos].strip().rstrip(',').strip()
+                    question_prefixes = ['done', 'did you', 'did u', 'have you', 'have u', 
+                                         'you', 'your', 'did the', 'finished', 'completed']
+                    if any(prefix.endswith(qp) or prefix == qp for qp in question_prefixes):
+                        continue
+                    is_search_command = True
+                    break
         is_inquiry = any(kw in msg_lower for kw in self.INQUIRY_KEYWORDS)
         
         # Step 2b: Live event detection — check if conversation context indicates live events
@@ -401,12 +395,23 @@ class KnowledgeGrounding:
         # Step 3: Check learned_facts first (avoid re-searching known topics)
         existing_facts = memory_system.get_learned_facts(query=user_message)
         if existing_facts:
-            result["known_facts"] = [f.get("fact", "") for f in existing_facts]
-            result["has_knowledge"] = True
-            result["mode"] = "known"
-            result["pretend_known"] = True  # Bot already knows this
-            print(f"[KNOWLEDGE] Found {len(existing_facts)} existing learned facts, skipping search")
-            return result
+            # Check if these are self-researched (topic_context) or genuinely known
+            sources = set(f.get("source", "") for f in existing_facts)
+            if sources == {"topic_context"}:
+                # These came from background search — Rem looked them up, didn't always know
+                result["known_facts"] = [f.get("fact", "") for f in existing_facts]
+                result["has_knowledge"] = True
+                result["mode"] = "self_researched"
+                result["pretend_known"] = False
+                print(f"[KNOWLEDGE] Found {len(existing_facts)} self-researched facts (topic_context)")
+                return result
+            else:
+                result["known_facts"] = [f.get("fact", "") for f in existing_facts]
+                result["has_knowledge"] = True
+                result["mode"] = "known"
+                result["pretend_known"] = True  # Bot already knows this
+                print(f"[KNOWLEDGE] Found {len(existing_facts)} existing learned facts, skipping search")
+                return result
         
         # 3b: Check user-taught knowledge
         if user_taught_knowledge:
@@ -442,9 +447,27 @@ class KnowledgeGrounding:
         if not search_query and not is_explicit:
             return result
         
-        # For explicit mode with no good query, use the original user message
+        # For explicit mode with no good query, extract topic from conversation context
         if is_explicit and not search_query:
-            search_query = user_message
+            # The user said something like "search it up" or "look it up" — we need to figure out WHAT
+            # Scan recent messages for the topic being discussed
+            if message_history:
+                for m in reversed(message_history[-5:]):
+                    content = m.get("content", "").strip()
+                    role = m.get("role", "")
+                    # Skip very short messages and skip the current message
+                    if len(content) < 3 or content.lower() == msg_lower:
+                        continue
+                    # Skip meta-conversation messages (about searching itself)
+                    content_lower = content.lower()
+                    if any(w in content_lower for w in ['search', 'look up', 'google', 'find out']):
+                        continue
+                    # Use the first substantial message as the topic context
+                    search_query = content[:100]
+                    print(f"[KNOWLEDGE] Extracted search topic from context: '{search_query}'")
+                    break
+            if not search_query:
+                search_query = user_message
         
         # Also check learned_facts for the search query specifically
         query_facts = memory_system.get_learned_facts(query=search_query)
@@ -488,7 +511,32 @@ class KnowledgeGrounding:
                 print(f"[KNOWLEDGE] No trigger matched — skipping")
                 return result
         
-        # Step 6: Search and store in learned_facts
+        # Step 6: Sanitize query — strip out search command phrases before hitting Tavily
+        search_noise = [
+            'well ', 'search it up', 'search it', 'search that up', 'search that',
+            'look it up', 'look that up', 'look up', 'google it', 'google that',
+            'find out', 'check it', 'search for', 'search about', 'search',
+            'can you ', 'could you ', 'please ', 'go ', 'just ',
+        ]
+        clean_query = search_query.strip()
+        for noise in search_noise:
+            clean_query = clean_query.lower().replace(noise, '').strip()
+        # If query is empty or too short after cleaning, it was just a command with no topic
+        if len(clean_query) < 3:
+            # Try to extract from context
+            if message_history:
+                for m in reversed(message_history[-5:]):
+                    content = m.get("content", "").strip()
+                    if len(content) < 3:
+                        continue
+                    content_lower = content.lower()
+                    if any(w in content_lower for w in ['search', 'look up', 'google', 'find out']):
+                        continue
+                    clean_query = content[:100]
+                    print(f"[KNOWLEDGE] Query was empty after sanitization, extracted from context: '{clean_query}'")
+                    break
+        if len(clean_query) >= 3:
+            search_query = clean_query
         print(f"[KNOWLEDGE] Searching: {search_query}")
         search_results = await search_web(search_query)
         

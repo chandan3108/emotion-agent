@@ -53,6 +53,9 @@ class PsycheEngine:
         
         # Posture overlay: text block from reflection describing current behavioral tendencies
         self.posture = self.psyche.get("posture", "")
+        
+        # Unresolved wounds: emotional injuries that need conversational repair, not timer decay
+        self.unresolved_wounds = self.psyche.get("unresolved_wounds", [])
     
     # ========== Mood System (14-dimensional) ==========
     
@@ -67,7 +70,7 @@ class PsycheEngine:
             emotion_impact: Dict of emotion -> impact value (0-1)
             delta_hours: Hours since last update
         """
-        TAU_MOOD = 6.0  # 6-hour half-life
+        TAU_MOOD = 24.0  # 24-hour half-life (was 6h — too aggressive, crushed mood between sessions)
         
         # Get neurochemical influence on mood (THIS IS KEY)
         neuro_influence = self.get_neurochemical_influence_on_mood()
@@ -89,7 +92,11 @@ class PsycheEngine:
         for emotion, neuro_value in neuro_influence.items():
             if emotion in self.mood:
                 # Blend: 60% current mood, 40% neurochemical influence
-                self.mood[emotion] = 0.6 * self.mood[emotion] + 0.4 * neuro_value
+                # Also apply a soft floor: mood should never crash below the neurochem floor
+                blended = 0.6 * self.mood[emotion] + 0.4 * neuro_value
+                # Floor: if neurochem says you should feel X, mood shouldn't be FAR below that
+                neuro_floor = neuro_value * 0.5  # At least 50% of neurochem-implied level
+                self.mood[emotion] = max(blended, neuro_floor)
         
         # Clamp to [0, 1]
         for emotion in self.mood:
@@ -126,10 +133,69 @@ class PsycheEngine:
         Decay hurt over time.
         
         Formula: hurt(t) = hurt_0 × e^(-t/48h)
+        BUT: hurt cannot decay below the highest active unresolved wound intensity.
+        Wounds need conversational repair, not time.
         """
         TAU_HURT = 48.0  # 48-hour half-life
         current_hurt = self.psyche.get("hurt", 0.0)
-        self.psyche["hurt"] = current_hurt * math.exp(-delta_hours / TAU_HURT)
+        decayed = current_hurt * math.exp(-delta_hours / TAU_HURT)
+        
+        # Floor at highest active wound intensity
+        wound_floor = 0.0
+        if self.unresolved_wounds:
+            active_wounds = [w for w in self.unresolved_wounds if not w.get("resolved", False)]
+            if active_wounds:
+                wound_floor = max(w.get("intensity", 0) for w in active_wounds)
+        
+        self.psyche["hurt"] = max(wound_floor, decayed)
+    
+    def create_wound(self, cause: str, intensity: float):
+        """
+        Create an unresolved wound. These do NOT decay on timers.
+        They only resolve when the reflection LLM determines the user addressed it.
+        
+        Args:
+            cause: What happened (e.g., "dismissed something I cared about")
+            intensity: How much it hurts (0.0-1.0)
+        """
+        from datetime import datetime, timezone
+        wound = {
+            "cause": cause,
+            "intensity": max(0.0, min(1.0, intensity)),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "resolved": False,
+            "resolution_reason": None
+        }
+        self.unresolved_wounds.append(wound)
+        # Keep max 5 wounds (oldest resolved ones get dropped first)
+        if len(self.unresolved_wounds) > 5:
+            # Remove oldest resolved wounds first
+            resolved = [i for i, w in enumerate(self.unresolved_wounds) if w.get("resolved")]
+            if resolved:
+                self.unresolved_wounds.pop(resolved[0])
+            else:
+                self.unresolved_wounds.pop(0)  # Drop oldest if all unresolved
+        self.psyche["unresolved_wounds"] = self.unresolved_wounds
+        print(f"[WOUND] Created: '{cause}' (intensity: {intensity:.2f})")
+    
+    def resolve_wound(self, index: int, reason: str):
+        """
+        Resolve a wound. Called by reflection when LLM determines user addressed it.
+        
+        Args:
+            index: Index of the wound to resolve
+            reason: Why it's considered resolved
+        """
+        if 0 <= index < len(self.unresolved_wounds):
+            wound = self.unresolved_wounds[index]
+            wound["resolved"] = True
+            wound["resolution_reason"] = reason
+            self.psyche["unresolved_wounds"] = self.unresolved_wounds
+            print(f"[WOUND] Resolved: '{wound['cause']}' — reason: {reason}")
+    
+    def get_unresolved_wounds(self):
+        """Get active (unresolved) wounds."""
+        return [w for w in self.unresolved_wounds if not w.get("resolved", False)]
     
     # ========== Forgiveness Finite-State Machine ==========
     
@@ -229,12 +295,15 @@ class PsycheEngine:
             relationship_phase: Current phase, affects which emotions activate
         """
         # Natural decay over time (neurotransmitters don't stay elevated forever)
+        # Half-lives control how fast neurochem decays toward baseline (0.5).
+        # OLD values (1-4h) meant EVERYTHING reset between sessions, erasing
+        # emotional context. NEW values preserve state across days.
         half_lives = {
-            "da": 2.0,   # Dopamine: short half-life, quick spikes/decays
-            "cort": 1.5,  # Cortisol: stress hormone, decays relatively quickly
-            "oxy": 3.0,   # Oxytocin: bonding hormone, longer lasting
-            "ser": 4.0,   # Serotonin: mood stabilizer, longest lasting
-            "ne": 1.0     # Norepinephrine: alertness, very short half-life
+            "da": 12.0,   # Dopamine: engagement persists across sessions
+            "cort": 8.0,  # Cortisol: stress lingers for ~8 hours
+            "oxy": 48.0,  # Oxytocin: bonding is long-lasting (days)
+            "ser": 36.0,  # Serotonin: mood stability persists
+            "ne": 6.0     # Norepinephrine: alertness fades faster but not instantly
         }
         
         for neuro, half_life in half_lives.items():
@@ -337,17 +406,20 @@ class PsycheEngine:
         ne = self.neurochem.get("ne", 0.5)
         
         # Neurochemical influence on mood (realistic mappings)
+        # NOTE: curiosity was MISSING — it decayed to 0 and never recovered
         influences = {
-            "happiness": 0.4 * ser + 0.3 * da + 0.2 * oxy - 0.1 * cort,  # Serotonin + dopamine + oxytocin - cortisol
-            "stress": 0.6 * cort + 0.3 * ne - 0.1 * ser,  # Cortisol + norepinephrine - serotonin
-            "affection": 0.5 * oxy + 0.3 * da + 0.2 * ser,  # Oxytocin + dopamine + serotonin
-            "energy": 0.4 * ne + 0.3 * da + 0.2 * ser - 0.1 * cort,  # Norepinephrine + dopamine - cortisol
-            "anxiety": 0.5 * cort + 0.3 * ne - 0.2 * ser,  # Cortisol + norepinephrine - serotonin
-            "contentment": 0.5 * ser + 0.3 * oxy - 0.2 * cort,  # Serotonin + oxytocin - cortisol
-            "excitement": 0.5 * da + 0.3 * ne,  # Dopamine + norepinephrine
-            "sadness": 0.4 * (1 - ser) + 0.3 * (1 - da) + 0.2 * cort,  # Low serotonin + low dopamine + cortisol
-            "boredom": 0.6 * (1 - da) + 0.2 * (1 - ne),  # Low dopamine + low norepinephrine
-            "playfulness": 0.4 * da + 0.3 * oxy + 0.2 * ser - 0.1 * cort,  # Dopamine + oxytocin - cortisol
+            "happiness": 0.4 * ser + 0.3 * da + 0.2 * oxy - 0.1 * cort,
+            "stress": 0.6 * cort + 0.3 * ne - 0.1 * ser,
+            "affection": 0.5 * oxy + 0.3 * da + 0.2 * ser,
+            "energy": 0.4 * ne + 0.3 * da + 0.2 * ser - 0.1 * cort,
+            "anxiety": 0.5 * cort + 0.3 * ne - 0.2 * ser,
+            "contentment": 0.5 * ser + 0.3 * oxy - 0.2 * cort,
+            "excitement": 0.5 * da + 0.3 * ne,
+            "sadness": 0.4 * (1 - ser) + 0.3 * (1 - da) + 0.2 * cort,
+            "boredom": 0.6 * (1 - da) + 0.2 * (1 - ne),
+            "playfulness": 0.4 * da + 0.3 * oxy + 0.2 * ser - 0.1 * cort,
+            "curiosity": 0.4 * da + 0.3 * ne + 0.2 * (1 - cort),  # FIX: curiosity driven by dopamine + alertness
+            "frustration": 0.4 * cort + 0.3 * (1 - ser) + 0.2 * (1 - da),  # Stress with low mood stability
         }
         
         # Clamp to [0, 1]
@@ -372,6 +444,7 @@ class PsycheEngine:
         self.psyche["anger"] = self.anger
         self.psyche["disgust"] = self.disgust
         self.psyche["posture"] = self.posture
+        self.psyche["unresolved_wounds"] = self.unresolved_wounds
         
         state["current_psyche"] = self.psyche
         state["mood"] = self.mood
@@ -393,7 +466,8 @@ class PsycheEngine:
             "entitlement_debt": self.entitlement_debt,
             "anger": self.anger,
             "disgust": self.disgust,
-            "posture": self.posture
+            "posture": self.posture,
+            "unresolved_wounds": self.get_unresolved_wounds()
         }
     
     # ========== Stance, Respect, Engagement (NEW) ==========

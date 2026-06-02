@@ -1,0 +1,1802 @@
+"""
+Game Progression API — Web App Endpoints
+Exposes XP, diary, timeline, stats, inside jokes, patterns, chat,
+memory, personality, identity, state, schedule, complexity, debug, reset,
+and Discord link through the FULL cognitive pipeline.
+
+CRITICAL: The chat endpoint uses generate_response() from discord_bot.py
+directly — the EXACT same function Discord uses. This ensures full parity:
+same 40+ prompt params, same memory reasoning, same knowledge grounding,
+same dedup, same behavioral tracking, same milestone detection.
+"""
+
+from typing import Dict, Any, Optional, List
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from .cognitive_core import CognitiveCore
+from .user_sync import resolve_core_id, verify_link_code, get_link_status
+
+router = APIRouter(prefix="/api/user", tags=["game-progression"])
+
+
+# ─────────────────────────────────────────────────────
+# Response Models
+# ─────────────────────────────────────────────────────
+
+class XPResponse(BaseModel):
+    total_xp: int
+    phase: str
+    phase_progress_pct: float
+    xp_to_next: int
+    next_phase: Optional[str]
+    streak_days: int
+    daily_awards_today: list
+    phase_unlocks: dict
+    current_rank: int = 1
+    next_rank: Optional[int] = None
+
+
+class DiaryEntry(BaseModel):
+    content: str
+    phase: str
+    timestamp: str
+    has_milestone: bool = False
+    milestone_text: Optional[str] = None
+
+
+class DiaryResponse(BaseModel):
+    entries: List[DiaryEntry]
+    total_entries: int
+    access_level: str
+
+
+class PostcardEntry(BaseModel):
+    id: str
+    activity: str
+    location: str
+    date: str
+    note: str
+    timestamp: str
+
+
+class PostcardsResponse(BaseModel):
+    postcards: List[PostcardEntry]
+    total_postcards: int
+
+
+# --- NEW: Mini-Game Models ---
+class DebateStartRequest(BaseModel):
+    topic_id: str
+
+class DebateStartResponse(BaseModel):
+    session_id: str
+    topic: str
+    user_side: str
+    rem_side: str
+    greeting: str
+    turn_limit: int
+
+class DebateChatRequest(BaseModel):
+    message: str
+
+class DebateChatResponse(BaseModel):
+    rem_response: str
+    turn_count: int
+    turn_limit: int
+    sentiment_score: float
+    finished: bool
+    verdict: Optional[dict] = None
+
+class WinOverStartRequest(BaseModel):
+    scenario_id: str
+
+class WinOverStartResponse(BaseModel):
+    session_id: str
+    scenario_name: str
+    description: str
+    greeting: str
+    turns_remaining: int
+    stats: dict
+
+class WinOverChatRequest(BaseModel):
+    message: str
+
+class WinOverChatResponse(BaseModel):
+    rem_response: str
+    turns_remaining: int
+    stats: dict
+    game_status: str
+    evaluation: dict
+
+class AchievementsResponse(BaseModel):
+    unlocked: List[str]  # list of scenario / challenge IDs unlocked
+
+
+class MessageEntry(BaseModel):
+    role: str
+    content: str
+    timestamp: str
+
+
+class MessagesResponse(BaseModel):
+    messages: List[MessageEntry]
+
+
+class TimelineEvent(BaseModel):
+    event_type: str
+    description: str
+    timestamp: str
+    phase: str
+    significance: Optional[str] = None
+
+
+class TimelineResponse(BaseModel):
+    events: List[TimelineEvent]
+    current_phase: str
+    days_since_start: Optional[int] = None
+
+
+class StatsResponse(BaseModel):
+    total_messages: int
+    longest_streak: int
+    current_streak: int
+    current_phase: str
+    total_xp: int
+    inside_joke_count: int
+    temporal_pattern_count: int
+    diary_entry_count: int
+    milestone_count: int
+    days_active: Optional[int] = None
+
+
+class InsideJoke(BaseModel):
+    reference: str
+    context: str
+    joke_type: Optional[str] = None
+
+
+class InsideJokesResponse(BaseModel):
+    jokes: List[InsideJoke]
+    phase_required: str
+
+
+class PatternItem(BaseModel):
+    pattern: str
+    confidence: str
+    pattern_type: str
+
+
+class PatternsResponse(BaseModel):
+    patterns: List[PatternItem]
+    phase_required: str
+
+
+class PlanRequest(BaseModel):
+    date: str
+    start: str
+    end: str
+    activity: str
+    location: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    user_name: Optional[str] = None
+
+
+class RememberRequest(BaseModel):
+    content: str
+    role: str
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    reply_parts: Optional[List[str]] = None
+    xp_delta: Optional[int] = None
+    phase_transition: Optional[Dict[str, str]] = None
+    new_unlocks: Optional[Dict[str, Any]] = None
+    current_xp: int = 0
+    current_phase: str = "Discovery"
+    current_rank: int = 1
+    rank_progress_pct: float = 0.0
+    rank_transition: Optional[Dict[str, Any]] = None
+    hurt: float = 0.0
+    anger: float = 0.0
+    roleplay: Optional[Dict[str, Any]] = None
+    schedule: Optional[List[Dict[str, Any]]] = None
+    future_plans: Optional[List[Dict[str, Any]]] = None
+    streak_days: int = 0
+
+
+class LinkRequest(BaseModel):
+    code: str
+
+
+class LinkResponse(BaseModel):
+    success: bool
+    discord_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+class LinkStatusResponse(BaseModel):
+    linked: bool
+    discord_id: Optional[str] = None
+    linked_at: Optional[str] = None
+
+
+# ─────────────────────────────────────────────────────
+# Helper: Get or create CognitiveCore
+# ─────────────────────────────────────────────────────
+
+def _get_core(user_id: str) -> CognitiveCore:
+    """Instantiate CognitiveCore for a user, resolving Discord links."""
+    try:
+        core_id = resolve_core_id(user_id)
+        return CognitiveCore(user_id=core_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load user state: {e}")
+
+
+# ═════════════════════════════════════════════════════
+#  EXISTING ENDPOINTS (XP, Diary, Timeline, Stats, etc.)
+# ═════════════════════════════════════════════════════
+
+@router.get("/{user_id}/xp", response_model=XPResponse)
+async def get_xp(user_id: str):
+    core = _get_core(user_id)
+    summary = core.xp_system.get_xp_summary()
+    unlocks = core.xp_system.get_phase_unlocks()
+    return XPResponse(
+        total_xp=summary.get("total_xp", 0),
+        phase=summary.get("phase", "Discovery"),
+        phase_progress_pct=summary.get("progress_pct", 0.0),
+        xp_to_next=summary.get("xp_to_next", 100),
+        next_phase=str(summary.get("next_rank")) if summary.get("next_rank") else None,
+        streak_days=summary.get("streak_days", 0),
+        daily_awards_today=summary.get("recent_awards", []),
+        phase_unlocks=unlocks,
+        current_rank=summary.get("current_rank", 1),
+        next_rank=summary.get("next_rank"),
+    )
+
+
+@router.get("/{user_id}/diary", response_model=DiaryResponse)
+async def get_diary(user_id: str):
+    core = _get_core(user_id)
+    phase = core.relationship_phases.current_phase
+    entries = []
+    
+    # 1. Load legacy reflections
+    reflections = core.state.get("_deep_reflections", [])
+    for r in reflections:
+        if isinstance(r, dict):
+            entries.append(DiaryEntry(
+                content=r.get("content", r.get("diary_entry", "")),
+                phase=r.get("phase", phase),
+                timestamp=r.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                has_milestone=bool(r.get("milestone")),
+                milestone_text=r.get("milestone"),
+            ))
+            
+    # 2. Load modern diary entries
+    diary_state = core.state.get("rem_diary", {})
+    diary_entries = diary_state.get("entries", [])
+    for e in diary_entries:
+        if isinstance(e, dict):
+            entries.append(DiaryEntry(
+                content=e.get("content", ""),
+                phase=e.get("phase", phase),
+                timestamp=e.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                has_milestone=bool(e.get("has_milestone")),
+                milestone_text=e.get("milestone_text", ""),
+            ))
+            
+    entries.sort(key=lambda e: e.timestamp, reverse=True)
+    return DiaryResponse(entries=entries, total_entries=len(entries), access_level=phase)
+
+
+@router.get("/{user_id}/postcards", response_model=PostcardsResponse)
+async def get_postcards(user_id: str):
+    core = _get_core(user_id)
+    postcards_data = core.state.get("_postcards", [])
+    postcards = []
+    for pc in postcards_data:
+        if isinstance(pc, dict):
+            postcards.append(PostcardEntry(
+                id=pc.get("id", ""),
+                activity=pc.get("activity", "hanging out"),
+                location=pc.get("location", "somewhere"),
+                date=pc.get("date", ""),
+                note=pc.get("note", ""),
+                timestamp=pc.get("timestamp", "")
+            ))
+    return PostcardsResponse(postcards=postcards, total_postcards=len(postcards))
+
+
+@router.get("/{user_id}/timeline", response_model=TimelineResponse)
+async def get_timeline(user_id: str):
+    core = _get_core(user_id)
+    phase = core.relationship_phases.current_phase
+    events = []
+
+    for t in core.state.get("phase_transitions", []):
+        if isinstance(t, dict):
+            events.append(TimelineEvent(
+                event_type="phase_transition",
+                description=f"Transitioned from {t.get('from', '?')} to {t.get('to', '?')}",
+                timestamp=t.get("timestamp", ""),
+                phase=t.get("to", phase),
+                significance="high",
+            ))
+
+    for m in core.memory.get_episodic(min_salience=0.3):
+        if isinstance(m, dict):
+            et = m.get("event_type", "moment")
+            if et in ("wound", "wound_resolved", "relationship_milestone", "trust_milestone", "conflict", "apology"):
+                events.append(TimelineEvent(
+                    event_type=et,
+                    description=m.get("content", ""),
+                    timestamp=m.get("timestamp", ""),
+                    phase=phase,
+                    significance="high" if m.get("salience", 0) > 0.6 else "medium",
+                ))
+
+    events.sort(key=lambda e: e.timestamp if e.timestamp else "", reverse=True)
+
+    first_msg_time = core.state.get("temporal_context", {}).get("first_message_time")
+    days = None
+    if first_msg_time:
+        try:
+            start = datetime.fromisoformat(first_msg_time.replace("Z", "+00:00"))
+            days = (datetime.now(timezone.utc) - start).days
+        except Exception:
+            pass
+
+    return TimelineResponse(events=events, current_phase=phase, days_since_start=days)
+
+
+def _get_merged_inside_jokes(core):
+    state_jokes = core.state.get("_inside_jokes", [])
+    evo_jokes = getattr(core.personality_evolution, 'inside_jokes', [])
+    combined_jokes = []
+    seen_jokes = set()
+    for j in (state_jokes + evo_jokes):
+        if not isinstance(j, dict):
+            if isinstance(j, str) and j.strip():
+                ref = j.strip()
+                context = ""
+                joke_type = "running_joke"
+            else:
+                continue
+        else:
+            ref = j.get("reference") or j.get("label") or ""
+            context = j.get("context", j.get("description", ""))
+            joke_type = j.get("type", j.get("joke_type", "running_joke"))
+        
+        if ref and ref.lower() not in seen_jokes:
+            seen_jokes.add(ref.lower())
+            combined_jokes.append({
+                "reference": ref,
+                "context": context,
+                "type": joke_type
+            })
+    return combined_jokes
+
+
+def _get_merged_behavioral_observations(core):
+    state_obs = core.state.get("_behavioral_observations", [])
+    pending_obs = getattr(core.personality_evolution, 'pending_behavioral_observations', [])
+    combined_obs = []
+    seen_obs = set()
+    for o in (state_obs + pending_obs):
+        if not o:
+            continue
+        if isinstance(o, dict):
+            pattern_str = o.get("pattern") or o.get("observation") or str(o)
+            confidence = o.get("confidence", "medium")
+            pattern_type = o.get("type", "behavioral")
+        else:
+            pattern_str = str(o)
+            confidence = "medium"
+            pattern_type = "behavioral"
+            
+        pattern_clean = pattern_str.strip()
+        if pattern_clean and pattern_clean.lower() not in seen_obs:
+            is_dup = False
+            for existing in seen_obs:
+                if pattern_clean.lower()[:40] in existing or existing[:40] in pattern_clean.lower():
+                    is_dup = True
+                    break
+            if not is_dup:
+                seen_obs.add(pattern_clean.lower())
+                combined_obs.append({
+                    "pattern": pattern_clean,
+                    "confidence": confidence,
+                    "type": pattern_type
+                })
+    return combined_obs
+
+
+@router.get("/{user_id}/stats", response_model=StatsResponse)
+async def get_stats(user_id: str):
+    core = _get_core(user_id)
+    xp = core.xp_system
+    patterns = core.state.get("_user_patterns", {})
+    reflections = core.state.get("_deep_reflections", [])
+    milestones = core.state.get("_milestones_stored", [])
+
+    first_msg_time = core.state.get("temporal_context", {}).get("first_message_time")
+    days_active = None
+    if first_msg_time:
+        try:
+            start = datetime.fromisoformat(first_msg_time.replace("Z", "+00:00"))
+            days_active = (datetime.now(timezone.utc) - start).days
+        except Exception:
+            pass
+
+    xp_summary = xp.get_xp_summary()
+    return StatsResponse(
+        total_messages=patterns.get("total_messages", core.personality_evolution.interaction_count),
+        longest_streak=xp_summary.get("longest_streak", 0),
+        current_streak=xp_summary.get("streak_days", 0),
+        current_phase=xp.current_phase,
+        total_xp=xp.total_xp,
+        inside_joke_count=len(_get_merged_inside_jokes(core)),
+        temporal_pattern_count=len(getattr(core.personality_evolution, 'user_temporal_patterns', [])),
+        diary_entry_count=len(reflections),
+        milestone_count=len(milestones),
+        days_active=days_active,
+    )
+
+
+@router.get("/{user_id}/inside-jokes", response_model=InsideJokesResponse)
+async def get_inside_jokes(user_id: str):
+    core = _get_core(user_id)
+    combined = _get_merged_inside_jokes(core)
+    jokes = [
+        InsideJoke(
+            reference=j["reference"],
+            context=j["context"],
+            joke_type=j["type"]
+        ) for j in combined
+    ]
+    return InsideJokesResponse(jokes=jokes, phase_required="Deepening")
+
+
+@router.get("/{user_id}/patterns", response_model=PatternsResponse)
+async def get_patterns(user_id: str):
+    core = _get_core(user_id)
+    combined = _get_merged_behavioral_observations(core)
+    items = [
+        PatternItem(
+            pattern=o["pattern"],
+            confidence=o["confidence"],
+            pattern_type=o["type"]
+        ) for o in combined
+    ]
+    return PatternsResponse(patterns=items, phase_required="Connection")
+
+
+
+# ═════════════════════════════════════════════════════
+#  CHAT — FULL COGNITIVE PIPELINE (same as Discord)
+# ═════════════════════════════════════════════════════
+
+@router.post("/{user_id}/chat", response_model=ChatResponse)
+async def chat(user_id: str, payload: ChatRequest):
+    """
+    Send a message through the FULL cognitive pipeline.
+    Uses generate_response() from discord_bot.py — the EXACT same
+    function Discord uses. All 40+ prompt params, memory reasoning,
+    knowledge grounding, dedup, behavioral tracking, milestones,
+    conversation summaries, self-fact extraction, rumination.
+    """
+    import asyncio
+
+    core = _get_core(user_id)
+
+    if not payload.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    # Store user name if provided
+    if payload.user_name and not core.state.get("user_name"):
+        core.state["user_name"] = payload.user_name
+        core._save_state()
+
+    # Record XP before processing
+    xp_before = core.xp_system.total_xp
+    phase_before = core.xp_system.current_phase
+
+    # Helper: human-readable time-ago for temporal reasoning
+    def _time_ago_label(ts_str: str) -> str:
+        """Convert ISO timestamp to a relative time label for the LLM."""
+        try:
+            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            delta = now - ts
+            hours = delta.total_seconds() / 3600
+            if hours < 0.5:
+                return ""  # Recent, no label needed
+            elif hours < 1:
+                return "[said ~30 min ago] "
+            elif hours < 24:
+                return f"[said {int(hours)}h ago] "
+            else:
+                days = int(hours / 24)
+                return f"[said {days} day{'s' if days != 1 else ''} ago] "
+        except Exception:
+            return ""
+
+    # Build message history from STM (web has no channel history like Discord)
+    message_history = []
+    stm = core.memory.get_stm(decay=False)
+    for m in stm[-12:]:
+        content = m.get("content", "")
+        if not content:
+            continue
+        ts = m.get("timestamp", "")
+        time_label = _time_ago_label(ts) if ts else ""
+        if content.startswith("[Rem] "):
+            message_history.append({
+                "role": "assistant",
+                "content": time_label + content[6:],
+                "timestamp": ts,
+            })
+        else:
+            message_history.append({
+                "role": "user",
+                "content": time_label + content,
+                "timestamp": ts,
+            })
+
+    # Add current message
+    message_history.append({
+        "role": "user",
+        "content": payload.message,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+    # Call Discord's generate_response — FULL pipeline
+    try:
+        from .discord_bot import generate_response, _generate_conversation_summary
+
+        response_text, processing_result = await asyncio.wait_for(
+            generate_response(core, payload.message, message_history, return_processing_result=True),
+            timeout=60.0
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Response generation timed out")
+    except Exception as e:
+        import traceback
+        print(f"[WEB CHAT] Pipeline error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Processing error: {type(e).__name__}")
+
+    if not response_text or response_text.startswith("⚠️"):
+        raise HTTPException(status_code=502, detail=response_text or "No response generated")
+
+    if response_text == "__RATE_LIMITED__":
+        raise HTTPException(status_code=429, detail="Rate limited, please try again in a moment")
+
+    # Calculate typing delay based on response length and schedule/circadian multipliers
+    base_delay = 0.8
+    char_delay = len(response_text) * 0.012  # 12ms per character
+    delay = base_delay + char_delay
+
+    try:
+        from .daily_life import get_current_activity
+        current_activity = get_current_activity(core.state)
+    except Exception:
+        current_activity = None
+
+    temporal = core.state.get("temporal_context", {})
+    circadian = temporal.get("circadian_phase", "")
+
+    multiplier = 1.0
+    if current_activity == "Sleeping":
+        multiplier = 2.5
+    elif current_activity in ("Class", "Studying"):
+        multiplier = 2.0
+    elif current_activity == "Commuting":
+        multiplier = 1.5
+    elif circadian == "deep_night":
+        multiplier = 2.0
+
+    delay = delay * multiplier
+    delay = min(delay, 5.0)  # Cap at 5s to avoid freezing the UI experience too long
+
+    print(f"[CHAT DELAY] Simulating typing delay of {delay:.2f}s (activity: {current_activity}, multiplier: {multiplier})")
+    await asyncio.sleep(delay)
+
+    # Fire background task (same as Discord's handle_dm)
+    try:
+        asyncio.create_task(_generate_conversation_summary(core, message_history))
+    except Exception:
+        pass
+
+    # Calculate XP delta + phase transition
+    xp_after = core.xp_system.total_xp
+    xp_delta = xp_after - xp_before
+    phase_after = core.xp_system.current_phase
+
+    phase_transition = None
+    new_unlocks = None
+    if phase_after != phase_before:
+        phase_transition = {"from": phase_before, "to": phase_after}
+        new_unlocks = core.xp_system.get_phase_unlocks(phase_after)
+
+    # Consume pending rank transitions
+    notifications = core.xp_system.get_pending_notifications()
+    rank_transition = notifications[0] if notifications else None
+
+    # Calculate progress percent to next rank
+    xp_summary = core.xp_system.get_xp_summary()
+    rank_progress = xp_summary.get("progress_pct", 0.0)
+
+    # Get current emotional metrics
+    current_psyche = core.state.get("current_psyche", {})
+    hurt_val = round(current_psyche.get("hurt", 0.0), 2)
+    anger_val = round(current_psyche.get("anger", 0.0), 2)
+
+    # Compute split reply parts for natural double-texting experience
+    try:
+        from .human_messaging import smart_split
+        parts = smart_split(response_text)
+    except Exception:
+        parts = [response_text]
+
+    # Populate roleplay, schedule and plans
+    roleplay_data = None
+    try:
+        from .daily_life import get_current_activity_details
+        act_details = get_current_activity_details(core.state)
+        roleplay_data = {
+            "active": act_details.get("is_user_plan", False),
+            "activity": act_details.get("activity", "just chilling"),
+            "location": act_details.get("location", "home")
+        }
+    except Exception as e:
+        print(f"[WEB API] Error loading roleplay details: {e}")
+        
+    full_schedule = core.state.get("_daily_schedule", {}).get("schedule", [])
+    future_plans = core.state.get("_future_plans", [])
+
+    # Save the updated state to persist consumed notifications, rank, XP and mood changes
+    try:
+        core._save_state()
+    except Exception as e:
+        print(f"[WEB API] Error persisting state: {e}")
+
+    return ChatResponse(
+        reply=response_text,
+        reply_parts=parts,
+        xp_delta=xp_delta if xp_delta else None,
+        phase_transition=phase_transition,
+        new_unlocks=new_unlocks,
+        current_xp=xp_after,
+        current_phase=phase_after,
+        current_rank=core.xp_system.current_rank,
+        rank_progress_pct=rank_progress,
+        rank_transition=rank_transition,
+        hurt=hurt_val,
+        anger=anger_val,
+        roleplay=roleplay_data,
+        schedule=full_schedule,
+        future_plans=future_plans,
+        streak_days=core.xp_system.streak_days
+    )
+
+
+# ═════════════════════════════════════════════════════
+#  NEW ENDPOINTS — Previously Discord-only features
+# ═════════════════════════════════════════════════════
+
+# ── MEMORY (maps to !memory) ──
+
+import re
+
+def _clean_and_format_memory_content(content: str, event_type: str) -> str:
+    if not content:
+        return ""
+    
+    # 1. Clean explicit_bookmark
+    if event_type == "explicit_bookmark" or content.startswith(("[User]", "[Rem]")):
+        if content.startswith("[User]"):
+            val = content[len("[User]"):].strip()
+            return f"You: \"{val}\""
+        elif content.startswith("[Rem]"):
+            val = content[len("[Rem]"):].strip()
+            return f"I: \"{val}\""
+    
+    # 2. Clean own_reaction
+    if event_type == "own_reaction" or content.startswith("Shifted from"):
+        # Match Shifted from 'x' to 'y'. [details] I said: "..."
+        match = re.match(r"Shifted from\s+'[^']+'\s+to\s+'([^']+)'\.\s*(.*?)\s*I said:\s*(.*)", content, re.DOTALL)
+        if match:
+            to_state = match.group(1)
+            details = match.group(2).strip()
+            said = match.group(3).strip()
+            if details:
+                if not details.endswith('.'):
+                    details += '.'
+                return f"I felt {to_state} ({details.lower().rstrip('.')}) and said: {said}"
+            else:
+                return f"I felt {to_state} and said: {said}"
+        
+        # Match Shifted from 'x' to 'y'. [details]
+        match2 = re.match(r"Shifted from\s+'[^']+'\s+to\s+'([^']+)'\.\s*(.*)", content, re.DOTALL)
+        if match2:
+            to_state = match2.group(1)
+            details = match2.group(2).strip()
+            if details:
+                return f"I felt {to_state} - {details}"
+            return f"I felt {to_state}"
+            
+    # 3. Handle third-person to first-person translation
+    s = content
+    
+    s = re.sub(r"\bRem's\b", "my", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bRem'\b", "my", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bRem\b", "I", s, flags=re.IGNORECASE)
+    
+    s = re.sub(r"\bthe user's\b", "your", s, flags=re.IGNORECASE)
+    s = re.sub(r"\buser's\b", "your", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthe user\b", "you", s, flags=re.IGNORECASE)
+    s = re.sub(r"\buser\b", "you", s, flags=re.IGNORECASE)
+    
+    s = re.sub(r"\btheir\b", "your", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthem\b", "you", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey\b", "you", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bhimself/herself/themselves\b", "yourself", s, flags=re.IGNORECASE)
+    
+    # Verb correction for 'you'
+    s = re.sub(r"\byou was\b", "you were", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou is\b", "you are", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou has\b", "you have", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou seems\b", "you seem", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou feels\b", "you feel", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou wants\b", "you want", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou looks\b", "you look", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou thinks\b", "you think", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou makes\b", "you make", s, flags=re.IGNORECASE)
+    s = re.sub(r"\byou agrees\b", "you agreed", s, flags=re.IGNORECASE)
+    
+    # Verb correction for 'I'
+    s = re.sub(r"\bI feels\b", "I feel", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI wants\b", "I want", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI thinks\b", "I think", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI is\b", "I am", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI has\b", "I have", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI plays\b", "I play", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI says\b", "I say", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI teases\b", "I teased", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI playfully teases\b", "I playfully teased", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bI playfully teased\b", "I playfully teased", s, flags=re.IGNORECASE)
+    
+    # Prefix verbs if it starts with a verb
+    verbs = [
+        "Discussed", "Talked", "Shared", "Exchanged", "Argued", "Agreed", "Went", 
+        "Had", "Made", "Planned", "Told", "Asked", "Showed", "Felt", "Wished", 
+        "Wanted", "Joked", "Laughed", "Smiled", "Wondered", "Opened", "Expressed"
+    ]
+    words = s.split()
+    if words:
+        first_word = words[0].rstrip(',.:;!?')
+        if first_word in verbs:
+            s = "We " + s[0].lower() + s[1:]
+        elif first_word.lower() in [v.lower() for v in verbs]:
+            s = "We " + s
+            
+    s = re.sub(r"\s+", " ", s).strip()
+    if s:
+        s = s[0].upper() + s[1:]
+        
+    return s
+
+def _clean_and_format_fact(fact: str) -> str:
+    if not fact:
+        return ""
+    
+    s = fact.strip()
+    words = s.split()
+    if words:
+        first = words[0].lower()
+        if first == "not" and len(words) > 1 and (words[1].lower() in ["into", "interested", "reading", "studying", "working"]):
+            s = "You are " + s
+        elif first.endswith("s") or first.endswith("ing") or first.endswith("ed") or first in ["read", "like", "love", "hate", "want", "need", "have", "has", "is", "into", "studying", "reading", "working", "interested"]:
+            if first in ["into", "studying", "reading", "working", "interested"]:
+                s = "You are " + s
+            elif first.endswith("s"):
+                if first == "is":
+                    words[0] = "are"
+                elif first == "has":
+                    words[0] = "have"
+                elif first == "thinks":
+                    words[0] = "think"
+                elif first == "likes":
+                    words[0] = "like"
+                elif first == "loves":
+                    words[0] = "love"
+                elif first == "wants":
+                    words[0] = "want"
+                elif first == "needs":
+                    words[0] = "need"
+                elif first == "feels":
+                    words[0] = "feel"
+                elif first == "hates":
+                    words[0] = "hate"
+                elif first == "knows":
+                    words[0] = "know"
+                elif first == "believes":
+                    words[0] = "believe"
+                elif first == "prefers":
+                    words[0] = "prefer"
+                else:
+                    if len(first) > 3:
+                        words[0] = first[:-1]
+                s = "You " + " ".join(words)
+            else:
+                s = "You " + s
+
+    s = re.sub(r"\bthe user's\b", "your", s, flags=re.IGNORECASE)
+    s = re.sub(r"\buser's\b", "your", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthe user\b", "you", s, flags=re.IGNORECASE)
+    s = re.sub(r"\buser\b", "you", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bRem's\b", "my", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bRem\b", "me", s, flags=re.IGNORECASE)
+    
+    s = re.sub(r"\s+", " ", s).strip()
+    if s:
+        s = s[0].upper() + s[1:]
+        
+    return s
+
+
+@router.get("/{user_id}/memory")
+async def get_memory(user_id: str):
+    """Full memory hierarchy: STM, episodic, identity."""
+    core = _get_core(user_id)
+    stm = core.memory.get_stm(decay=False)
+    episodic = core.memory.get_episodic(min_salience=0.1)
+    identity = core.memory.get_identity(min_confidence=0.3)
+
+    return {
+        "stm": {
+            "count": len(stm),
+            "entries": [{"content": m.get("content", "")[:200], "timestamp": m.get("timestamp", ""), "topic": m.get("topic", "")} for m in stm[-20:]],
+        },
+        "episodic": {
+            "count": len(episodic),
+            "entries": [
+                {"content": _clean_and_format_memory_content(m.get("content", "")[:200], m.get("event_type", "")), "event_type": m.get("event_type", ""), "salience": round(m.get("salience", 0), 2), "emotional_valence": round(m.get("emotional_valence", 0), 2), "timestamp": m.get("timestamp", "")}
+                for m in sorted(episodic, key=lambda x: x.get("salience", 0), reverse=True)[:30]
+            ],
+        },
+        "identity": {
+            "count": len(identity),
+            "facts": [{"fact": _clean_and_format_fact(m.get("fact", "")), "confidence": round(m.get("confidence", 0), 2), "source": m.get("source", ""), "timestamp": m.get("timestamp", "")} for m in identity[:50]],
+        },
+    }
+
+
+@router.post("/{user_id}/memories")
+async def add_explicit_memory(user_id: str, payload: RememberRequest):
+    """Add a user-bookmarked explicit memory directly to episodic memory."""
+    core = _get_core(user_id)
+    prefix = "[User]" if payload.role == "user" else "[Rem]"
+    formatted_content = f"{prefix} {payload.content}"
+    
+    # Save as high-salience explicit bookmark
+    core.memory.add_episodic(
+        event_type="explicit_bookmark",
+        content=formatted_content,
+        emotional_valence=0.4,
+        relational_impact=0.9
+    )
+    core._save_state()
+    return {"success": True, "message": "Memory successfully saved."}
+
+
+# ── PERSONALITY (maps to !personality) ──
+
+@router.get("/{user_id}/personality")
+async def get_personality(user_id: str):
+    """Rem's personality state, expression guidance, vibes, psyche layers."""
+    core = _get_core(user_id)
+    phase = core.relationship_phases.current_phase
+    trust = core.psyche.psyche.get("trust", 0.3)
+
+    try:
+        pe_state = core.personality_evolution.get_full_state()
+        vibe_palette = pe_state.get("vibe_palette", []) if isinstance(pe_state, dict) else []
+        current_interests = pe_state.get("current_interests", []) if isinstance(pe_state, dict) else []
+    except Exception:
+        vibe_palette, current_interests = [], []
+
+    try:
+        named_mood = core.psyche.get_named_mood_state()
+    except Exception:
+        named_mood = {}
+
+    return {
+        "personality_text": core.personality_evolution.get_personality_text(),
+        "personality_summary": core.personality_evolution.get_personality_summary(),
+        "expression_guidance": core.personality_evolution.get_expression_guidance(trust, phase),
+        "vibe_palette": vibe_palette,
+        "current_interests": current_interests,
+        "psyche": {
+            "stance": core.psyche.stance,
+            "respect": round(core.psyche.respect, 2) if core.psyche.respect else 0,
+            "engagement": round(core.psyche.engagement, 2) if core.psyche.engagement else 0,
+            "posture": core.psyche.posture,
+            "named_mood": named_mood,
+            "neurochem": {
+                "dopamine": round(core.psyche.neurochem.get("da", 0.5), 2),
+                "cortisol": round(core.psyche.neurochem.get("cort", 0.3), 2),
+                "oxytocin": round(core.psyche.neurochem.get("oxy", 0.5), 2),
+                "serotonin": round(core.psyche.neurochem.get("ser", 0.5), 2),
+                "endorphins": round(core.psyche.neurochem.get("endo", 0.5), 2),
+            },
+        },
+        "phase": phase,
+        "trust": round(trust, 2),
+        "energy": round(core.embodiment.E_daily, 2),
+    }
+
+
+# ── IDENTITY (maps to !identity + !about) ──
+
+@router.get("/{user_id}/identity")
+async def get_identity(user_id: str):
+    """What Rem knows about the user."""
+    core = _get_core(user_id)
+    identity_memories = core.memory.get_identity(min_confidence=0.3)
+
+    about_user, world_knowledge = [], []
+    for m in identity_memories:
+        fact = m.get("fact", "")
+        if fact.startswith("[knowledge]"):
+            world_knowledge.append(fact)
+        else:
+            about_user.append({"fact": fact, "confidence": round(m.get("confidence", 0), 2), "timestamp": m.get("timestamp", "")})
+
+    return {
+        "about_user": about_user,
+        "user_facts": core.state.get("_user_facts", {}),
+        "user_learned_facts": core.state.get("user_learned_facts", {}),
+        "world_knowledge": world_knowledge[:20],
+        "user_evaluation": core.personality_evolution.get_user_evaluation(),
+        "conversation_context": core.personality_evolution.get_conversation_context(),
+        "core_identity": {
+            "Occupation": "College student",
+            "Major": "Psychology",
+            "Living": "Lives at home",
+            "Commute": "~30 min to college",
+        },
+        "expression_guidance": core.personality_evolution.get_expression_guidance(
+            core.psyche.psyche.get("trust", 0.3),
+            core.relationship_phases.current_phase,
+        ),
+        "relationship": {
+            "phase": core.relationship_phases.current_phase,
+            "phase_description": core.relationship_phases.get_phase_description(),
+            "trust": round(core.psyche.psyche.get("trust", 0.3), 2),
+            "hurt": round(core.psyche.psyche.get("hurt", 0.0), 2),
+            "anger": round(getattr(core.psyche, "anger", 0.0), 2),
+            "entitlement_debt": round(getattr(core.psyche, 'entitlement_debt', 0.0), 2),
+            "reciprocity_balance": round(core.reciprocity_ledger.balance, 2),
+        },
+    }
+
+
+# ── STATE (maps to !state) ──
+
+@router.get("/{user_id}/state")
+async def get_state(user_id: str):
+    """Full psyche and embodiment state."""
+    core = _get_core(user_id)
+    return {
+        "psyche": core.psyche.get_psyche_summary(),
+        "embodiment": {"energy": round(core.embodiment.E_daily, 2)},
+        "relationship": {
+            "phase": core.relationship_phases.current_phase,
+            "phase_description": core.relationship_phases.get_phase_description(),
+        },
+        "interaction_count": core.personality_evolution.interaction_count,
+        "conflict_stage": core.conflict_lifecycle.current_stage,
+    }
+
+
+# ── SCHEDULE (maps to !sched) ──
+
+@router.get("/{user_id}/schedule")
+async def get_schedule(user_id: str):
+    """Rem's daily schedule and current activity."""
+    core = _get_core(user_id)
+    
+    # Ensure daily schedule is synchronized before returning
+    try:
+        from .daily_life import ensure_daily_schedule
+        await ensure_daily_schedule(core.state)
+    except Exception:
+        pass
+
+    schedule_data = core.state.get("_daily_schedule", {})
+    temporal = core.state.get("temporal_context", {})
+
+    current_activity = "just chilling"
+    is_roleplay_mode = False
+    location = "home"
+    try:
+        from .daily_life import get_current_activity_details
+        details = get_current_activity_details(core.state)
+        current_activity = details.get("activity", "just chilling")
+        is_roleplay_mode = details.get("is_user_plan", False)
+        location = details.get("location", "home")
+    except Exception:
+        pass
+
+    return {
+        "schedule": schedule_data.get("schedule", []),
+        "overrides": schedule_data.get("overrides", []),
+        "current_activity": current_activity,
+        "is_roleplay_mode": is_roleplay_mode,
+        "location": location,
+        "circadian_phase": temporal.get("circadian_phase", "afternoon"),
+        "future_plans": core.state.get("_future_plans", []),
+        "streak_days": core.xp_system.streak_days
+    }
+
+
+# ── FUTURE PLANS ──
+
+@router.get("/{user_id}/plans")
+async def get_user_plans(user_id: str):
+    core = _get_core(user_id)
+    return core.state.get("_future_plans", [])
+
+
+@router.post("/{user_id}/plans")
+async def add_user_plan(user_id: str, plan: PlanRequest):
+    core = _get_core(user_id)
+    try:
+        from .daily_life import add_future_plan, _sync_future_plans_to_overrides, IST
+        add_future_plan(core.state, plan.date, plan.start, plan.end, plan.activity, plan.location)
+        core._save_state()
+        
+        # If today, sync it
+        now = datetime.now(IST)
+        today = now.strftime("%Y-%m-%d")
+        if plan.date == today:
+            _sync_future_plans_to_overrides(core.state, today)
+            core._save_state()
+            
+        return {"success": True, "plans": core.state.get("_future_plans", [])}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{user_id}/plans")
+async def cancel_user_plan(user_id: str, date: str, start: str, end: str):
+    core = _get_core(user_id)
+    try:
+        from .daily_life import IST
+        future_plans = core.state.get("_future_plans", [])
+        # Filter out this plan
+        filtered = [
+            p for p in future_plans
+            if not (p.get("date") == date and p.get("start") == start and p.get("end") == end)
+        ]
+        core.state["_future_plans"] = filtered
+        
+        # Also remove from today's overrides if applicable
+        schedule_data = core.state.get("_daily_schedule", {})
+        overrides = schedule_data.get("overrides", [])
+        overrides = [
+            o for o in overrides
+            if not (o.get("start") == start and o.get("end") == end and o.get("is_user_plan") == True)
+        ]
+        schedule_data["overrides"] = overrides
+        core.state["_daily_schedule"] = schedule_data
+        
+        core._save_state()
+        return {"success": True, "plans": filtered}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{user_id}/end-date")
+async def end_active_date(user_id: str):
+    core = _get_core(user_id)
+    try:
+        schedule_data = core.state.get("_daily_schedule", {})
+        overrides = schedule_data.get("overrides", [])
+        
+        from datetime import datetime
+        from .daily_life import IST
+        now = datetime.now(IST)
+        current_time = now.strftime("%H:%M")
+        
+        active_user_plan = None
+        for o in overrides:
+            start = o.get("start", "")
+            end = o.get("end", "")
+            if o.get("is_user_plan", False) and start <= current_time < end:
+                active_user_plan = o
+                break
+                
+        # Filter out all is_user_plan overrides
+        new_overrides = [
+            o for o in overrides
+            if not o.get("is_user_plan", False)
+        ]
+        
+        schedule_data["overrides"] = new_overrides
+        core.state["_daily_schedule"] = schedule_data
+        
+        # Apply relationship penalties if ended early
+        if active_user_plan:
+            activity = active_user_plan.get("activity", "hanging out")
+            location = active_user_plan.get("location", "somewhere")
+            
+            # Trust penalty: decrease by 0.1
+            current_trust = core.psyche.psyche.get("trust", 0.7)
+            core.psyche.psyche["trust"] = max(0.0, round(current_trust - 0.1, 2))
+            
+            # Hurt increase: increase by 0.05
+            current_hurt = core.psyche.psyche.get("hurt", 0.0)
+            core.psyche.psyche["hurt"] = min(1.0, round(current_hurt + 0.05, 2))
+            
+            # Engagement penalty: decrease by 0.1
+            core.psyche.update_engagement(-0.1)
+            
+            # Record negative episodic memory
+            try:
+                core.memory.add_episodic(
+                    event_type="date_ended_early",
+                    content=f"User abruptly ended our date early at {location} while we were {activity}.",
+                    relational_impact=-0.5
+                )
+            except Exception as mem_err:
+                print(f"[WEB API] Error saving end-date memory: {mem_err}")
+                
+            # Write early end journal entry
+            try:
+                await core.diary.write_date_journal_entry(core, activity, location, ended_early=True)
+            except Exception as journal_err:
+                print(f"[WEB API] Error writing date journal: {journal_err}")
+                
+            # Remove completed plan from future plans to prevent loops
+            try:
+                start = active_user_plan.get("start", "")
+                end = active_user_plan.get("end", "")
+                today_str = now.strftime("%Y-%m-%d")
+                future_plans = core.state.get("_future_plans", [])
+                core.state["_future_plans"] = [
+                    p for p in future_plans
+                    if not (p.get("date") == today_str and p.get("start") == start and p.get("end") == end)
+                ]
+            except Exception as plans_err:
+                print(f"[WEB API] Error cleaning up plan: {plans_err}")
+                
+        core.state["_active_date_running"] = False
+        core._save_state()
+        return {"success": True, "message": "Date mode ended early. Relational impact applied."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── COMPLEXITY (maps to !complexity) ──
+
+@router.get("/{user_id}/complexity")
+async def get_complexity(user_id: str):
+    """Cognitive routing stats, inner monologue, rumination."""
+    core = _get_core(user_id)
+    return {
+        "conversation_summary": core.personality_evolution.conversation_summary,
+        "emotional_undercurrents": core.personality_evolution.emotional_undercurrents,
+        "rumination": core.state.get("_rumination"),
+        "inner_monologue": core.state.get("_inner_monologue", []),
+        "pending_eruption": core.state.get("_pending_eruption"),
+        "knowledge_holes": core.state.get("_knowledge_holes", []),
+        "recent_claims": core.state.get("_rem_recent_claims", [])[-5:],
+        "self_identity": core.state.get("_self_identity", {}),
+    }
+
+
+# ── DEBUG (maps to !debug) ──
+
+@router.get("/{user_id}/debug")
+async def get_debug(user_id: str):
+    """Raw state keys and sizes for debugging."""
+    core = _get_core(user_id)
+    state_keys = {}
+    for key, value in core.state.items():
+        if isinstance(value, (list, dict)):
+            state_keys[key] = {"type": type(value).__name__, "size": len(value)}
+        elif isinstance(value, str):
+            state_keys[key] = {"type": "str", "size": len(value)}
+        else:
+            state_keys[key] = {"type": type(value).__name__, "value": str(value)[:100]}
+    return {
+        "user_id": core.user_id,
+        "state_keys": state_keys,
+        "total_keys": len(state_keys),
+        "memory_stats": {
+            "stm_count": len(core.memory.get_stm(decay=False)),
+            "episodic_count": len(core.memory.get_episodic(min_salience=0.0)),
+            "identity_count": len(core.memory.get_identity(min_confidence=0.0)),
+        },
+    }
+
+
+# ── RESET (maps to !reset) ──
+
+@router.post("/{user_id}/reset")
+async def reset_user(user_id: str):
+    """NUCLEAR RESET — wipe ALL state for this user and generate fresh persona."""
+    import sqlite3
+    import os
+    
+    # Resolve the actual core_id (handles Discord linking)
+    try:
+        core_id = resolve_core_id(user_id)
+    except Exception:
+        core_id = user_id
+    
+    # 1. Delete state from main database
+    try:
+        from .state import StateOrchestrator
+        state_orch = StateOrchestrator()
+        with sqlite3.connect(state_orch.db_path) as conn:
+            conn.execute("DELETE FROM user_state WHERE user_id = ?", (core_id,))
+            conn.commit()
+        print(f"[RESET] Cleared user_state for {core_id}")
+    except Exception as e:
+        print(f"[RESET] DB delete failed: {e}")
+    
+    # 2. Clear semantic memory embeddings
+    try:
+        from .semantic_search import get_semantic_search
+        sem = get_semantic_search()
+        sem.remove_user(core_id)
+        print(f"[RESET] Cleared semantic embeddings for {core_id}")
+    except Exception as e:
+        print(f"[RESET] Semantic clear failed: {e}")
+    
+    # 3. Clear FTS5 memory search index
+    try:
+        from .memory_search import get_memory_search
+        fts = get_memory_search()
+        fts.remove_user(core_id)
+        print(f"[RESET] Cleared FTS5 index for {core_id}")
+    except Exception as e:
+        print(f"[RESET] FTS5 clear failed: {e}")
+    
+    # 4. Remove from ALL caches
+    try:
+        from .discord_bot import active_cores
+        for key in list(active_cores.keys()):
+            if key == user_id or key == core_id or key == user_id.replace("web_user_", ""):
+                del active_cores[key]
+                print(f"[RESET] Removed from discord active_cores: {key}")
+    except Exception:
+        pass
+    
+    # 5. Reinitialize with completely fresh state
+    core = _get_core(user_id)
+    
+    # 6. Generate fresh persona flavor via LLM
+    persona_flavor = None
+    try:
+        import httpx
+        import json
+        import random
+        import re
+        
+        fallback_seeds = [
+            {
+                "obsession": {
+                    "topic": "Elden Ring lore",
+                    "details": "She spends hours reading theories about Miquella and Malenia's relationship on Reddit.",
+                    "trigger_keywords": ["game", "play", "elden", "ring", "bored", "night", "hobby"]
+                },
+                "drama": {
+                    "topic": "Mother nagging about switching to business",
+                    "details": "Her mom keeps sending articles about business analyst job prospects, warning her psychology has no career future.",
+                    "trigger_keywords": ["mom", "parent", "college", "study", "major", "career", "annoyed"]
+                },
+                "hot_take": {
+                    "topic": "Pineapple pizza is a crime",
+                    "details": "She insists pineapple on pizza violates the basic principles of taste and balance and is a culinary war crime.",
+                    "trigger_keywords": ["food", "eat", "dinner", "taste", "pizza", "pineapple"]
+                },
+                "deep_secret": {
+                    "topic": "Fear of clinical failure",
+                    "details": "She's secretly terrified she lacks the emotional endurance to be a clinical psychologist and will get burnt out in a year.",
+                    "trigger_keywords": ["future", "clinical", "psychology", "secret", "worry", "afraid", "dream"]
+                },
+                "communication_quirks": {
+                    "style": "Fast lowercase typing, short sentences, dry emotes like 🧍, rare capitalization.",
+                    "favorite_phrases": ["lol", "bruh", "literally", "i can't"]
+                }
+            },
+            {
+                "obsession": {
+                    "topic": "Vintage film cameras",
+                    "details": "She bought an old 35mm Olympus camera and spends all her money on film development and scan tools.",
+                    "trigger_keywords": ["photo", "camera", "film", "picture", "hobby", "art", "vintage"]
+                },
+                "drama": {
+                    "topic": "A roommate who never does dishes",
+                    "details": "Her roommate constantly leaves crusty bowls in the sink, arguing it is 'soaking' for three days straight.",
+                    "trigger_keywords": ["roommate", "dorm", "apartment", "wash", "dish", "clean", "annoyed"]
+                },
+                "hot_take": {
+                    "topic": "Quiet luxury is just boring",
+                    "details": "She thinks the 'quiet luxury' aesthetic is just an excuse for people to wear beige blankets and look dull.",
+                    "trigger_keywords": ["style", "fashion", "luxury", "clothes", "wear", "beige"]
+                },
+                "deep_secret": {
+                    "topic": "Imposter syndrome in academics",
+                    "details": "She cheated on a major chemistry quiz in freshman year and still feels like her entire academic record is a lie.",
+                    "trigger_keywords": ["grade", "quiz", "test", "fail", "smart", "cheat", "secret"]
+                },
+                "communication_quirks": {
+                    "style": "Expressive with trailing punctuation, uses dots like ... a lot, and lowercase text.",
+                    "favorite_phrases": ["wait...", "tbh", "i guess", "idk"]
+                }
+            }
+        ]
+
+        api_key = os.environ.get("GROQ_API_KEY")
+        seed_data = None
+        
+        if api_key:
+            persona_prompt = """Generate a detailed, unique personality seed profile for a 20-year-old female psychology student named Rem.
+Respond with ONLY a raw JSON object (no markdown, no ```json formatting, no explanation).
+
+The JSON must follow this exact structure:
+{
+  "obsession": {
+    "topic": "topic name (e.g. Elden Ring lore)",
+    "details": "specific, colorful description of her obsession",
+    "trigger_keywords": ["list", "of", "4-6", "lowercase", "related", "keywords"]
+  },
+  "drama": {
+    "topic": "short topic name (e.g. roommate dish war)",
+    "details": "detailed description of what's going on",
+    "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
+  },
+  "hot_take": {
+    "topic": "topic name (e.g. pineapple pizza)",
+    "details": "her exact, opinionated stance and argument",
+    "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
+  },
+  "deep_secret": {
+    "topic": "topic name (e.g. academic imposter)",
+    "details": "vulnerable secret that she hides",
+    "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
+  },
+  "communication_quirks": {
+    "style": "description of her text messaging style (e.g. fast lowercase, dry emotes)",
+    "favorite_phrases": ["list", "of", "3-5", "phrases", "she", "uses"]
+  }
+}
+
+Make the details specific, opinionated, and realistic for a modern college student. Do not use generic answers."""
+
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                resp = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json={
+                        "model": "llama-3.1-8b-instant",
+                        "messages": [{"role": "user", "content": persona_prompt}],
+                        "max_tokens": 400,
+                        "temperature": 1.1,
+                    },
+                )
+            if resp.status_code == 200:
+                data = resp.json()
+                raw_response = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                
+                # Clean json markers
+                cleaned_content = raw_response
+                if "```" in cleaned_content:
+                    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', cleaned_content)
+                    if json_match:
+                        cleaned_content = json_match.group(1).strip()
+                
+                try:
+                    parsed = json.loads(cleaned_content)
+                    required_keys = ["obsession", "drama", "hot_take", "deep_secret", "communication_quirks"]
+                    if all(k in parsed for k in required_keys):
+                        seed_data = parsed
+                        print("[RESET] Successfully generated fresh JSON seed via LLM.")
+                except Exception as parse_err:
+                    print(f"[RESET] LLM response JSON parse failed: {parse_err}")
+        
+        if not seed_data:
+            seed_data = random.choice(fallback_seeds)
+            print("[RESET] Using fallback seed profile.")
+
+        # Save to state
+        core.state["_seed_profile"] = seed_data
+        
+        # Build _persona_flavor summary string for compatibility
+        persona_flavor = (
+            f"- Current obsession: {seed_data['obsession']['topic']} ({seed_data['obsession']['details']})\n"
+            f"- Mild drama: {seed_data['drama']['topic']} ({seed_data['drama']['details']})\n"
+            f"- Strong opinion: {seed_data['hot_take']['topic']} ({seed_data['hot_take']['details']})"
+        )
+        
+        self_identity = core.state.get("_self_identity", {})
+        if not isinstance(self_identity, dict):
+            self_identity = {}
+        self_identity["_persona_flavor"] = persona_flavor
+        core.state["_self_identity"] = self_identity
+        
+        core._save_state()
+        print(f"[PERSONA] Loaded profile seed: {json.dumps(seed_data)}")
+        
+    except Exception as e:
+        print(f"[PERSONA] Generation process failed: {e}")
+
+    result = {"success": True, "message": "State reset. Rem won't remember anything."}
+    if persona_flavor:
+        result["message"] += " Fresh personality generated!"
+        result["persona_flavor"] = persona_flavor
+    return result
+
+
+# ═════════════════════════════════════════════════════
+#  DISCORD ↔ WEB LINK
+# ═════════════════════════════════════════════════════
+
+@router.post("/{user_id}/link", response_model=LinkResponse)
+async def link_discord(user_id: str, payload: LinkRequest):
+    """Verify a link code and connect web user to Discord state."""
+    result = verify_link_code(user_id, payload.code)
+    if result.get("success"):
+        return LinkResponse(success=True, discord_id=result.get("discord_id"))
+    return LinkResponse(success=False, error=result.get("error", "Invalid code"))
+
+
+@router.get("/{user_id}/link", response_model=LinkStatusResponse)
+async def get_link(user_id: str):
+    """Check if a web user is linked to a Discord account."""
+    status = get_link_status(user_id)
+    return LinkStatusResponse(**status)
+
+
+async def _trigger_check_in_if_needed(core: CognitiveCore):
+    # Get last interaction date or STM times
+    stm = core.memory.get_stm(decay=False)
+    if not stm:
+        return
+        
+    last_user_msg_time = None
+    last_assistant_msg_time = None
+    
+    for m in reversed(stm):
+        content = m.get("content", "")
+        ts = m.get("timestamp")
+        if not ts:
+            continue
+        if content.startswith("[User] ") or (not content.startswith("[Rem] ") and not content.startswith("[System] ")):
+            if not last_user_msg_time:
+                last_user_msg_time = ts
+        elif content.startswith("[Rem] "):
+            if not last_assistant_msg_time:
+                last_assistant_msg_time = ts
+                
+    if not last_user_msg_time:
+        return
+        
+    try:
+        user_ts = datetime.fromisoformat(last_user_msg_time.replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        hours_since_user = (now - user_ts).total_seconds() / 3600.0
+        
+        if hours_since_user >= 18.0:
+            if last_assistant_msg_time:
+                assistant_ts = datetime.fromisoformat(last_assistant_msg_time.replace("Z", "+00:00"))
+                if assistant_ts > user_ts:
+                    return
+            
+            last_check_in = core.state.get("_last_check_in_time")
+            if last_check_in:
+                check_in_ts = datetime.fromisoformat(last_check_in.replace("Z", "+00:00"))
+                if check_in_ts > user_ts:
+                    return
+            
+            import httpx
+            import os
+            
+            api_key = os.environ.get("GROQ_API_KEY")
+            check_in_msg = None
+            if api_key:
+                personality = core.personality_evolution.get_personality_summary()
+                phase = core.relationship_phases.current_phase
+                trust = core.psyche.psyche.get("trust", 0.5)
+                mood = core.psyche.get_named_mood_state()
+                
+                prompt = {
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": f"You are Rem, a 20-year-old psychology college student texting your companion. It has been over 18 hours since they texted you, and you want to check in. Current mood: {mood}, trust: {trust:.2f}, phase: {phase}, personality: {personality}. Rules: 1. Write a short, natural check-in message (1-2 sentences). 2. Use lowercase, casual formatting, simple punctuation, dry emotes. 3. Do NOT mention '18 hours' or 'inactivity'. Respond with ONLY the message."
+                        }
+                    ],
+                    "max_tokens": 100,
+                    "temperature": 0.8,
+                }
+                
+                try:
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        resp = await client.post(
+                            "https://api.groq.com/openai/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {api_key}"},
+                            json=prompt
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                            if text:
+                                if text.startswith('"') and text.endswith('"'):
+                                    text = text[1:-1].strip()
+                                check_in_msg = text
+                except Exception as e:
+                    print(f"[CHECK-IN] API error: {e}")
+            
+            if not check_in_msg:
+                check_in_msg = "hey, just checking in. hope everything is okay with you today! standard study grind on my end but wanted to say hi."
+            
+            core.memory.add_stm(
+                f"[Rem] {check_in_msg}",
+                {"valence": 0.0, "arousal": 0.0},
+                {},
+                topic="check_in"
+            )
+            core.state["_last_check_in_time"] = datetime.now(timezone.utc).isoformat()
+            core._save_state()
+            print(f"[CHECK-IN] Proactive check-in generated: {check_in_msg}")
+    except Exception as check_err:
+        print(f"[CHECK-IN] Error: {check_err}")
+
+
+@router.get("/{user_id}/messages", response_model=MessagesResponse)
+async def get_messages(user_id: str):
+    core = _get_core(user_id)
+    await _trigger_check_in_if_needed(core)
+    
+    stm = core.memory.get_stm(decay=False)
+    messages = []
+    for m in stm:
+        content = m.get("content", "")
+        if not content:
+            continue
+        ts = m.get("timestamp", datetime.now(timezone.utc).isoformat())
+        if content.startswith("[Rem] "):
+            messages.append(MessageEntry(
+                role="assistant",
+                content=content[6:],
+                timestamp=ts,
+            ))
+        elif content.startswith("[User] "):
+            messages.append(MessageEntry(
+                role="user",
+                content=content[7:],
+                timestamp=ts,
+            ))
+        else:
+            messages.append(MessageEntry(
+                role="user",
+                content=content,
+                timestamp=ts,
+            ))
+    return MessagesResponse(messages=messages)
+
+
+# =====================================================
+#  MINI-GAMES ENDPOINTS
+# =====================================================
+
+@router.get("/{user_id}/games/achievements", response_model=AchievementsResponse)
+async def get_achievements(user_id: str):
+    core = _get_core(user_id)
+    unlocked = core.state.get("_achievements", [])
+    return AchievementsResponse(unlocked=unlocked)
+
+
+@router.post("/{user_id}/games/debate/start", response_model=DebateStartResponse)
+async def start_debate(user_id: str, payload: DebateStartRequest):
+    core = _get_core(user_id)
+    from .games_logic import DEBATE_TOPICS, generate_debate_response
+    
+    topic_data = next((t for t in DEBATE_TOPICS if t["id"] == payload.topic_id), DEBATE_TOPICS[0])
+    session_id = f"deb_{int(datetime.now(timezone.utc).timestamp())}"
+    
+    history = []
+    greeting = await generate_debate_response(topic_data, history, f"let's debate: {topic_data['topic']}. tell me your opening point.")
+    
+    session = {
+        "id": session_id,
+        "topic_id": topic_data["id"],
+        "topic": topic_data["topic"],
+        "user_side": topic_data["user_side"],
+        "rem_side": topic_data["rem_side"],
+        "greeting": greeting,
+        "history": [{"role": "assistant", "content": greeting}],
+        "turn_count": 0,
+        "turn_limit": 5,
+        "sentiment_score": 0.0,
+        "finished": False,
+        "verdict": None
+    }
+    core.state["_active_debate"] = session
+    core._save_state()
+    
+    return DebateStartResponse(
+        session_id=session_id,
+        topic=topic_data["topic"],
+        user_side=topic_data["user_side"],
+        rem_side=topic_data["rem_side"],
+        greeting=greeting,
+        turn_limit=5
+    )
+
+
+@router.post("/{user_id}/games/debate/chat", response_model=DebateChatResponse)
+async def chat_debate(user_id: str, payload: DebateChatRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_debate")
+    if not session or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active debate session found")
+        
+    from .games_logic import DEBATE_TOPICS, generate_debate_response, judge_debate
+    topic_id = session.get("topic_id")
+    topic_data = next((t for t in DEBATE_TOPICS if t["id"] == topic_id), DEBATE_TOPICS[0])
+    
+    history = session.get("history", [])
+    user_msg = payload.message.strip()
+    history.append({"role": "user", "content": user_msg})
+    
+    turn_count = session.get("turn_count", 0) + 1
+    session["turn_count"] = turn_count
+    
+    user_words = len(user_msg.split())
+    import random
+    shift = max(-0.5, min(0.5, (user_words - 10) * 0.02 + random.uniform(-0.15, 0.15)))
+    session["sentiment_score"] = max(-1.0, min(1.0, session.get("sentiment_score", 0.0) + shift))
+    
+    rem_response = ""
+    verdict = None
+    finished = False
+    
+    if turn_count >= 5:
+        finished = True
+        session["finished"] = True
+        verdict = await judge_debate(topic_data, history)
+        session["verdict"] = verdict
+        rem_response = f"and that's the debate! the judge is rendering a verdict now..."
+        
+        if verdict.get("winner") == "user":
+            achievements = core.state.get("_achievements", [])
+            if "debate_champion" not in achievements:
+                achievements.append("debate_champion")
+                core.state["_achievements"] = achievements
+    else:
+        rem_response = await generate_debate_response(topic_data, history, user_msg)
+        history.append({"role": "assistant", "content": rem_response})
+        
+    session["history"] = history
+    core.state["_active_debate"] = session
+    core._save_state()
+    
+    return DebateChatResponse(
+        rem_response=rem_response,
+        turn_count=turn_count,
+        turn_limit=5,
+        sentiment_score=session["sentiment_score"],
+        finished=finished,
+        verdict=verdict
+    )
+
+
+@router.post("/{user_id}/games/win-over/start", response_model=WinOverStartResponse)
+async def start_win_over(user_id: str, payload: WinOverStartRequest):
+    core = _get_core(user_id)
+    from .games_logic import WIN_OVER_SCENARIOS
+    
+    scenario = WIN_OVER_SCENARIOS.get(payload.scenario_id, WIN_OVER_SCENARIOS["promise"])
+    session_id = f"win_{int(datetime.now(timezone.utc).timestamp())}"
+    
+    session = {
+        "id": session_id,
+        "scenario_id": scenario["id"],
+        "name": scenario["name"],
+        "description": scenario["description"],
+        "greeting": scenario["greeting"],
+        "stats": scenario["starting_stats"].copy(),
+        "turns_remaining": 10,
+        "history": [{"role": "assistant", "content": scenario["greeting"]}],
+        "game_status": "active",
+        "evaluation": {}
+    }
+    
+    core.state["_active_win_over"] = session
+    core._save_state()
+    
+    return WinOverStartResponse(
+        session_id=session_id,
+        scenario_name=scenario["name"],
+        description=scenario["description"],
+        greeting=scenario["greeting"],
+        turns_remaining=10,
+        stats=scenario["starting_stats"]
+    )
+
+
+@router.post("/{user_id}/games/win-over/chat", response_model=WinOverChatResponse)
+async def chat_win_over(user_id: str, payload: WinOverChatRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_win_over")
+    if not session or session.get("game_status") != "active":
+        raise HTTPException(status_code=400, detail="No active win-over session found")
+        
+    from .games_logic import evaluate_win_over_message, generate_win_over_response, process_win_over_state_updates
+    
+    scenario_desc = session.get("description")
+    stats = session.get("stats", {})
+    history = session.get("history", [])
+    user_msg = payload.message.strip()
+    history.append({"role": "user", "content": user_msg})
+    
+    emotional_state = f"Anger={stats['anger']:.2f}, Hurt={stats['hurt']:.2f}, Trust={stats['trust']:.2f}"
+    evaluation = await evaluate_win_over_message(scenario_desc, emotional_state, user_msg)
+    
+    new_stats = process_win_over_state_updates(stats, evaluation, session.get("scenario_id", "promise"))
+    turns_remaining = session.get("turns_remaining", 10) - 1
+    game_status = "active"
+    
+    if new_stats.get("blocked"):
+        game_status = "blocked"
+        rem_response = "[System Notice: Rem blocked you. You said something extremely toxic.]"
+    elif new_stats["trust"] >= 0.65 and new_stats["hurt"] <= 0.20 and new_stats["anger"] <= 0.20:
+        game_status = "won"
+        rem_response = "i... okay, maybe i was a bit too hard on you. sorry. let's just make sure it doesn't happen again, okay?"
+        achievements = core.state.get("_achievements", [])
+        scen_id = f"win_over_{session.get('scenario_id')}"
+        if scen_id not in achievements:
+            achievements.append(scen_id)
+            core.state["_achievements"] = achievements
+    elif turns_remaining <= 0:
+        game_status = "lost"
+        rem_response = "honestly, i'm just tired. i think i need some space. let's talk some other time."
+    else:
+        rem_response = await generate_win_over_response(scenario_desc, new_stats, history, user_msg)
+        history.append({"role": "assistant", "content": rem_response})
+        
+    session["stats"] = new_stats
+    session["turns_remaining"] = turns_remaining
+    session["game_status"] = game_status
+    session["history"] = history
+    session["evaluation"] = evaluation
+    
+    core.state["_active_win_over"] = session
+    core._save_state()
+    
+    return WinOverChatResponse(
+        rem_response=rem_response,
+        turns_remaining=turns_remaining,
+        stats=new_stats,
+        game_status=game_status,
+        evaluation=evaluation
+    )
+

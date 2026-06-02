@@ -49,6 +49,7 @@ class EpisodicMemory:
     evidence_event_ids: List[str]  # Links to other memories
     topic: str = ""  # Topic of this episodic memory
     emotional_weight: float = 0.0  # Emotional significance (0-1)
+    emotional_context: str = "neutral"  # playful, vulnerable, tense, warm, neutral
 
 
 @dataclass
@@ -228,13 +229,36 @@ class MemorySystem:
     
     def add_episodic(self, event_type: str, content: str, 
                      emotional_valence: float, relational_impact: float,
-                     evidence_event_ids: List[str] = None) -> str:
-        """Add episodic memory with forgetting curve."""
+                     evidence_event_ids: List[str] = None,
+                     emotional_context: str = None) -> str:
+        """Add episodic memory with forgetting curve and emotional context tag."""
         memory_id = f"m{int(datetime.now(timezone.utc).timestamp() * 1000)}"
         
         # Compute half-life from relational impact
         base_half_life = 48.0  # hours
         half_life = base_half_life * (1 + relational_impact)
+        
+        # Auto-derive emotional context if not provided
+        if not emotional_context:
+            if event_type in ("fight", "conflict", "boundary_violation"):
+                emotional_context = "tense"
+            elif event_type in ("confession", "vulnerability", "deep_talk"):
+                emotional_context = "vulnerable"
+            elif emotional_valence > 0.4:
+                emotional_context = "warm"
+            elif emotional_valence < -0.3:
+                emotional_context = "tense"
+            else:
+                # Infer from content keywords
+                content_lower = content.lower()
+                if any(w in content_lower for w in ["teas", "sass", "joke", "laugh", "playful", "banter", "flirt"]):
+                    emotional_context = "playful"
+                elif any(w in content_lower for w in ["open", "share", "trust", "honest", "vulnerable"]):
+                    emotional_context = "vulnerable"
+                elif any(w in content_lower for w in ["sweet", "kind", "caring", "comfort", "support"]):
+                    emotional_context = "warm"
+                else:
+                    emotional_context = "neutral"
         
         entry = EpisodicMemory(
             memory_id=memory_id,
@@ -247,8 +271,10 @@ class MemorySystem:
             half_life_hours=half_life,
             evidence_event_ids=evidence_event_ids,
             topic="general",
-            emotional_weight=abs(emotional_valence)  # Use valence as emotional weight
+            emotional_weight=abs(emotional_valence),
+            emotional_context=emotional_context
         )
+        print(f"[EMOTIONAL TAG] {emotional_context} — {content[:60]}")
         
         episodic = self.memory.get("episodic", [])
         episodic.append(asdict(entry))
@@ -528,20 +554,37 @@ class MemorySystem:
         return sorted(memories, key=lambda m: m.get("emotional_weight", 0), reverse=True)
     
     def calculate_relevance(self, memory: Dict[str, Any], current_context: Dict[str, Any]) -> float:
-        """Score memory relevance instead of keyword matching."""
+        """Score memory relevance with emotional context matching."""
         score = 0.0
         
-        # Topic overlap (40%)
+        # Topic overlap (25%)
         current_topic = current_context.get("topic", "").lower()
         memory_topic = memory.get("topic", "").lower()
         if current_topic and memory_topic and (current_topic in memory_topic or memory_topic in current_topic):
-            score += 0.4
+            score += 0.25
         
         # Recency (30%)
-        memory_time = datetime.fromisoformat(memory["timestamp"].replace("Z", "+00:00"))
-        hours_old = (datetime.now(timezone.utc) - memory_time).total_seconds() / 3600
-        if hours_old < 24:
-            score += 0.3
+        try:
+            memory_time = datetime.fromisoformat(memory["timestamp"].replace("Z", "+00:00"))
+            hours_old = (datetime.now(timezone.utc) - memory_time).total_seconds() / 3600
+            if hours_old < 24:
+                score += 0.3
+        except (KeyError, ValueError):
+            pass
+        
+        # Emotional context match (15%) — NEW
+        current_mood = current_context.get("emotional_context", "").lower()
+        memory_mood = memory.get("emotional_context", "neutral").lower()
+        if current_mood and memory_mood and current_mood == memory_mood:
+            score += 0.15
+        elif current_mood and memory_mood:
+            # Partial matches (playful~warm, vulnerable~tense have some overlap)
+            mood_affinity = {
+                ("playful", "warm"): 0.07, ("warm", "playful"): 0.07,
+                ("vulnerable", "warm"): 0.07, ("warm", "vulnerable"): 0.07,
+                ("tense", "vulnerable"): 0.05, ("vulnerable", "tense"): 0.05,
+            }
+            score += mood_affinity.get((current_mood, memory_mood), 0.0)
         
         # Emotional weight (20%)
         emotional_weight = memory.get("emotional_weight", 0)
@@ -552,6 +595,49 @@ class MemorySystem:
             score += 0.1
         
         return score
+    
+    def get_surprise_memory(self, min_age_days: int = 3) -> Optional[Dict[str, Any]]:
+        """Get a random old but meaningful memory for surprise callbacks.
+        Returns None if no qualifying memory found."""
+        import random
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=min_age_days)
+        
+        # Get recent STM content to avoid surfacing already-discussed memories
+        recent_stm = self.get_stm(decay=False)
+        recent_content = set()
+        for entry in recent_stm[-20:]:
+            recent_content.add(entry.get("content", "")[:40].lower())
+        
+        # Find qualifying episodic memories
+        candidates = []
+        for entry in self.memory.get("episodic", []):
+            try:
+                mem_time = datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
+            except (KeyError, ValueError):
+                continue
+            
+            # Must be old enough
+            if mem_time > cutoff:
+                continue
+            
+            # Must be emotionally significant
+            emo_weight = entry.get("emotional_weight", 0)
+            rel_impact = entry.get("relational_impact", 0)
+            if emo_weight < 0.4 and rel_impact < 0.4:
+                continue
+            
+            # Must not be recently discussed
+            content_snippet = entry.get("content", "")[:40].lower()
+            if content_snippet in recent_content:
+                continue
+            
+            candidates.append(entry)
+        
+        if not candidates:
+            return None
+        
+        return random.choice(candidates)
     
     async def reason_about_memories(self, current_context: Dict[str, Any], 
                                    recent_messages: List[Dict] = None) -> Dict[str, Any]:

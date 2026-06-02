@@ -42,31 +42,28 @@ class SelfNarrativeGenerator:
         """
         Determine if self-narrative should be generated.
         
-        Conditions:
-        - Deep relationship phase (Deep, Steady, or Volatile)
-        - High trust (≥0.7)
-        - Vulnerability willingness (≥0.6)
-        - At least 3 days since last narrative (don't overdo it)
-        - Stochastic: 15% chance even if conditions met (humans don't always reflect)
+        Relaxed gates — reflection can happen in Building+ phases, not just Deep.
+        A meaningful conversation can trigger self-reflection at any trust level.
+        The Context Compiler will decide WHAT to reflect on.
         """
-        # Phase check
-        if relationship_phase not in ["Deep", "Steady", "Volatile"]:
+        # Phase check — Building and beyond (was: Deep/Steady/Volatile only)
+        if relationship_phase in ["Discovery"]:
             return False
         
-        # Trust check
-        if trust < 0.7:
+        # Trust check — moderate threshold (was: 0.7)
+        if trust < 0.5:
             return False
         
-        # Vulnerability check
-        if vulnerability_willingness < 0.6:
+        # Vulnerability check — relaxed (was: 0.6)
+        if vulnerability_willingness < 0.4:
             return False
         
-        # Time check (at least 3 days)
-        if days_since_last < 3.0:
+        # Time check — at least 2 days (was: 3 days)
+        if days_since_last < 2.0:
             return False
         
-        # Stochastic: 15% base chance (humans don't always self-reflect)
-        if random.random() < 0.15:
+        # Stochastic: 25% chance (was: 15% — humans reflect more than we think)
+        if random.random() < 0.25:
             return True
         
         return False

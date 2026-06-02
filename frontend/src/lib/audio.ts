@@ -46,7 +46,7 @@ function ensureAudioContext(): AudioContext {
     throw new Error("Web Audio API not supported in this browser");
   }
   audioCtx = new Ctx();
-  return audioCtx;
+  return audioCtx!;
 }
 
 export async function initAudio(): Promise<void> {
@@ -95,7 +95,7 @@ export async function initAudio(): Promise<void> {
     const loop = () => {
       if (!analyser || !timeData || !freqData || !audioCtx) return;
 
-      analyser.getFloatTimeDomainData(timeData);
+      analyser.getFloatTimeDomainData(timeData as Float32Array<ArrayBuffer>);
       const now = performance.now();
       const dt = now - lastFrameTime;
       lastFrameTime = now;
@@ -115,7 +115,7 @@ export async function initAudio(): Promise<void> {
       const zcr = clamp01(zeroCrossings / timeData.length * 5);
 
       // --- Spectral features ---
-      analyser.getFloatFrequencyData(freqData);
+      analyser.getFloatFrequencyData(freqData as Float32Array<ArrayBuffer>);
       // Convert dB to linear magnitude
       const mags = new Float32Array(freqData.length);
       for (let i = 0; i < freqData.length; i++) {

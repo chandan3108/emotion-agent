@@ -9,7 +9,12 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 import numpy as np
 
-PHASES = ["Discovery", "Building", "Steady", "Deep", "Maintenance", "Volatile"]
+# Canonical XP-driven progression phases (in order)
+PHASES = ["Discovery", "Building", "Steady", "Deep", "Bonded"]
+# Special damage states (NOT XP-driven, entered dynamically via trust/wound mechanics)
+SPECIAL_STATES = ["Maintenance", "Volatile"]
+# All valid phases including special states
+ALL_PHASES = PHASES + SPECIAL_STATES
 
 # Phase envelopes: behavioral caps based on relationship phase
 # These limit how warm, patient, repair-oriented the AI can be
@@ -81,6 +86,28 @@ PHASE_ENVELOPES = {
             "fierce_protectiveness",# Aggressive defense of user's interests
             "vulnerability",        # Showing real emotional exposure
             "fear_of_loss",         # Afraid of losing the connection
+        ]
+    },
+    "Bonded": {
+        # "They're part of my life. No going back."
+        "warmth_cap": 1.0,
+        "patience_cap": 0.9,
+        "repair_cap": 1.0,
+        "verbosity_cap": 1.0,
+        "intimacy_cap": 1.0,
+        "vulnerability_cap": 1.0,
+        "description": "They're part of my life. No going back.",
+        # Unrestricted emotional range — full connection means everything is felt
+        "emotional_complexity": [
+            "jealousy",
+            "possessiveness",
+            "fierce_protectiveness",
+            "deep_hurt",
+            "fear_of_loss",
+            "vulnerability",
+            "unconditional_warmth",
+            "blunt_honesty",
+            "familial_love",
         ]
     },
     "Maintenance": {
@@ -186,6 +213,12 @@ class RelationshipPhases:
                 "vulnerability_willingness": (0.8, 0.1),
                 "conflict_style": "growth_oriented",
                 "meta_disclosure": (0.7, 0.15)
+            },
+            "Bonded": {
+                "initiative_frequency": (0.9, 0.05),
+                "vulnerability_willingness": (0.9, 0.05),
+                "conflict_style": "familial",
+                "meta_disclosure": (0.8, 0.1)
             },
             "Maintenance": {
                 "initiative_frequency": (0.6, 0.15),

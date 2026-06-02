@@ -39,6 +39,7 @@ async function loadMediaPipe() {
     // vision_bundle.js is an ES module with named exports.
     // We import it directly instead of injecting a classic <script>,
     // which avoids the "Unexpected token 'export'" syntax error.
+    // @ts-ignore — dynamic ESM import from /public, no module declaration needed at runtime
     const vision: any = await import(/* webpackIgnore: true */ "/mediapipe/vision_bundle.js");
 
     if (!vision) {

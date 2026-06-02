@@ -1,13 +1,20 @@
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Explicitly load backend/.env relative to main.py
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 from .db import SessionLocal
 from .models import EmotionEvent
 from .realtime import router as realtime_router
 from .ml_model import reload_model
 from .agent import router as agent_router
-
+from .game_api import router as game_api_router
 
 app = FastAPI()
 
@@ -37,9 +44,24 @@ def root():
     return {"status": "backend ok"}
 
 
+@app.get("/health")
+def health():
+    """Health check for deployment monitoring."""
+    return {"status": "healthy", "service": "emotion-agent"}
+
+
+@app.on_event("startup")
+async def startup_event():
+    import os
+    print("🚀 Emotion Agent API starting...")
+    print(f"   GROQ_API_KEY: {'✅ set' if os.getenv('GROQ_API_KEY') else '❌ missing'}")
+    print(f"   MODEL_ID: {os.getenv('MODEL_ID', 'default')}")
+
+
 # Routers
 app.include_router(realtime_router)
 app.include_router(agent_router)
+app.include_router(game_api_router)
 
 
 @app.post("/admin/reload_model")

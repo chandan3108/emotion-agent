@@ -127,6 +127,8 @@ class StateOrchestrator:
     """Central state machine that maintains persistent state per user."""
     
     def __init__(self, db_path: str = "state.db"):
+        if db_path == "state.db":
+            db_path = str(Path(__file__).parent.parent / "state.db")
         self.db_path = Path(db_path)
         self.lock = threading.RLock()
         self._init_db()
@@ -249,6 +251,8 @@ def get_state_orchestrator(db_path: str = "state.db") -> StateOrchestrator:
     """Get or create global state orchestrator instance."""
     global _state_orchestrator
     if _state_orchestrator is None:
+        if db_path == "state.db":
+            db_path = str(Path(__file__).parent.parent / "state.db")
         _state_orchestrator = StateOrchestrator(db_path)
     return _state_orchestrator
 

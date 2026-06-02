@@ -1,5 +1,7 @@
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export async function sendRealtimeEvent(frame: any) {
-  const res = await fetch("http://localhost:8000/realtime", {
+  const res = await fetch(`${API_BASE}/realtime`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(frame),
@@ -16,7 +18,7 @@ export async function sendRealtimeFeedback(payload: {
   true_valence?: number;
   true_arousal?: number;
 }) {
-  const res = await fetch("http://localhost:8000/realtime/feedback", {
+  const res = await fetch(`${API_BASE}/realtime/feedback`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -35,7 +37,7 @@ export async function requestAgentReply(payload: {
   engagement?: number | null;
   messages: { role: "user" | "assistant"; content: string }[];
 }) {
-  const res = await fetch("http://localhost:8000/agent/respond/v2", {
+  const res = await fetch(`${API_BASE}/agent/respond/v2`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -45,3 +47,4 @@ export async function requestAgentReply(payload: {
   }
   return res.json() as Promise<{ reply: string }>;
 }
+
