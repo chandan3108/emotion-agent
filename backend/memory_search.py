@@ -18,7 +18,12 @@ class MemorySearchIndex:
     
     def __init__(self, db_path: str = "memory_search.db"):
         if db_path == "memory_search.db":
-            db_path = str(Path(__file__).parent.parent / "memory_search.db")
+            import os
+            db_dir = os.environ.get("DATABASE_DIR")
+            if db_dir:
+                db_path = str(Path(db_dir) / "memory_search.db")
+            else:
+                db_path = str(Path(__file__).parent.parent / "memory_search.db")
         self.db_path = Path(db_path)
         self._init_db()
     
@@ -233,6 +238,11 @@ def get_memory_search(db_path: str = "memory_search.db") -> MemorySearchIndex:
     global _memory_search
     if _memory_search is None:
         if db_path == "memory_search.db":
-            db_path = str(Path(__file__).parent.parent / "memory_search.db")
+            import os
+            db_dir = os.environ.get("DATABASE_DIR")
+            if db_dir:
+                db_path = str(Path(db_dir) / "memory_search.db")
+            else:
+                db_path = str(Path(__file__).parent.parent / "memory_search.db")
         _memory_search = MemorySearchIndex(db_path)
     return _memory_search

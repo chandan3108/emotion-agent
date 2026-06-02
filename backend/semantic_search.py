@@ -51,7 +51,12 @@ class SemanticMemoryIndex:
     
     def __init__(self, db_path: str = "semantic_memory.db"):
         if db_path == "semantic_memory.db":
-            db_path = str(Path(__file__).parent.parent / "semantic_memory.db")
+            import os
+            db_dir = os.environ.get("DATABASE_DIR")
+            if db_dir:
+                db_path = str(Path(db_dir) / "semantic_memory.db")
+            else:
+                db_path = str(Path(__file__).parent.parent / "semantic_memory.db")
         self.db_path = Path(db_path)
         self._init_db()
     
@@ -292,6 +297,11 @@ def get_semantic_search(db_path: str = "semantic_memory.db") -> SemanticMemoryIn
     global _semantic_index
     if _semantic_index is None:
         if db_path == "semantic_memory.db":
-            db_path = str(Path(__file__).parent.parent / "semantic_memory.db")
+            import os
+            db_dir = os.environ.get("DATABASE_DIR")
+            if db_dir:
+                db_path = str(Path(db_dir) / "semantic_memory.db")
+            else:
+                db_path = str(Path(__file__).parent.parent / "semantic_memory.db")
         _semantic_index = SemanticMemoryIndex(db_path)
     return _semantic_index

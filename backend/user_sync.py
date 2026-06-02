@@ -10,6 +10,7 @@ Web defaults to:         web_{web_user_id}
 When linked, the web app transparently uses the Discord key.
 """
 
+import os
 import sqlite3
 import secrets
 import string
@@ -18,7 +19,11 @@ from pathlib import Path
 from typing import Optional, Dict
 
 # Reuse the same db as StateOrchestrator
-_DB_PATH = Path(__file__).parent.parent / "state.db"
+_db_dir = os.environ.get("DATABASE_DIR")
+if _db_dir:
+    _DB_PATH = Path(_db_dir) / "state.db"
+else:
+    _DB_PATH = Path(__file__).parent.parent / "state.db"
 
 
 def _get_conn():
