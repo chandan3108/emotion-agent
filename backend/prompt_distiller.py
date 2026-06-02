@@ -406,6 +406,8 @@ def _compress_context(
     # ── Episodic memories (Rank-gated, max 3, compact) ──
     episodes = []
     gated_episodes = []
+    past_dates_list = []
+    
     if episodic_memories:
         max_episodes = 3
         if current_rank <= 2:
@@ -416,6 +418,20 @@ def _compress_context(
             max_episodes = 2
             
         gated_episodes = episodic_memories[:max_episodes]
+        
+        # Extract past date completions/early endings (always remember, bypass rank gating)
+        for mem in episodic_memories:
+            ev_type = mem.get("event_type", "")
+            content = mem.get("content", "")
+            if ev_type in ("date_completed", "date_ended_early", "relationship_milestone") and "date" in content.lower():
+                ts = mem.get("timestamp", "")
+                date_label = ""
+                if ts:
+                    try:
+                        date_label = f" (on {ts.split('T')[0]})"
+                    except Exception:
+                        pass
+                past_dates_list.append(f"{content}{date_label}")
         
     if gated_episodes:
         now = datetime.now(timezone.utc)
@@ -443,6 +459,10 @@ def _compress_context(
         if episodes:
             sections.append("[SHARED HISTORY] " + " • ".join(episodes))
 
+    # Add past dates context if available
+    if past_dates_list:
+        sections.append("[PAST DATES LOG] " + " • ".join(past_dates_list[-3:]))  # Show last 3 completed/ended dates
+
     # ── Conversation summary ──
     if conversation_summary:
         sections.append(f"[CONVERSATION SO FAR] {conversation_summary[:150]}")
@@ -464,7 +484,10 @@ def _compress_context(
 
     # ── Strict Memory Alignment Guard ──
     user_facts_str = " | ".join(user_facts) if user_facts else "None"
-    shared_history_str = " | ".join(episodes) if episodes else "None"
+    
+    # Merge episodes and past dates for the strict guard so Rem is authorized to reference them
+    all_shared = episodes + past_dates_list
+    shared_history_str = " | ".join(all_shared) if all_shared else "None"
     self_facts_str = " | ".join(rem_facts) if rem_facts else "None"
     
     guard_block = f"""[STRICT MEMORY BOUNDARIES]

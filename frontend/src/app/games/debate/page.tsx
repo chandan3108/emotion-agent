@@ -27,6 +27,8 @@ export default function DebatePage() {
   const [finished, setFinished] = useState(false);
   const [verdict, setVerdict] = useState<any>(null);
 
+  const [userStance, setUserStance] = useState<"for" | "against">("for");
+
   // Turn Timer
   const [timeLeft, setTimeLeft] = useState(60);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -59,7 +61,7 @@ export default function DebatePage() {
   const handleStartDebate = (topicId: string) => {
     setLoading(true);
     setSelectedTopic(topicId);
-    startDebate(topicId)
+    startDebate(topicId, userStance)
       .then((res) => {
         setSession(res);
         setMessages([{ role: "assistant", content: res.greeting }]);
@@ -119,8 +121,70 @@ export default function DebatePage() {
             ⚖️ Debate Battle Arena
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginTop: 4 }}>
-            Rem challenges your logic. Choose a silly debate topic. **Stances are randomly assigned** to force hilarious arguments.
+            Rem challenges your logic. Choose a silly debate topic and select your stance. Rem will automatically take the opposing side!
           </p>
+        </div>
+
+        <div style={{ 
+          marginBottom: 24, 
+          background: "rgba(255,255,255,0.02)", 
+          border: "1px solid var(--border-subtle)", 
+          borderRadius: "var(--radius-md)", 
+          padding: "16px 20px" 
+        }}>
+          <div style={{ 
+            fontSize: "0.75rem", 
+            color: "var(--text-secondary)", 
+            fontWeight: 700, 
+            textTransform: "uppercase", 
+            letterSpacing: "0.08em", 
+            marginBottom: 10 
+          }}>
+            Your Debate Stance
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setUserStance("for")}
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                transition: "all 0.2s ease",
+                border: userStance === "for" ? "1px solid var(--accent-primary)" : "1px solid var(--border-subtle)",
+                background: userStance === "for" ? "var(--accent-primary)" : "transparent",
+                color: userStance === "for" ? "#000" : "var(--text-secondary)",
+              }}
+            >
+              👍 Argue FOR
+            </button>
+            <button
+              type="button"
+              onClick={() => setUserStance("against")}
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                transition: "all 0.2s ease",
+                border: userStance === "against" ? "1px solid var(--accent-primary)" : "1px solid var(--border-subtle)",
+                background: userStance === "against" ? "var(--accent-primary)" : "transparent",
+                color: userStance === "against" ? "#000" : "var(--text-secondary)",
+              }}
+            >
+              👎 Argue AGAINST
+            </button>
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, fontStyle: "italic" }}>
+            {userStance === "for" 
+              ? "You will argue in support of the statement. Rem will take the opposing stance." 
+              : "You will argue against the statement. Rem will defend it."}
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -367,11 +431,18 @@ export default function DebatePage() {
             </p>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <a
-                href="/games/debate"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = "/games/debate";
+              <button
+                onClick={() => {
+                  console.log("Topics Lobby button clicked - resetting state to lobby");
+                  setSelectedTopic(null);
+                  setSession(null);
+                  setMessages([]);
+                  setInputText("");
+                  setTurnCount(0);
+                  setSentiment(0.0);
+                  setLoading(false);
+                  setFinished(false);
+                  setVerdict(null);
                 }}
                 style={{
                   flex: 1,
@@ -381,7 +452,6 @@ export default function DebatePage() {
                   padding: "12px",
                   borderRadius: "var(--radius-md)",
                   cursor: "pointer",
-                  textDecoration: "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -389,13 +459,9 @@ export default function DebatePage() {
                 }}
               >
                 Topics Lobby
-              </a>
-              <a
+              </button>
+              <Link
                 href="/games"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = "/games";
-                }}
                 style={{
                   flex: 1,
                   background: "var(--accent-primary)",
@@ -412,7 +478,7 @@ export default function DebatePage() {
                 }}
               >
                 Games Hub
-              </a>
+              </Link>
             </div>
           </div>
         </div>

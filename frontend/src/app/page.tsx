@@ -2085,50 +2085,53 @@ export default function ChatPage() {
                     </div>
 
                     {/* Short-Term Memory */}
-                    <div>
-                      <h4 style={{ 
-                        fontSize: "0.75rem", 
-                        color: "var(--text-secondary)", 
-                        fontWeight: 700, 
-                        textTransform: "uppercase", 
-                        letterSpacing: "0.08em", 
-                        marginBottom: 10,
-                        display: "flex",
-                        justifyContent: "space-between"
-                      }}>
-                        <span>Active Context Topics</span>
-                        <span style={{ opacity: 0.6 }}>{getFilteredStm().length} active</span>
-                      </h4>
-                      {getFilteredStm().length === 0 ? (
-                        <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", padding: "12px", border: "1px dashed var(--border-subtle)", borderRadius: 8, textAlign: "center" }}>
-                          No active topics in recent context.
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {getFilteredStm().map((entry: any, idx: number) => (
-                            <div
-                              key={idx}
-                              style={{
-                                background: "rgba(255,255,255,0.01)",
-                                border: "1px solid var(--border-subtle)",
-                                borderRadius: 8,
-                                padding: "10px 12px",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 4
-                              }}
-                            >
-                              <div style={{ fontSize: "0.8125rem", color: "var(--accent-primary)" }}>
-                                Topic: {entry.topic || "general"}
-                              </div>
-                              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontStyle: "italic" }}>
-                                "{entry.content}"
-                              </div>
+                    {(() => {
+                      const activeStm = getFilteredStm();
+                      const uniqueTopics = Array.from(new Set(activeStm.map((s: any) => s.topic || "general"))) as string[];
+                      
+                      return (
+                        <div>
+                          <h4 style={{ 
+                            fontSize: "0.75rem", 
+                            color: "var(--text-secondary)", 
+                            fontWeight: 700, 
+                            textTransform: "uppercase", 
+                            letterSpacing: "0.08em", 
+                            marginBottom: 10,
+                            display: "flex",
+                            justifyContent: "space-between"
+                          }}>
+                            <span>Active Context Topics</span>
+                            <span style={{ opacity: 0.6 }}>{uniqueTopics.length} active</span>
+                          </h4>
+                          {activeStm.length === 0 ? (
+                            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", padding: "12px", border: "1px dashed var(--border-subtle)", borderRadius: 8, textAlign: "center" }}>
+                              No active topics in recent context.
                             </div>
-                          ))}
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              {uniqueTopics.map((topic: string) => {
+                                const topicEntries = activeStm.filter((s: any) => (s.topic || "general") === topic);
+                                return (
+                                  <div key={topic} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                    <div style={{ fontSize: "0.8125rem", color: "var(--accent-primary)", fontWeight: 600 }}>
+                                      Topic: {topic}
+                                    </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 8, borderLeft: "2px solid var(--border-subtle)" }}>
+                                      {topicEntries.map((entry: any, idx: number) => (
+                                        <div key={idx} style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                                          "{entry.content}"
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      );
+                    })()}
                   </>
                 )}
               </div>

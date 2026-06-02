@@ -8,6 +8,9 @@ const SCENARIOS = [
   { id: "promise", label: "🤝 The Broken Promise", desc: "Forgot study plans to hang out with friends. High Hurt, Medium Anger.", diff: "Medium" },
   { id: "ghost", label: "🔥 The Silent Treatment", desc: "Ghosted her for 3 days and sent a lazy 'what's up'. High Anger, Low Trust.", diff: "Hard" },
   { id: "stranger", label: "❄️ The Cold Stranger", desc: "She starts completely detached and bored, thinking you are unoriginal. Apathy.", diff: "Expert" },
+  { id: "double_standard", label: "⚖️ The Double Standard", desc: "You complained about her talking to other guys, but she found out you were texting your ex. High Hurt, High Anger.", diff: "Hard" },
+  { id: "unread_vibe", label: "💬 The Unread Vibe", desc: "She wanted emotional comfort/support after a bad day, but you offered cold logic. High Hurt, Low Trust.", diff: "Expert" },
+  { id: "birthday_blunder", label: "🎂 The Birthday Blunder", desc: "You forgot her birthday and tried to make up for it with a cheap gas-station gift card. Extremely High Hurt.", diff: "Expert" }
 ];
 
 export default function WinOverPage() {
@@ -374,11 +377,18 @@ export default function WinOverPage() {
             </p>
 
             <div style={{ display: "flex", gap: 12 }}>
-              <a
-                href="/games/win-over"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = "/games/win-over";
+              <button
+                onClick={() => {
+                  console.log("Scenarios button clicked - resetting state to lobby");
+                  setSelectedScen(null);
+                  setSession(null);
+                  setMessages([]);
+                  setInputText("");
+                  setTurnsLeft(10);
+                  setStats({});
+                  setLoading(false);
+                  setGameStatus("active");
+                  setEvalResult(null);
                 }}
                 style={{
                   flex: 1,
@@ -388,7 +398,6 @@ export default function WinOverPage() {
                   padding: "12px",
                   borderRadius: "var(--radius-md)",
                   cursor: "pointer",
-                  textDecoration: "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -396,13 +405,9 @@ export default function WinOverPage() {
                 }}
               >
                 Scenarios
-              </a>
-              <a
+              </button>
+              <Link
                 href="/games"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = "/games";
-                }}
                 style={{
                   flex: 1,
                   background: gameStatus === "won" ? "var(--accent-primary)" : "var(--border-subtle)",
@@ -419,7 +424,7 @@ export default function WinOverPage() {
                 }}
               >
                 Games Hub
-              </a>
+              </Link>
             </div>
           </div>
         </div>

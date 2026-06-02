@@ -21,6 +21,7 @@ class STMEntry:
     perception_output: Dict[str, Any]
     topic: str = ""  # Current topic for this memory
     emotional_weight: float = 0.0  # Emotional significance (0-1)
+    is_date: bool = False
 
 
 @dataclass
@@ -75,26 +76,29 @@ class MemorySystem:
             "act_threads": [],
             "episodic": [],
             "identity": [],
-            "milestones": [],
-            "promises": [],
+            "learned_facts": [],
             "morals": []
         })
     
     # ========== Short-Term Memory ==========
     
     def add_stm(self, content: str, emotion_vector: Dict[str, float], 
-                perception_output: Dict[str, Any], topic: str = None):
+                perception_output: Dict[str, Any], topic: str = None, is_date: Optional[bool] = None):
         """Add entry to STM (circular buffer, max 20 entries)."""
         # Calculate emotional weight from emotion vector
         emotional_weight = max(emotion_vector.values()) if emotion_vector else 0.0
         
+        if is_date is None:
+            is_date = self.state.get("_active_date_running", False)
+            
         entry = STMEntry(
             content=content,
             emotion_vector=emotion_vector,
             timestamp=datetime.now(timezone.utc).isoformat(),
             perception_output=perception_output,
             topic=topic or perception_output.get("topic", "general"),
-            emotional_weight=emotional_weight
+            emotional_weight=emotional_weight,
+            is_date=is_date
         )
         
         stm = self.memory.get("stm", [])
@@ -106,28 +110,24 @@ class MemorySystem:
         
         self.memory["stm"] = stm
     
-    def get_stm(self, decay: bool = True) -> List[Dict[str, Any]]:
-        """Get STM entries, optionally applying decay."""
-        stm = self.memory.get("stm", [])
-        
-        if not decay:
-            return stm
-        
-        # Apply decay (30-minute half-life)
+    def get_stm(self, decay: bool = True, filter_date: Optional[bool] = None) -> List[Dict[str, Any]]:
+        """Get STM entries, optionally applying decay and date filtering."""
         now = datetime.now(timezone.utc)
-        tau_stm = 0.5  # 30 minutes in hours
         
-        decayed_stm = []
-        for entry in stm:
+        # Decay ALL stm first
+        all_stm = self.memory.get("stm", [])
+        decayed_all = []
+        for entry in all_stm:
             entry_time = datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
             delta_hours = (now - entry_time).total_seconds() / 3600
-            
-            # Exponential decay
-            if delta_hours < 8.0:  # Keep entries < 8 hours old (covers a full conversation day)
-                decayed_stm.append(entry)
+            if delta_hours < 8.0:
+                decayed_all.append(entry)
+        self.memory["stm"] = decayed_all
         
-        self.memory["stm"] = decayed_stm
-        return decayed_stm
+        # Now apply filtering on the decayed set
+        if filter_date is not None:
+            return [m for m in decayed_all if m.get("is_date", False) == filter_date]
+        return decayed_all
     
     # ========== Active Conversational Threads ==========
     

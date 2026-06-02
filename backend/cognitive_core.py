@@ -421,7 +421,7 @@ class CognitiveCore:
         
         # Stage 12: Select relevant memories (with stochastic selection)
         # Let the memory system work naturally - no heuristic filtering
-        selected_memories = self._select_memories_stochastic()
+        selected_memories = self._select_memories_stochastic(user_message)
         
         # Stage 13: Get current psyche summary
         psyche_summary = self.psyche.get_psyche_summary()
@@ -2373,12 +2373,30 @@ Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slan
                 if confidence > 0.7 and event_type:
                     print(f"[EVENT] Detected: {event_type} (conf={confidence:.2f}) — will be extracted by LLM consolidation")
     
-    def _select_memories_stochastic(self) -> List[Dict[str, Any]]:
+    def _select_memories_stochastic(self, query: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Select memories with stochastic behavior - humans don't always remember
         the most relevant things. Sometimes they remember random stuff.
         """
         memories = []
+        
+        # 0. Retrieve query-relevant memories first if query is provided
+        if query:
+            try:
+                relevant = self.memory.get_relevant_memories(query)
+                for entry in relevant:
+                    m_content = entry.get("content", "")
+                    if m_content:
+                        memories.append({
+                            "type": entry.get("type", "episodic"),
+                            "memory_id": entry.get("memory_id") or entry.get("metadata", {}).get("memory_id"),
+                            "content": m_content,
+                            "event_type": entry.get("event_type") or entry.get("type"),
+                            "salience": entry.get("salience") or entry.get("metadata", {}).get("similarity", 0.8),
+                            "source": entry.get("source", "query_relevant")
+                        })
+            except Exception as e:
+                print(f"[WARNING] Query-relevant memory recall failed: {e}")
         
         # Get recent STM (humans usually remember recent stuff, but not always)
         # Only get STM from current conversation (decay=True filters old ones)
@@ -2469,10 +2487,46 @@ Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slan
             today_str = datetime.now(IST).strftime("%Y-%m-%d")
             if stored_date and stored_date != today_str:
                 print(f"[DATE LIFECYCLE] Day rollover detected ({stored_date} -> {today_str}). Writing texting journal...")
+                
+                # Check if a date was active yesterday and naturally end it
+                was_date_active = self.state.get("_active_date_running", False)
+                if was_date_active:
+                    print("[DATE LIFECYCLE] Rollover natural end: date was active yesterday, ending it now.")
+                    yesterday_overrides = schedule_data.get("overrides", [])
+                    completed_plan = None
+                    for o in yesterday_overrides:
+                        if o.get("is_user_plan", False):
+                            completed_plan = o
+                            break
+                    
+                    plan_act = completed_plan.get("activity", "hanging out") if completed_plan else "hanging out"
+                    plan_loc = completed_plan.get("location", "somewhere") if completed_plan else "somewhere"
+                    
+                    try:
+                        await self.diary.write_date_journal_entry(self, plan_act, plan_loc, ended_early=False)
+                    except Exception as journal_err:
+                        print(f"[DATE LIFECYCLE] Error writing date journal: {journal_err}")
+                        
+                    self.state["_active_date_running"] = False
+
                 try:
                     await self.diary.write_daily_texting_journal(self, stored_date)
                 except Exception as journal_err:
                     print(f"[DATE LIFECYCLE] Error writing daily texting journal: {journal_err}")
+                
+                # Prune all past plans from _future_plans
+                if "_future_plans" in self.state:
+                    self.state["_future_plans"] = [
+                        p for p in self.state.get("_future_plans", [])
+                        if p.get("date", "") >= today_str
+                    ]
+            
+            # Prune past plans every check to be doubly safe
+            if "_future_plans" in self.state:
+                self.state["_future_plans"] = [
+                    p for p in self.state.get("_future_plans", [])
+                    if p.get("date", "") >= today_str
+                ]
             
             current_activity = await ensure_daily_schedule(self.state)
             upcoming_activities = get_upcoming_activities(self.state)

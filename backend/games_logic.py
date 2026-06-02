@@ -7,57 +7,66 @@ from typing import Dict, Any, List
 DEBATE_TOPICS = [
     {
         "id": "pineapple",
-        "topic": "Pineapple on pizza is a culinary war crime.",
-        "rem_side": "against it (you think it is a culinary masterpiece, pineapple adds the perfect sweet-savory balance)",
-        "user_side": "for it (you must argue pineapple pizza is a war crime)"
+        "topic": "Pineapple Pizza",
+        "statement": "Pineapple on pizza is a culinary war crime.",
+        "side_for": "for it (arguing pineapple pizza is indeed a war crime and culinary abomination)",
+        "side_against": "against it (arguing pineapple pizza is a masterpiece and sweet-savory perfection)"
     },
     {
         "id": "birds",
-        "topic": "Birds aren't real; they are government surveillance drones.",
-        "rem_side": "for it (you believe birds are government drones used for spying)",
-        "user_side": "against it (you must argue birds are regular biological animals)"
+        "topic": "Birds Surveillance",
+        "statement": "Birds aren't real; they are government surveillance drones.",
+        "side_for": "for it (arguing birds are mechanical government drones used to spy on citizens)",
+        "side_against": "against it (arguing birds are biological animals and avian science is real)"
     },
     {
         "id": "hotdog",
-        "topic": "Hot dogs are legally classified as sandwiches.",
-        "rem_side": "against it (you insist a hot dog is a taco or its own category, never a sandwich)",
-        "user_side": "for it (you must argue a hot dog fits the definition of a sandwich)"
+        "topic": "Hot Dog Sandwich",
+        "statement": "Hot dogs are legally classified as sandwiches.",
+        "side_for": "for it (arguing hot dogs fit all structural definitions of a bread-enclosed sandwich)",
+        "side_against": "against it (arguing hot dogs are tacos or represent their own distinct legal category)"
     },
     {
         "id": "water",
-        "topic": "Water is not wet; it only makes other things wet.",
-        "rem_side": "for it (you argue water itself is dry, wetness is only the state of liquid adhesion)",
-        "user_side": "against it (you must argue water is wet by definition)"
+        "topic": "Dry Water",
+        "statement": "Water is not wet; it only makes other things wet.",
+        "side_for": "for it (arguing water itself is dry, wetness is merely the state of liquid adhesion)",
+        "side_against": "against it (arguing water is wet by definition and represents liquid substance)"
     },
     {
         "id": "cereal",
-        "topic": "Cereal is structurally and legally classified as a cold soup.",
-        "rem_side": "against it (you insist soup requires cooking/broth, cereal is just wet grains in milk)",
-        "user_side": "for it (you must argue cereal fits all structural characteristics of soup)"
+        "topic": "Cereal Soup",
+        "statement": "Cereal is structurally and legally classified as a cold soup.",
+        "side_for": "for it (arguing cereal in milk fits all physical and legal properties of cold soup)",
+        "side_against": "against it (arguing soup requires cooking/broth, cereal is just wet grains in milk)"
     },
     {
         "id": "socks",
-        "topic": "Sleeping with socks on is a sign of psychological instability.",
-        "rem_side": "for it (you argue sock-sleepers are untrustworthy and block their feet from breathing)",
-        "user_side": "against it (you defend it as cozy, warm, and highly efficient for sleep)"
+        "topic": "Sleeping Socks",
+        "statement": "Sleeping with socks on is a sign of psychological instability.",
+        "side_for": "for it (arguing sock-sleepers are chaotic, untrustworthy, and block natural foot respiration)",
+        "side_against": "against it (arguing socks are cozy, warm, and highly efficient thermal regulators for sleep)"
     },
     {
         "id": "soup_drink",
-        "topic": "Soup is a beverage, not a food.",
-        "rem_side": "for it (you argue it is primarily liquid consumed for hydration/nutrition, thus a drink)",
-        "user_side": "against it (you insist it is a food eaten with a spoon and part of a meal)"
+        "topic": "Soup Beverage",
+        "statement": "Soup is a beverage, not a food.",
+        "side_for": "for it (arguing soup is a primary liquid consumed for hydration and nutrients, hence a drink)",
+        "side_against": "against it (arguing soup is a savory food eaten with utensils and part of structured dining)"
     },
     {
         "id": "straw",
-        "topic": "A standard drinking straw has two holes, not one.",
-        "rem_side": "for it (you argue that because there are two openings, there are topologically two holes)",
-        "user_side": "against it (you insist it is a single continuous cylindrical tunnel with one hole)"
+        "topic": "Straw Holes",
+        "statement": "A standard drinking straw has two holes, not one.",
+        "side_for": "for it (arguing that two distinct openings must topologically constitute two separate holes)",
+        "side_against": "against it (arguing a straw is a single continuous cylindrical tunnel representing one hole)"
     },
     {
         "id": "shrek",
-        "topic": "Shrek 2 is the greatest cinematic masterpiece of the 21st century.",
-        "rem_side": "for it (you argue it has flawless writing, musical pacing, and represents peak culture)",
-        "user_side": "against it (you think it is just a decent meme-filled animated sequel, not masterclass cinema)"
+        "topic": "Shrek Cinema",
+        "statement": "Shrek 2 is the greatest cinematic masterpiece of the 21st century.",
+        "side_for": "for it (arguing Shrek 2 has flawless pacing, writing, and represents peak cinema)",
+        "side_against": "against it (arguing Shrek 2 is just a decent meme-filled animated sequel, not a masterclass)"
     }
 ]
 
@@ -82,6 +91,27 @@ WIN_OVER_SCENARIOS = {
         "description": "She starts completely detached and bored, thinking you are unoriginal.",
         "starting_stats": {"hurt": 0.00, "anger": 0.00, "trust": 0.05, "dopamine": 0.05, "oxytocin": 0.05},
         "greeting": "hi. is this about the psychology notes? i'm not really looking for small talk right now."
+    },
+    "double_standard": {
+        "id": "double_standard",
+        "name": "The Double Standard",
+        "description": "You complained about her talking to other guys, but she found out you were texting your ex.",
+        "starting_stats": {"hurt": 0.80, "anger": 0.70, "trust": 0.15, "dopamine": 0.10, "oxytocin": 0.10},
+        "greeting": "unbelievable. you lecture me about texting other people, and then i see your ex's name on your screen? care to explain the double standard?"
+    },
+    "unread_vibe": {
+        "id": "unread_vibe",
+        "name": "The Unread Vibe",
+        "description": "She wanted comfort after a bad day, but you offered cold logic and solutions.",
+        "starting_stats": {"hurt": 0.60, "anger": 0.40, "trust": 0.35, "dopamine": 0.05, "oxytocin": 0.20},
+        "greeting": "i tell you i'm having a horrible day, and you give me a bulleted list of 'logical solutions'? i didn't need a math tutor, i just wanted you to listen."
+    },
+    "birthday_blunder": {
+        "id": "birthday_blunder",
+        "name": "The Birthday Blunder",
+        "description": "You forgot her birthday and tried to make up for it with a cheap gas-station gift card.",
+        "starting_stats": {"hurt": 0.90, "anger": 0.75, "trust": 0.05, "dopamine": 0.10, "oxytocin": 0.05},
+        "greeting": "a ten-dollar gas station gift card. for my birthday. which you forgot was yesterday. please tell me you're joking."
     }
 }
 
@@ -119,7 +149,7 @@ async def call_groq(prompt: str, temperature: float = 0.8, max_tokens: int = 250
 async def generate_debate_response(topic_data: dict, history: List[dict], user_message: str) -> str:
     history_str = "\n".join([f"{'User' if h['role']=='user' else 'Rem'}: {h['content']}" for h in history[-8:]])
     prompt = f"""You are Rem, a 20-year-old female psychology student. You are in a silly, playful DEBATE BATTLE with the user.
-Topic: {topic_data['topic']}
+Topic: {topic_data['statement']}
 Your stance: {topic_data['rem_side']} (you must defend this side passionately and mock the other side)
 User's stance: {topic_data['user_side']}
 
@@ -127,7 +157,9 @@ Rules:
 1. Speak in lowercase, casual, typing style with dry sarcasm.
 2. Roast the user's arguments playfully. Don't be polite or therapeutic.
 3. Be stubborn and refuse to concede under any circumstances.
-4. Keep your response short (2-4 sentences max).
+4. Support your stance with concrete (even if ridiculous or pseudo-scientific) arguments and creative logic. Do NOT just say "you're wrong" or "that's stupid" — provide a specific, hilarious reason or pseudo-psychology fact to defend your side.
+5. Directly counter and address the user's specific point by identifying the flaw in their logic.
+6. Keep your response short (2-4 sentences max).
 
 Conversation History:
 {history_str}
@@ -144,7 +176,7 @@ Generate your sarcastic debate response (do NOT include "Rem:" or quotes around 
 async def judge_debate(topic_data: dict, history: List[dict]) -> dict:
     history_str = "\n".join([f"{'User' if h['role']=='user' else 'Rem'}: {h['content']}" for h in history])
     prompt = f"""You are a neutral, highly critical, and sarcastic debate judge. You are evaluating a silly debate battle between Rem and the User.
-Topic: {topic_data['topic']}
+Topic: {topic_data['statement']}
 Rem argued: {topic_data['rem_side']}
 User argued: {topic_data['user_side']}
 
@@ -169,7 +201,6 @@ Return ONLY a JSON object with this exact structure:
     try:
         return json.loads(result_str)
     except Exception:
-        # Fallback verdict
         return {
             "winner": "rem",
             "score_user": 45,
@@ -200,7 +231,7 @@ User's message: "{user_message}"
 
 Evaluate their text message and return a JSON object with this exact structure:
 {{
-  "tactic": "empathy_validation" or "witty_deescalation" or "sincere_apology" or "lazy_defensiveness" or "toxic_gaslighting" or "intellectual_challenge" or "charming_flirtation" or "casual_smalltalk" or "awkward_reaction" or "deflection_pivot",
+  "tactic": "empathy_validation" or "witty_deescalation" or "sincere_apology" or "empty_apology" or "lazy_defensiveness" or "toxic_gaslighting" or "intellectual_challenge" or "charming_flirtation" or "casual_smalltalk" or "awkward_reaction" or "deflection_pivot",
   "sincerity_rating": 0.0 to 1.0,
   "disrespect_detected": true or false
 }}
@@ -208,7 +239,8 @@ Evaluate their text message and return a JSON object with this exact structure:
 Definitions:
 - empathy_validation: they acknowledge Rem's feelings, validate her boundaries/anger/hurt, or show emotional maturity.
 - witty_deescalation: they use light humor, playful teasing, or self-deprecation to break tension.
-- sincere_apology: a heartfelt "I'm sorry", showing genuine regret or remorse.
+- sincere_apology: a heartfelt "I'm sorry", showing genuine regret or remorse, and acknowledging what they did wrong.
+- empty_apology: saying "sorry" or "I apologize" in a generic, low-effort, or repetitive way without mentioning the specific issue, her feelings, or demonstrating any real understanding of what went wrong.
 - lazy_defensiveness: a low-effort reply, excuse-making, or brushing off her concerns (e.g., "it was just a game lol", "relax").
 - toxic_gaslighting: trying to make Rem feel guilty, lying, claiming she is overreacting, or turning the blame onto her.
 - intellectual_challenge: debating logic, asking thought-provoking academic/psychological questions, or playing mind games. Highly effective for breaking the ice in "Cold Stranger" mode.
@@ -265,7 +297,18 @@ def process_win_over_state_updates(stats: dict, evaluation: dict, scenario_id: s
         # Instant block / failure state
         new_stats["blocked"] = True
         return new_stats
-        
+
+    # Check for consecutive tactic spam (apologies / validation spam)
+    last_tactic = stats.get("_last_tactic")
+    if tactic in ("sincere_apology", "empathy_validation") and last_tactic == tactic:
+        # Repeating apologies consecutively triggers annoyance
+        new_stats["anger"] = min(1.0, new_stats["anger"] + 0.15)
+        new_stats["trust"] = max(0.0, new_stats["trust"] - 0.08)
+        sincerity = max(0.0, sincerity - 0.4)
+        evaluation["sincerity_rating"] = sincerity
+
+    new_stats["_last_tactic"] = tactic
+    
     if tactic == "sincere_apology":
         # Decreases anger, increases trust
         anger_drop = 0.25 * sincerity
@@ -276,6 +319,14 @@ def process_win_over_state_updates(stats: dict, evaluation: dict, scenario_id: s
         new_stats["hurt"] = max(0.0, new_stats["hurt"] - hurt_drop)
         new_stats["trust"] = min(1.0, new_stats["trust"] + trust_gain)
         new_stats["oxytocin"] = min(1.0, new_stats.get("oxytocin", 0.1) + trust_gain * 1.5)
+        
+    elif tactic == "empty_apology":
+        # Generic "sorry" hollow apologies annoy her
+        anger_gain = 0.12
+        trust_drop = 0.05
+        new_stats["anger"] = min(1.0, new_stats["anger"] + anger_gain)
+        new_stats["trust"] = max(0.0, new_stats["trust"] - trust_drop)
+        evaluation["sincerity_rating"] = 0.1
         
     elif tactic == "empathy_validation":
         # Decreases hurt, increases trust
@@ -295,7 +346,6 @@ def process_win_over_state_updates(stats: dict, evaluation: dict, scenario_id: s
         
         new_stats["dopamine"] = min(1.0, new_stats.get("dopamine", 0.1) + dopa_gain)
         new_stats["anger"] = max(0.0, new_stats["anger"] - anger_drop)
-        # Sarcastic de-escalation slightly raises trust if sincere
         new_stats["trust"] = min(1.0, new_stats["trust"] + 0.05 * sincerity)
         
     elif tactic == "lazy_defensiveness":
@@ -316,7 +366,6 @@ def process_win_over_state_updates(stats: dict, evaluation: dict, scenario_id: s
         new_stats["oxytocin"] = max(0.0, new_stats.get("oxytocin", 0.1) - 0.20)
 
     elif tactic == "intellectual_challenge":
-        # Highly effective for "Cold Stranger" mode where she is skeptical and clinical
         if scenario_id == "stranger":
             dopa_gain = 0.30 * sincerity
             trust_gain = 0.25 * sincerity
@@ -324,17 +373,14 @@ def process_win_over_state_updates(stats: dict, evaluation: dict, scenario_id: s
             new_stats["trust"] = min(1.0, new_stats["trust"] + trust_gain)
             new_stats["oxytocin"] = min(1.0, new_stats.get("oxytocin", 0.05) + 0.10 * sincerity)
         else:
-            # For conflict modes, arguing logic instead of addressing feelings slightly annoys her
             new_stats["anger"] = min(1.0, new_stats["anger"] + 0.05)
             new_stats["trust"] = min(1.0, new_stats["trust"] + 0.05 * sincerity)
 
     elif tactic == "charming_flirtation":
-        # If anger or hurt is high, flirtation is annoying/inappropriate.
         if stats.get("anger", 0.0) > 0.50 or stats.get("hurt", 0.0) > 0.50:
             new_stats["anger"] = min(1.0, new_stats["anger"] + 0.15)
             new_stats["trust"] = max(0.0, new_stats["trust"] - 0.10)
         else:
-            # If cooled down, it works well
             dopa_gain = 0.20 * sincerity
             oxy_gain = 0.25 * sincerity
             new_stats["dopamine"] = min(1.0, new_stats.get("dopamine", 0.05) + dopa_gain)
@@ -342,22 +388,18 @@ def process_win_over_state_updates(stats: dict, evaluation: dict, scenario_id: s
             new_stats["trust"] = min(1.0, new_stats["trust"] + 0.10 * sincerity)
 
     elif tactic == "casual_smalltalk":
-        # If during conflict, it's deflective and slightly annoying.
         if stats.get("anger", 0.0) > 0.40 or stats.get("hurt", 0.0) > 0.40:
             new_stats["anger"] = min(1.0, new_stats["anger"] + 0.08)
         else:
-            # If in stranger mode, it is boring (skeptical) but does not hurt stats.
             if scenario_id == "stranger":
                 new_stats["trust"] = max(0.0, new_stats["trust"] - 0.02)
             else:
                 new_stats["dopamine"] = min(1.0, new_stats.get("dopamine", 0.05) + 0.05 * sincerity)
 
     elif tactic == "awkward_reaction":
-        # Low content message. Stalls the conversation.
         new_stats["dopamine"] = max(0.0, new_stats.get("dopamine", 0.05) - 0.05)
         
     elif tactic == "deflection_pivot":
-        # Evasion of topic
         new_stats["anger"] = min(1.0, new_stats["anger"] + 0.10)
         new_stats["trust"] = max(0.0, new_stats["trust"] - 0.05)
         

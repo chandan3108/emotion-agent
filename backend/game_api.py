@@ -70,6 +70,7 @@ class PostcardsResponse(BaseModel):
 # --- NEW: Mini-Game Models ---
 class DebateStartRequest(BaseModel):
     topic_id: str
+    user_stance: Optional[str] = "for"  # "for" or "against"
 
 class DebateStartResponse(BaseModel):
     session_id: str
@@ -532,7 +533,8 @@ async def chat(user_id: str, payload: ChatRequest):
 
     # Build message history from STM (web has no channel history like Discord)
     message_history = []
-    stm = core.memory.get_stm(decay=False)
+    is_date_active = core.state.get("_active_date_running", False)
+    stm = core.memory.get_stm(decay=False, filter_date=is_date_active)
     for m in stm[-12:]:
         content = m.get("content", "")
         if not content:
@@ -859,7 +861,7 @@ def _clean_and_format_fact(fact: str) -> str:
 async def get_memory(user_id: str):
     """Full memory hierarchy: STM, episodic, identity."""
     core = _get_core(user_id)
-    stm = core.memory.get_stm(decay=False)
+    stm = core.memory.get_stm(decay=False, filter_date=False)
     episodic = core.memory.get_episodic(min_salience=0.1)
     identity = core.memory.get_identity(min_confidence=0.3)
 
@@ -1575,7 +1577,7 @@ async def get_messages(user_id: str):
     core = _get_core(user_id)
     await _trigger_check_in_if_needed(core)
     
-    stm = core.memory.get_stm(decay=False)
+    stm = core.memory.get_stm(decay=False, filter_date=False)
     messages = []
     for m in stm:
         content = m.get("content", "")
@@ -1622,15 +1624,31 @@ async def start_debate(user_id: str, payload: DebateStartRequest):
     topic_data = next((t for t in DEBATE_TOPICS if t["id"] == payload.topic_id), DEBATE_TOPICS[0])
     session_id = f"deb_{int(datetime.now(timezone.utc).timestamp())}"
     
+    user_stance = payload.user_stance or "for"
+    if user_stance == "against":
+        user_side = topic_data["side_against"]
+        rem_side = topic_data["side_for"]
+    else:
+        user_side = topic_data["side_for"]
+        rem_side = topic_data["side_against"]
+        
+    topic_dict = {
+        "id": topic_data["id"],
+        "topic": topic_data["topic"],
+        "statement": topic_data["statement"],
+        "user_side": user_side,
+        "rem_side": rem_side
+    }
+    
     history = []
-    greeting = await generate_debate_response(topic_data, history, f"let's debate: {topic_data['topic']}. tell me your opening point.")
+    greeting = await generate_debate_response(topic_dict, history, f"let's debate: {topic_data['statement']}. tell me your opening point.")
     
     session = {
         "id": session_id,
         "topic_id": topic_data["id"],
-        "topic": topic_data["topic"],
-        "user_side": topic_data["user_side"],
-        "rem_side": topic_data["rem_side"],
+        "topic": topic_data["statement"],
+        "user_side": user_side,
+        "rem_side": rem_side,
         "greeting": greeting,
         "history": [{"role": "assistant", "content": greeting}],
         "turn_count": 0,
@@ -1644,9 +1662,9 @@ async def start_debate(user_id: str, payload: DebateStartRequest):
     
     return DebateStartResponse(
         session_id=session_id,
-        topic=topic_data["topic"],
-        user_side=topic_data["user_side"],
-        rem_side=topic_data["rem_side"],
+        topic=topic_data["statement"],
+        user_side=user_side,
+        rem_side=rem_side,
         greeting=greeting,
         turn_limit=5
     )
@@ -1662,6 +1680,14 @@ async def chat_debate(user_id: str, payload: DebateChatRequest):
     from .games_logic import DEBATE_TOPICS, generate_debate_response, judge_debate
     topic_id = session.get("topic_id")
     topic_data = next((t for t in DEBATE_TOPICS if t["id"] == topic_id), DEBATE_TOPICS[0])
+    
+    topic_dict = {
+        "id": topic_data["id"],
+        "topic": topic_data["topic"],
+        "statement": session.get("topic") or topic_data["statement"],
+        "user_side": session.get("user_side", topic_data["side_for"]),
+        "rem_side": session.get("rem_side", topic_data["side_against"])
+    }
     
     history = session.get("history", [])
     user_msg = payload.message.strip()
@@ -1682,7 +1708,7 @@ async def chat_debate(user_id: str, payload: DebateChatRequest):
     if turn_count >= 5:
         finished = True
         session["finished"] = True
-        verdict = await judge_debate(topic_data, history)
+        verdict = await judge_debate(topic_dict, history)
         session["verdict"] = verdict
         rem_response = f"and that's the debate! the judge is rendering a verdict now..."
         
@@ -1692,7 +1718,7 @@ async def chat_debate(user_id: str, payload: DebateChatRequest):
                 achievements.append("debate_champion")
                 core.state["_achievements"] = achievements
     else:
-        rem_response = await generate_debate_response(topic_data, history, user_msg)
+        rem_response = await generate_debate_response(topic_dict, history, user_msg)
         history.append({"role": "assistant", "content": rem_response})
         
     session["history"] = history

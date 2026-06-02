@@ -292,9 +292,9 @@ Write ONLY the diary entry, nothing else."""
         relationship_phase = core.state.get("relationship_xp", {}).get("current_phase", "Discovery")
         
         # Get recent messages from the date session for context
-        stm = core.memory.get_stm(decay=False)
+        stm = core.memory.get_stm(decay=False, filter_date=True)
         date_msgs = []
-        for m in stm[-15:]:
+        for m in stm[-20:]:
             content = m.get("content", "")
             if not content:
                 continue
@@ -309,19 +309,15 @@ Did they end it early? {"Yes, they abruptly ended it early." if ended_early else
 Conversational context from the date:
 {convo_summary[:1000]}
 
-Write a diary entry reflecting on this date and what you think of {user_name} right now.
-Rules:
-- 2-4 sentences MAX.
-- Write in lowercase, casual, like a real journal.
-- Be honest about your feelings (e.g. if they ended it early, you might feel a bit hurt or disappointed; if it went well, you're secretly happy).
-- Don't start with "dear diary" or the date.
-- Refer to them as "{user_name}" or in first-person context.
-
-Also write a 1-sentence postcard keepsake note that is sweet or funny, representing a memory of this date. Keep it under 15 words.
+Write:
+1. A private diary entry reflecting on this date and what you think of {user_name} right now. Keep it to 2-4 sentences MAX, casual, lowercase, honest about your feelings (e.g. if they ended it early, you might feel a bit hurt or disappointed; if it went well, you're secretly happy).
+2. A 1-sentence postcard keepsake note representing a memory of this date. Keep it under 15 words.
+3. A concise 1-sentence summary of what happened, what was discussed, and the vibe, to be stored as a long-term memory of this date. Write this summary in the first-person (e.g. "We went to the retro cafe, talked about my exams, and shared a laugh over cold coffee.").
 
 Format your output exactly as:
 DIARY: [Your diary entry here]
-NOTE: [Your 1-sentence postcard note here]"""
+NOTE: [Your 1-sentence postcard note here]
+SUMMARY: [Your 1-sentence memory summary here]"""
 
         import httpx
         api_key = os.environ.get("GROQ_API_KEY")
@@ -347,6 +343,8 @@ NOTE: [Your 1-sentence postcard note here]"""
         diary_content = None
         postcard_note = None
         
+        date_summary = None
+        
         if content:
             lines = content.split('\n')
             for line in lines:
@@ -355,10 +353,12 @@ NOTE: [Your 1-sentence postcard note here]"""
                     diary_content = l_strip[6:].strip()
                 elif l_strip.startswith("NOTE:"):
                     postcard_note = l_strip[5:].strip()
+                elif l_strip.startswith("SUMMARY:"):
+                    date_summary = l_strip[8:].strip()
             
             # Fallback if parsing failed
             if not diary_content:
-                diary_content = content.replace("DIARY:", "").replace("NOTE:", "").strip()
+                diary_content = content.replace("DIARY:", "").replace("NOTE:", "").replace("SUMMARY:", "").strip()
                 
         if not diary_content:
             if ended_early:
@@ -371,6 +371,12 @@ NOTE: [Your 1-sentence postcard note here]"""
                 postcard_note = "kind of bummed we had to leave early today."
             else:
                 postcard_note = f"loved hanging out with you at the {location}!"
+                
+        if not date_summary:
+            if ended_early:
+                date_summary = f"We went to {location} for {activity}, but it was ended early."
+            else:
+                date_summary = f"We completed a date at {location} doing {activity}."
                 
         # Save entry
         entry = {
@@ -409,13 +415,13 @@ NOTE: [Your 1-sentence postcard note here]"""
             
         try:
             core.memory.add_episodic(
-                event_type="relationship_milestone",
-                content=f"Completed a date: {activity} at {location}." + (" (ended early)" if ended_early else ""),
+                event_type="date_completed" if not ended_early else "date_ended_early",
+                content=f"Completed a date: {activity} at {location}. Summary: {date_summary}",
                 emotional_valence=-0.4 if ended_early else 0.5,
                 relational_impact=0.6,
                 emotional_context="disappointed" if ended_early else "connected"
             )
-            print("[DIARY] Logged date to episodic memory as relationship_milestone")
+            print(f"[DIARY] Logged date to episodic memory as date_completed/date_ended_early: {date_summary}")
         except Exception as e:
             print(f"[DIARY] Failed to log date episodic memory: {e}")
 

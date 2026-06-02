@@ -367,10 +367,10 @@ export interface WinOverChatResponse {
   };
 }
 
-export function startDebate(topicId: string, userId: string = DEFAULT_USER_ID) {
+export function startDebate(topicId: string, userStance: string = "for", userId: string = DEFAULT_USER_ID) {
   return apiFetch<DebateStartResponse>(`/api/user/${userId}/games/debate/start`, {
     method: "POST",
-    body: JSON.stringify({ topic_id: topicId }),
+    body: JSON.stringify({ topic_id: topicId, user_stance: userStance }),
   });
 }
 
