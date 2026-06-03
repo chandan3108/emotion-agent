@@ -1375,6 +1375,84 @@ async def reset_user(user_id: str):
                     "style": "Expressive with trailing punctuation, uses dots like ... a lot, and lowercase text.",
                     "favorite_phrases": ["wait...", "tbh", "i guess", "idk"]
                 }
+            },
+            {
+                "obsession": {
+                    "topic": "K-Pop choreographies",
+                    "details": "She spends hours watching dance practice videos and learning the steps in front of her mirror.",
+                    "trigger_keywords": ["dance", "music", "kpop", "video", "practice", "song", "group"]
+                },
+                "drama": {
+                    "topic": "Sibling borrows clothes without asking",
+                    "details": "Her sister constantly takes her sweaters and returns them stained, acting like it's no big deal.",
+                    "trigger_keywords": ["sister", "sibling", "clothes", "borrow", "sweater", "stain", "mad"]
+                },
+                "hot_take": {
+                    "topic": "Concert tickets are a scam",
+                    "details": "She insists resellers and ticket company dynamic pricing have completely ruined live music for real fans.",
+                    "trigger_keywords": ["concert", "ticket", "show", "band", "price", "scam"]
+                },
+                "deep_secret": {
+                    "topic": "Terrified of driving on highways",
+                    "details": "She has a valid license but will take an extra 30 minutes on backroads to avoid merging onto the highway.",
+                    "trigger_keywords": ["car", "drive", "highway", "scared", "license", "road", "panic"]
+                },
+                "communication_quirks": {
+                    "style": "Expressive with capital letters for emphasis and lots of exclamation points.",
+                    "favorite_phrases": ["oh my god", "no way", "literally screaming", "wait really"]
+                }
+            },
+            {
+                "obsession": {
+                    "topic": "Specialty coffee brewing",
+                    "details": "She weighs her coffee beans to the decimal and uses a gooseneck kettle to perfect her V60 pour over.",
+                    "trigger_keywords": ["coffee", "brew", "cafe", "pour", "bean", "cup", "morning"]
+                },
+                "drama": {
+                    "topic": "Group project classmate slacking",
+                    "details": "Her project partner hasn't replied to group chat messages for a week, leaving her to do all the work.",
+                    "trigger_keywords": ["classmate", "partner", "project", "group", "class", "slacker", "annoyed"]
+                },
+                "hot_take": {
+                    "topic": "Audiobooks are not reading",
+                    "details": "She thinks listening to an audiobook is a completely different mental activity and doesn't count as reading a book.",
+                    "trigger_keywords": ["book", "read", "listen", "audio", "voice", "opinion"]
+                },
+                "deep_secret": {
+                    "topic": "Cried at a dog food commercial",
+                    "details": "She is highly sensitive to anything involving senior pets and will burst into tears if she sees an old dog.",
+                    "trigger_keywords": ["dog", "pet", "cry", "sad", "commercial", "tears", "secret"]
+                },
+                "communication_quirks": {
+                    "style": "Clean punctuation, full sentences, occasional typo from typing too fast.",
+                    "favorite_phrases": ["to be fair", "makes sense", "anyway", "honestly"]
+                }
+            },
+            {
+                "obsession": {
+                    "topic": "Room plants propagation",
+                    "details": "Her room is turning into a jungle because she propagates every trimming she can find in jars of water.",
+                    "trigger_keywords": ["plant", "room", "propagate", "leaf", "green", "jungle", "cutting"]
+                },
+                "drama": {
+                    "topic": "Landlord ignoring radiator heating issues",
+                    "details": "She had to sleep in three layers of sweaters because the landlord keeps ignoring her calls about a clanking radiator.",
+                    "trigger_keywords": ["landlord", "rent", "heat", "cold", "radiator", "annoyed", "apartment"]
+                },
+                "hot_take": {
+                    "topic": "Movies are too long now",
+                    "details": "She insists no movie needs to be longer than 90 minutes and modern directors have lost the art of editing.",
+                    "trigger_keywords": ["movie", "watch", "film", "theater", "long", "boring"]
+                },
+                "deep_secret": {
+                    "topic": "Still sleeps with a childhood plushie",
+                    "details": "She feels too old for it but literally cannot sleep comfortably without her stuffed rabbit.",
+                    "trigger_keywords": ["plushie", "sleep", "stuffed", "rabbit", "bed", "embarrassed", "secret"]
+                },
+                "communication_quirks": {
+                    "style": "Sarcastic dry humor, lowercase text, uses punctuation only for emphasis.",
+                    "favorite_phrases": ["classic", "fine i guess", "whatever lol", "sure"]
+                }
             }
         ]
 
@@ -1453,6 +1531,67 @@ Make the details specific, opinionated, and realistic for a modern college stude
         # Save to state
         core.state["_seed_profile"] = seed_data
         
+        # Map seed communication quirks to habits_cpbm
+        habits = core.state.get("habits_cpbm", {})
+        if not isinstance(habits, dict):
+            habits = {}
+            
+        style_desc = seed_data.get("communication_quirks", {}).get("style", "").lower()
+        
+        # Determine punctuation style and typo settings
+        if "lowercase" in style_desc:
+            habits["punctuation_style"] = "lowercase_shorthand"
+            habits["typo_intentionality"] = random.uniform(0.5, 0.8)
+            habits["formality_baseline"] = random.uniform(0.05, 0.15)
+        elif "formal" in style_desc or ("capitalization" in style_desc and "rare" not in style_desc):
+            habits["punctuation_style"] = "formal"
+            habits["typo_intentionality"] = random.uniform(0.05, 0.15)
+            habits["formality_baseline"] = random.uniform(0.5, 0.8)
+        else:
+            habits["punctuation_style"] = random.choice(["expressive", "minimalist"])
+            habits["typo_intentionality"] = random.uniform(0.15, 0.45)
+            habits["formality_baseline"] = random.uniform(0.2, 0.5)
+
+        # Determine teasing style
+        tease_styles = ["light_playful", "sarcastic", "warm_supportive", "sassy", "dry"]
+        matched_tease = None
+        for t in tease_styles:
+            if t.replace("_", " ") in style_desc or t.split("_")[0] in style_desc:
+                matched_tease = t
+                break
+        habits["teasing_style"] = matched_tease or random.choice(tease_styles)
+
+        # Ellipsis, double text, and emoji habits
+        if "dots" in style_desc or "ellipsis" in style_desc or "..." in style_desc:
+            habits["ellipsis_habit"] = random.uniform(0.6, 0.9)
+        else:
+            habits["ellipsis_habit"] = random.uniform(0.1, 0.5)
+            
+        if "burst" in style_desc or "double text" in style_desc:
+            habits["double_text_habit"] = random.uniform(0.6, 0.9)
+        else:
+            habits["double_text_habit"] = random.uniform(0.1, 0.5)
+
+        if "emoji" in style_desc or "emotes" in style_desc:
+            habits["emoji_baseline"] = random.uniform(0.6, 0.9)
+        else:
+            habits["emoji_baseline"] = random.uniform(0.1, 0.5)
+            
+        # Miscellaneous metrics
+        habits["long_message_preference"] = random.uniform(0.2, 0.8)
+        habits["humor_frequency"] = random.uniform(0.3, 0.8)
+        habits["wpm_baseline"] = random.randint(35, 75)
+        habits["latency_preference"] = random.uniform(0.2, 0.8)
+        
+        core.state["habits_cpbm"] = habits
+        
+        # Save signature phrases to micro_personality
+        micro = core.state.get("micro_personality", {})
+        if not isinstance(micro, dict):
+            micro = {}
+        micro["signature_phrases"] = seed_data.get("communication_quirks", {}).get("favorite_phrases", [])
+        core.state["micro_personality"] = micro
+        
         # Build _persona_flavor summary string for compatibility
         persona_flavor = (
             f"- Current obsession: {seed_data['obsession']['topic']} ({seed_data['obsession']['details']})\n"
@@ -1468,6 +1607,7 @@ Make the details specific, opinionated, and realistic for a modern college stude
         
         core._save_state()
         print(f"[PERSONA] Loaded profile seed: {json.dumps(seed_data)}")
+
         
     except Exception as e:
         print(f"[PERSONA] Generation process failed: {e}")
