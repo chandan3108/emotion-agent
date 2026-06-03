@@ -2529,6 +2529,29 @@ async def generate_response(core: CognitiveCore, user_message: str,
         seed_profile=core.state.get("_seed_profile"),
     )
     
+    # Save dynamically computed evolved_branch to state database
+    try:
+        from .prompt_distiller import evolve_archetype
+        starting_archetype = core.state.get("current_psyche", {}).get("starting_archetype", "neutral")
+        unresolved_wounds = core.state.get("current_psyche", {}).get("unresolved_wounds", [])
+        emotional_undercurrents = core.state.get("personality_evolution", {}).get("emotional_undercurrents", [])
+        
+        branch_info = evolve_archetype(
+            archetype=starting_archetype,
+            phase=relationship_phase,
+            trust=core.psyche.trust,
+            hurt=core.psyche.hurt,
+            active_wounds=unresolved_wounds,
+            active_undercurrents=emotional_undercurrents
+        )
+        evolved_branch = branch_info.get("branch", "neutral_balanced")
+        if "current_psyche" not in core.state:
+            core.state["current_psyche"] = {}
+        core.state["current_psyche"]["evolved_branch"] = evolved_branch
+        core._save_state()
+    except Exception as evolve_err:
+        print(f"[PROMPT] Archetype evolution database persistence failed: {evolve_err}")
+
     try:
         from .prompt_distiller import distill_prompt
         system_msg = distill_prompt(**_prompt_kwargs)
@@ -3039,8 +3062,21 @@ async def generate_response(core: CognitiveCore, user_message: str,
         # Store internal_thought for running narrative across messages (last 5)
         try:
             if thought:
+                thought_str = thought.strip()
+                placeholders = [
+                    "your internal reaction",
+                    "what you feel",
+                    "never shown to user",
+                    "never shown to",
+                    "never show to user",
+                    "never shown",
+                    "internal thoughts in <think>",
+                    "spoken message"
+                ]
+                if any(p in thought_str.lower() for p in placeholders):
+                    thought_str = "Thinking about how to respond to what they said..."
                 mono = core.state.get("_inner_monologue", [])
-                mono.append(thought[:120])
+                mono.append(thought_str[:120])
                 core.state["_inner_monologue"] = mono[-5:]
         except NameError:
             pass  # thought wasn't defined (JSON parse failed or no JSON format)

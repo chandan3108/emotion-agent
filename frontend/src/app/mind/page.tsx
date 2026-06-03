@@ -287,6 +287,30 @@ export default function MindPage() {
                 {personality.personality_summary}
               </p>
             )}
+            {(personality?.starting_archetype || personality?.evolved_branch) && (
+              <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                {personality?.starting_archetype && (
+                  <div style={{
+                    padding: "6px 12px", borderRadius: 6,
+                    background: "rgba(151,117,250,0.06)", border: "1px solid rgba(151,117,250,0.12)",
+                    fontSize: "0.75rem", display: "flex", gap: 6
+                  }}>
+                    <span style={{ color: "var(--text-muted)" }}>Starting Archetype:</span>
+                    <span style={{ fontWeight: 600, color: "var(--accent-primary)", textTransform: "capitalize" }}>{personality.starting_archetype}</span>
+                  </div>
+                )}
+                {personality?.evolved_branch && (
+                  <div style={{
+                    padding: "6px 12px", borderRadius: 6,
+                    background: "rgba(232,121,249,0.06)", border: "1px solid rgba(232,121,249,0.12)",
+                    fontSize: "0.75rem", display: "flex", gap: 6
+                  }}>
+                    <span style={{ color: "var(--text-muted)" }}>Evolved Branch:</span>
+                    <span style={{ fontWeight: 600, color: "var(--accent-tertiary)", textTransform: "capitalize" }}>{personality.evolved_branch.replace(/_/g, ' ')}</span>
+                  </div>
+                )}
+              </div>
+            )}
             {personality?.expression_guidance && (
               <div style={{
                 padding: "12px 16px", borderRadius: 8,
@@ -354,6 +378,8 @@ export default function MindPage() {
                   { l: "Energy", v: `${Math.round((personality?.energy || 0) * 100)}%` },
                   { l: "Phase", v: personality?.phase || "—" },
                   { l: "Named Mood", v: psyche.named_mood?.primary || psyche.named_mood?.mood || "—" },
+                  { l: "Starting Archetype", v: personality?.starting_archetype || psyche.starting_archetype || "—" },
+                  { l: "Evolved Branch", v: (personality?.evolved_branch || psyche.evolved_branch || "—").replace(/_/g, ' ') },
                 ].map(({ l, v }) => (
                   <div key={l} style={{
                     padding: "10px 14px", borderRadius: 8,

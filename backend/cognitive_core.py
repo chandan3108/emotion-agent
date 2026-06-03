@@ -2318,16 +2318,15 @@ Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slan
                      events: List[Dict[str, Any]], understanding: Dict[str, Any],
                      temporal_context: Dict[str, Any]):
         """Stage 7: Update memory system with pattern detection and promotion."""
-        # Add to STM (always, but sometimes humans forget things)
-        if random.random() < 0.95:  # 95% chance to remember (humans sometimes forget)
-            emotion_vector = {
-                "valence": perception.get("valence", 0.0),
-                "arousal": perception.get("arousal", 0.0)
-            }
-            self.memory.add_stm(
-                f"[User] {user_message}", emotion_vector, perception,
-                topic=understanding.get("topic", "")
-            )
+        # Add to STM (always, 100% persistence to prevent disappearing messages)
+        emotion_vector = {
+            "valence": perception.get("valence", 0.0),
+            "arousal": perception.get("arousal", 0.0)
+        }
+        self.memory.add_stm(
+            f"[User] {user_message}", emotion_vector, perception,
+            topic=understanding.get("topic", "")
+        )
         
         # IDENTITY FACT EXTRACTION (using heuristics - sync, no LLM)
         # Extract basic identity facts like name, job, location immediately

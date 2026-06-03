@@ -53,6 +53,10 @@ def _build_identity(persona_flavor: str = None, seed_profile: Dict[str, Any] = N
             seed_block += f"\n- Personal Drama: {seed_profile['drama'].get('details', '')} (Keywords: {', '.join(seed_profile['drama'].get('trigger_keywords', []))})"
         if "deep_secret" in seed_profile:
             seed_block += f"\n- Vulnerable Secret: {seed_profile['deep_secret'].get('details', '')} (Keywords: {', '.join(seed_profile['deep_secret'].get('trigger_keywords', []))})"
+        if "pet_peeve" in seed_profile:
+            seed_block += f"\n- Pet Peeve: {seed_profile['pet_peeve'].get('details', '')} (Keywords: {', '.join(seed_profile['pet_peeve'].get('trigger_keywords', []))})"
+        if "guilty_pleasure" in seed_profile:
+            seed_block += f"\n- Guilty Pleasure: {seed_profile['guilty_pleasure'].get('details', '')} (Keywords: {', '.join(seed_profile['guilty_pleasure'].get('trigger_keywords', []))})"
         seed_block += f"\n- Texting Style: {style} (Common phrases: {phrases})"
         
     return f"""{_IDENTITY_CORE}
@@ -986,11 +990,19 @@ def distill_prompt(
                         return True
             return False
 
+        # Rank 2+ or triggered: Pet Peeve
+        if current_rank >= 2 or is_triggered("pet_peeve"):
+            filtered_seed["pet_peeve"] = seed_profile.get("pet_peeve", {})
+
         # Rank 3+ or triggered: Obsession & Hot Take
         if current_rank >= 3 or is_triggered("obsession"):
             filtered_seed["obsession"] = seed_profile.get("obsession", {})
         if current_rank >= 3 or is_triggered("hot_take"):
             filtered_seed["hot_take"] = seed_profile.get("hot_take", {})
+            
+        # Rank 4+ or triggered: Guilty Pleasure
+        if current_rank >= 4 or is_triggered("guilty_pleasure"):
+            filtered_seed["guilty_pleasure"] = seed_profile.get("guilty_pleasure", {})
             
         # Rank 5+ or triggered: Drama
         if current_rank >= 5 or is_triggered("drama"):

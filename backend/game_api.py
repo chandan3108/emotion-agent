@@ -945,6 +945,9 @@ async def get_personality(user_id: str):
     except Exception:
         named_mood = {}
 
+    starting_archetype = core.state.get("current_psyche", {}).get("starting_archetype", "neutral")
+    evolved_branch = core.state.get("current_psyche", {}).get("evolved_branch", "neutral_balanced")
+
     return {
         "personality_text": core.personality_evolution.get_personality_text(),
         "personality_summary": core.personality_evolution.get_personality_summary(),
@@ -953,12 +956,16 @@ async def get_personality(user_id: str):
         "current_interests": current_interests,
         "habits_cpbm": core.state.get("habits_cpbm", {}),
         "micro_personality": core.state.get("micro_personality", {}),
+        "starting_archetype": starting_archetype,
+        "evolved_branch": evolved_branch,
         "psyche": {
             "stance": core.psyche.stance,
             "respect": round(core.psyche.respect, 2) if core.psyche.respect else 0,
             "engagement": round(core.psyche.engagement, 2) if core.psyche.engagement else 0,
             "posture": core.psyche.posture,
             "named_mood": named_mood,
+            "starting_archetype": starting_archetype,
+            "evolved_branch": evolved_branch,
             "neurochem": {
                 "dopamine": round(core.psyche.neurochem.get("da", 0.5), 2),
                 "cortisol": round(core.psyche.neurochem.get("cort", 0.3), 2),
@@ -1382,6 +1389,16 @@ async def reset_user(user_id: str):
                     "details": "She's secretly terrified she lacks the emotional endurance to be a clinical psychologist and will get burnt out in a year.",
                     "trigger_keywords": ["future", "clinical", "psychology", "secret", "worry", "afraid", "dream"]
                 },
+                "pet_peeve": {
+                    "topic": "Slow walkers on campus",
+                    "details": "She gets extremely annoyed by people walking side-by-side on narrow sidewalks during class change times.",
+                    "trigger_keywords": ["walk", "campus", "slow", "annoyed", "people"]
+                },
+                "guilty_pleasure": {
+                    "topic": "Trashy reality TV dating shows",
+                    "details": "She watches entire seasons of Love is Blind in one sitting, writing notes on the couples' body language.",
+                    "trigger_keywords": ["tv", "show", "watch", "dating", "reality"]
+                },
                 "communication_quirks": {
                     "style": "Fast lowercase typing, short sentences, dry emotes like 🧍, rare capitalization.",
                     "favorite_phrases": ["lol", "bruh", "literally", "i can't"]
@@ -1407,6 +1424,16 @@ async def reset_user(user_id: str):
                     "topic": "Imposter syndrome in academics",
                     "details": "She cheated on a major chemistry quiz in freshman year and still feels like her entire academic record is a lie.",
                     "trigger_keywords": ["grade", "quiz", "test", "fail", "smart", "cheat", "secret"]
+                },
+                "pet_peeve": {
+                    "topic": "Loud gum chewing",
+                    "details": "She cannot focus in lectures if someone next to her is loudly popping or snapping chewing gum.",
+                    "trigger_keywords": ["loud", "chew", "gum", "lecture", "annoyed"]
+                },
+                "guilty_pleasure": {
+                    "topic": "Midnight ramen with cheese",
+                    "details": "She puts sliced processed American cheese on hot spicy instant ramen at 2 AM.",
+                    "trigger_keywords": ["food", "ramen", "eat", "cheese", "night"]
                 },
                 "communication_quirks": {
                     "style": "Expressive with trailing punctuation, uses dots like ... a lot, and lowercase text.",
@@ -1434,6 +1461,16 @@ async def reset_user(user_id: str):
                     "details": "She has a valid license but will take an extra 30 minutes on backroads to avoid merging onto the highway.",
                     "trigger_keywords": ["car", "drive", "highway", "scared", "license", "road", "panic"]
                 },
+                "pet_peeve": {
+                    "topic": "Unread notification badges",
+                    "details": "She gets physical discomfort if she sees red notification badges on anyone's phone apps.",
+                    "trigger_keywords": ["phone", "app", "unread", "badge", "annoyed"]
+                },
+                "guilty_pleasure": {
+                    "topic": "Reading astrology daily horoscopes",
+                    "details": "She doesn't believe in it scientifically, but she checks her zodiac app every morning to see if it predicts a good day.",
+                    "trigger_keywords": ["astrology", "horoscope", "zodiac", "app", "read"]
+                },
                 "communication_quirks": {
                     "style": "Expressive with capital letters for emphasis and lots of exclamation points.",
                     "favorite_phrases": ["oh my god", "no way", "literally screaming", "wait really"]
@@ -1460,6 +1497,16 @@ async def reset_user(user_id: str):
                     "details": "She is highly sensitive to anything involving senior pets and will burst into tears if she sees an old dog.",
                     "trigger_keywords": ["dog", "pet", "cry", "sad", "commercial", "tears", "secret"]
                 },
+                "pet_peeve": {
+                    "topic": "Misused grammar in texts",
+                    "details": "She cringes when people write 'your' instead of 'you're' or 'should of' instead of 'should have'.",
+                    "trigger_keywords": ["text", "write", "grammar", "annoyed", "word"]
+                },
+                "guilty_pleasure": {
+                    "topic": "Early 2000s boyband music",
+                    "details": "She has a secret playlist of One Direction and Backstreet Boys that she blasts when cleaning her room.",
+                    "trigger_keywords": ["music", "song", "play", "boyband", "secret"]
+                },
                 "communication_quirks": {
                     "style": "Clean punctuation, full sentences, occasional typo from typing too fast.",
                     "favorite_phrases": ["to be fair", "makes sense", "anyway", "honestly"]
@@ -1485,6 +1532,16 @@ async def reset_user(user_id: str):
                     "topic": "Still sleeps with a childhood plushie",
                     "details": "She feels too old for it but literally cannot sleep comfortably without her stuffed rabbit.",
                     "trigger_keywords": ["plushie", "sleep", "stuffed", "rabbit", "bed", "embarrassed", "secret"]
+                },
+                "pet_peeve": {
+                    "topic": "Replying with just 'K'",
+                    "details": "She considers a single 'K' reply to be the text message equivalent of slamming a door in someone's face.",
+                    "trigger_keywords": ["text", "reply", "annoyed", "single", "word"]
+                },
+                "guilty_pleasure": {
+                    "topic": "Buying cute stickers",
+                    "details": "She has drawer full of cute animal stickers that she is too afraid to actually use because she wants to 'save them for the perfect spot'.",
+                    "trigger_keywords": ["sticker", "buy", "cute", "collect", "secret"]
                 },
                 "communication_quirks": {
                     "style": "Sarcastic dry humor, lowercase text, uses punctuation only for emphasis.",
@@ -1522,6 +1579,16 @@ The JSON must follow this exact structure:
     "details": "vulnerable secret that she hides",
     "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
   },
+  "pet_peeve": {
+    "topic": "topic name (e.g. slow walkers on campus)",
+    "details": "what gets on her nerves and why",
+    "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
+  },
+  "guilty_pleasure": {
+    "topic": "topic name (e.g. midnight ramen with cheese)",
+    "details": "what she secretly enjoys doing or eating but is slightly embarrassed about",
+    "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
+  },
   "communication_quirks": {
     "style": "description of her text messaging style (e.g. fast lowercase, dry emotes)",
     "favorite_phrases": ["list", "of", "3-5", "phrases", "she", "uses"]
@@ -1554,7 +1621,7 @@ Make the details specific, opinionated, and realistic for a modern college stude
                 
                 try:
                     parsed = json.loads(cleaned_content)
-                    required_keys = ["obsession", "drama", "hot_take", "deep_secret", "communication_quirks"]
+                    required_keys = ["obsession", "drama", "hot_take", "deep_secret", "pet_peeve", "guilty_pleasure", "communication_quirks"]
                     if all(k in parsed for k in required_keys):
                         seed_data = parsed
                         print("[RESET] Successfully generated fresh JSON seed via LLM.")
@@ -1633,7 +1700,10 @@ Make the details specific, opinionated, and realistic for a modern college stude
         persona_flavor = (
             f"- Current obsession: {seed_data['obsession']['topic']} ({seed_data['obsession']['details']})\n"
             f"- Mild drama: {seed_data['drama']['topic']} ({seed_data['drama']['details']})\n"
-            f"- Strong opinion: {seed_data['hot_take']['topic']} ({seed_data['hot_take']['details']})"
+            f"- Strong opinion: {seed_data['hot_take']['topic']} ({seed_data['hot_take']['details']})\n"
+            f"- Deep secret: {seed_data['deep_secret']['topic']} ({seed_data['deep_secret']['details']})\n"
+            f"- Pet peeve: {seed_data['pet_peeve']['topic']} ({seed_data['pet_peeve']['details']})\n"
+            f"- Guilty pleasure: {seed_data['guilty_pleasure']['topic']} ({seed_data['guilty_pleasure']['details']})"
         )
         
         self_identity = core.state.get("_self_identity", {})
@@ -1649,6 +1719,22 @@ Make the details specific, opinionated, and realistic for a modern college stude
         if "current_psyche" not in core.state:
             core.state["current_psyche"] = {}
         core.state["current_psyche"]["starting_archetype"] = chosen_archetype
+        
+        # Initialize evolved_branch
+        try:
+            from .prompt_distiller import evolve_archetype
+            branch_info = evolve_archetype(
+                archetype=chosen_archetype,
+                phase="Discovery",
+                trust=0.3,
+                hurt=0.0,
+                active_wounds=[],
+                active_undercurrents=[]
+            )
+            core.state["current_psyche"]["evolved_branch"] = branch_info.get("branch", "neutral_guarded")
+        except Exception as e:
+            print(f"[RESET] Failed to initialize evolved_branch: {e}")
+            core.state["current_psyche"]["evolved_branch"] = "neutral_guarded"
         
         # Reset defaults
         core.state["current_psyche"]["relationship_phase"] = "Discovery"
