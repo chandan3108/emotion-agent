@@ -565,23 +565,27 @@ async def chat(user_id: str, payload: ChatRequest):
     try:
         from .discord_bot import generate_response, _generate_conversation_summary
 
+        # Vercel Hobby tier timeout is 10s. Limit execution here to 8.0s to allow in-character recovery before gateway timeout
         response_text, processing_result = await asyncio.wait_for(
             generate_response(core, payload.message, message_history, return_processing_result=True),
-            timeout=60.0
+            timeout=8.0
         )
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Response generation timed out")
-    except Exception as e:
-        import traceback
-        print(f"[WEB CHAT] Pipeline error: {e}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Processing error: {type(e).__name__}")
-
-    if not response_text or response_text.startswith("⚠️"):
-        raise HTTPException(status_code=502, detail=response_text or "No response generated")
-
-    if response_text == "__RATE_LIMITED__":
-        raise HTTPException(status_code=429, detail="Rate limited, please try again in a moment")
+        if response_text == "__RATE_LIMITED__":
+            raise asyncio.TimeoutError("Rate limited")
+            
+        if not response_text or response_text.startswith("⚠️"):
+            raise ValueError(response_text or "No response generated")
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"[WEB CHAT] Pipeline timeout, rate limit, or error ({type(e).__name__}): triggering in-character fallback response")
+        fallbacks = [
+            "sorry, my signal was acting up for a sec. what were you saying?",
+            "ah sorry, i got a bit distracted. what was that again?",
+            "sorry, my phone glitched out. say that again?",
+            "sorry about that, my connection dropped. what did you say?",
+            "hey, sorry! had a brief lag on my end. could you repeat that?"
+        ]
+        import random
+        response_text = random.choice(fallbacks)
 
     # Calculate typing delay based on response length and schedule/circadian multipliers
     base_delay = 0.8

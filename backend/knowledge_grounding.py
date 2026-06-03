@@ -70,7 +70,7 @@ Examples:
 
     try:
         # Rate limiter removed — only main response is rate-limited
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.post(
                 INFERENCE_URL,
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
@@ -114,7 +114,7 @@ async def search_web(query: str, max_results: int = 3) -> Optional[List[Dict[str
     # Try Tavily first (much better quality)
     if TAVILY_API_KEY:
         try:
-            async with httpx.AsyncClient(timeout=12.0) as client:
+            async with httpx.AsyncClient(timeout=4.0) as client:
                 resp = await client.post(
                     'https://api.tavily.com/search',
                     json={

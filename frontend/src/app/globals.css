@@ -802,6 +802,63 @@ body::after {
   .stat-value { font-size: 1.375rem; }
   .glass-card { border-radius: var(--radius-md); }
   .rem-orb { width: 36px; height: 36px; }
+
+  /* Smooth iOS momentum scrolling on all scrollable elements */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Disable expensive backdrop blur effects on mobile for fluid scrolling and rendering */
+  *, *::before, *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Disable heavy fixed animations on mobile (aurora shifting & star drift) */
+  body::before, body::after {
+    animation: none !important;
+  }
+
+  /* Hide panel rotating conic gradient shimmer on mobile to save GPU cycles */
+  .glass-panel::after {
+    display: none !important;
+  }
+
+  /* Override theme variables to make cards/panels highly readable with opaque background colors */
+  :root {
+    --bg-surface: rgba(18, 18, 30, 0.96) !important;
+    --bg-glass: rgba(22, 22, 38, 0.94) !important;
+    --bg-glass-hover: rgba(26, 26, 46, 0.97) !important;
+    --bg-input: rgba(12, 12, 20, 0.98) !important;
+    --border-subtle: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* Specific element overrides to ensure high contrast and zero blur */
+  .glass-card {
+    background: rgba(18, 18, 30, 0.96) !important;
+  }
+  
+  .glass-panel {
+    background: rgba(18, 18, 30, 0.96) !important;
+  }
+
+  .chat-bubble-rem {
+    background: rgba(14, 14, 26, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .chat-bubble-user {
+    background: linear-gradient(135deg, rgba(124, 92, 231, 0.25), rgba(151, 117, 250, 0.18)) !important;
+    border-color: rgba(151, 117, 250, 0.22) !important;
+  }
+
+  .xp-toast {
+    background: rgba(18, 18, 30, 0.98) !important;
+  }
+
+  header {
+    background: rgba(8, 8, 15, 0.98) !important;
+  }
 }
 
 /* ─── Page Title (global) ─── */

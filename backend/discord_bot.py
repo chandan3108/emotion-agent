@@ -2649,99 +2649,83 @@ async def generate_response(core: CognitiveCore, user_message: str,
         except Exception as e:
             print(f"Failed to write debug payload: {e}")
 
-        # Retry loop for transient transport errors (dead pooled connections)
-        transport_errors = (BrokenPipeError, ConnectionError, ConnectionResetError)
+        # Define transport and timeout errors to catch for cascade fallback
+        import httpx
+        all_errors = (
+            BrokenPipeError, ConnectionError, ConnectionResetError, 
+            httpx.HTTPError, httpx.TimeoutException, asyncio.TimeoutError
+        )
         try:
-            transport_errors = (*transport_errors, httpx.RemoteProtocolError)
-        except AttributeError:
-            pass  # older httpx versions
-        
+            from httpx import RemoteProtocolError
+            all_errors = (*all_errors, RemoteProtocolError)
+        except ImportError:
+            pass
+
         status = None
         raw = None
-        for attempt in range(3):
-            try:
-                async with httpx.AsyncClient(timeout=90.0) as client:
-                    resp = await client.post(
-                        INFERENCE_URL,
-                        headers={"Authorization": f"Bearer {HF_TOKEN}"},
-                        json=body,
-                    )
-                    status = resp.status_code
-                    raw = await resp.aread()
-                break  # success
-            except transport_errors as te:
-                if attempt < 2:
-                    print(f"[RETRY] Transport error on attempt {attempt+1}: {type(te).__name__}. Retrying in 1s...")
-                    await asyncio.sleep(1)
-                else:
-                    raise  # re-raise on final attempt
-        print(f"[DEBUG] LLM API call complete, status: {status}")
-        
+        data = None
+        primary_success = False
+
         try:
-            data = httpx.Response(status_code=status, content=raw).json()
-        except Exception:
-            error_msg = "⚠️ Error parsing AI response"
-            if return_processing_result:
-                return (error_msg, None)
-            return error_msg
-        
-        if status >= 400:
-            # Check for rate limit error
-            error_data = data.get("error", {}) if isinstance(data, dict) else {}
-            if "rate_limit" in str(data).lower() or status == 429:
-                error_msg_detail = error_data.get("message", str(data)[:200]) if isinstance(error_data, dict) else str(data)[:200]
-                print(f"[RATE LIMIT] {MODEL_ID} hit rate limit: {error_msg_detail}")
+            # Main model execution with a strict 5.0 second timeout to prevent Vercel 504s
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(
+                    INFERENCE_URL,
+                    headers={"Authorization": f"Bearer {HF_TOKEN}"},
+                    json=body,
+                )
+                status = resp.status_code
+                raw = await resp.aread()
+                if status == 200:
+                    data = resp.json()
+                    primary_success = True
+                    print(f"[DEBUG] Primary LLM API call succeeded: {MODEL_ID}")
+                else:
+                    print(f"[DEBUG] Primary LLM API call returned status {status}")
+        except all_errors as err:
+            print(f"[WARNING] Primary LLM call failed or timed out: {type(err).__name__}")
+            # Fall through to cascade
+
+        # If primary failed or rate-limited, run cascade
+        if not primary_success or (status and status >= 400):
+            print(f"[CASCADE] Primary model ({MODEL_ID}) failed, rate-limited, or timed out. Triggering cascade fallbacks...")
+            cascade_success = False
+            for fallback in MODEL_CASCADE:
+                if fallback["id"] == MODEL_ID:
+                    continue  # Skip the model that just failed
                 
-                # CASCADE: Try fallback models
-                cascade_success = False
-                for fallback in MODEL_CASCADE:
-                    if fallback["id"] == MODEL_ID:
-                        continue  # Skip the model that just failed
-                    
-                    wait = fallback["wait_before"]
-                    label = fallback["label"]
-                    print(f"[CASCADE] Falling back to {label} ({fallback['id']}) — waiting {wait}s...")
-                    
-                    if wait > 0:
-                        await asyncio.sleep(wait)
-                    
-                    try:
-                        fallback_body = body.copy()
-                        fallback_body["model"] = fallback["id"]
-                        
-                        async with httpx.AsyncClient(timeout=60) as retry_client:
-                            retry_resp = await retry_client.post(
-                                INFERENCE_URL,
-                                headers={"Authorization": f"Bearer {os.environ.get('GROQ_API_KEY')}"},
-                                json=fallback_body
-                            )
-                            if retry_resp.status_code == 200:
-                                data = retry_resp.json()
-                                print(f"[CASCADE] ✅ {label} succeeded!")
-                                cascade_success = True
-                                break
-                            elif retry_resp.status_code == 429:
-                                print(f"[CASCADE] {label} also rate limited, trying next...")
-                                continue
-                            else:
-                                print(f"[CASCADE] {label} failed: {retry_resp.status_code}")
-                                continue
-                    except Exception as e:
-                        print(f"[CASCADE] {label} error: {e}")
-                        continue
+                label = fallback["label"]
+                print(f"[CASCADE] Trying fallback {label} ({fallback['id']})...")
                 
-                if not cascade_success:
-                    # Signal rate limit to caller — it will handle silent retry
-                    print(f"[CASCADE] All models rate limited. Queuing for background retry.")
-                    if return_processing_result:
-                        return ("__RATE_LIMITED__", {"body": body, "system_msg": system_msg, "history": history})
-                    return "__RATE_LIMITED__"
-            else:
-                print(f"[ERROR] API error: {data}")
-                error_msg = "Hmm, I'm having trouble thinking right now. Try again?"
+                try:
+                    fallback_body = body.copy()
+                    fallback_body["model"] = fallback["id"]
+                    
+                    # Use a strict 4.0 second timeout for fallback models to keep total response time under 8s
+                    async with httpx.AsyncClient(timeout=4.0) as retry_client:
+                        retry_resp = await retry_client.post(
+                            INFERENCE_URL,
+                            headers={"Authorization": f"Bearer {os.environ.get('GROQ_API_KEY')}"},
+                            json=fallback_body
+                        )
+                        if retry_resp.status_code == 200:
+                            data = retry_resp.json()
+                            status = 200
+                            print(f"[CASCADE] ✅ {label} succeeded!")
+                            cascade_success = True
+                            break
+                        else:
+                            print(f"[CASCADE] {label} failed with status: {retry_resp.status_code}")
+                except Exception as e:
+                    print(f"[CASCADE] {label} failed or timed out: {type(e).__name__} ({e})")
+                    continue
+            
+            if not cascade_success:
+                print(f"[CASCADE] All models failed or timed out.")
+                # Return rate limited status so caller/chat endpoint handles it
                 if return_processing_result:
-                    return (error_msg, None)
-                return error_msg
+                    return ("__RATE_LIMITED__", {"body": body, "system_msg": system_msg, "history": history})
+                return "__RATE_LIMITED__"
         
         # Extract response
         try:

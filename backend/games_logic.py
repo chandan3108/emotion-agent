@@ -130,7 +130,7 @@ async def call_groq(prompt: str, temperature: float = 0.8, max_tokens: int = 250
         payload["response_format"] = {"type": "json_object"}
         
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
