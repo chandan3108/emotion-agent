@@ -24,6 +24,11 @@ export default function FloatingParticles() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    // Disable animation on mobile to prevent performance lag and choppy scroll
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");

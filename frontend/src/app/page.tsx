@@ -398,9 +398,11 @@ export default function ChatPage() {
       getXP().then(setXp).catch(() => {});
       fetchPlansAndSchedule();
     } catch {
+      // Restore input text so they don't lose their typed message on error
+      setInput(text);
       const errMsg: Message = {
         role: "assistant",
-        content: "...",
+        content: "⚠️ Message failed to send. Please check your connection or try again.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errMsg]);

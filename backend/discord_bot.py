@@ -1531,8 +1531,8 @@ HF_TOKEN = GROQ_API_KEY  # Alias for compatibility
 # Primary → Mid-tier → Lightweight
 MODEL_CASCADE = [
     {"id": "llama-3.3-70b-versatile", "label": "70B", "wait_before": 0},
-    {"id": "meta-llama/llama-4-scout-17b-16e-instruct", "label": "Scout 17B", "wait_before": 5},
-    {"id": "llama-3.1-8b-instant", "label": "8B", "wait_before": 3},
+    {"id": "meta-llama/llama-4-scout-17b-16e-instruct", "label": "Scout 17B", "wait_before": 0},
+    {"id": "llama-3.1-8b-instant", "label": "8B", "wait_before": 0},
 ]
 
 if not DISCORD_TOKEN:
