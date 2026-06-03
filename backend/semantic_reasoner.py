@@ -206,7 +206,10 @@ Return ONLY valid JSON in this format:
         elif any(word in message_lower for word in ["movie", "music", "game", "book", "hobby", "play"]):
             topic = "entertainment"
         elif any(word in message_lower for word in ["feel", "sad", "happy", "angry", "love", "hate"]):
-            topic = "emotions"
+            if any(w in message_lower for w in ["sleepy", "tired", "exhausted", "lazy"]):
+                topic = "general"
+            else:
+                topic = "emotions"
         elif any(word in message_lower for word in ["family", "friend", "mom", "dad", "sister"]):
             topic = "personal"
         

@@ -470,6 +470,9 @@ async def agent_respond_v2(payload: AgentRequest, user_id: str = "default") -> A
     
     system_msg += (
         "\nCRITICAL INSTRUCTIONS:\n"
+        "- Do not introduce multiple unrelated new topics in a single message. Focus on one primary thought to keep the conversation structured.\n"
+        "- Do not repeat questions or ask multiple questions in a single turn.\n"
+        "- Avoid repeating your own previous statements, complaints, or questions from earlier in the conversation history unless specifically asked about them.\n"
         "- Generate quirks naturally based on your state. Don't overdo it.\n"
         "- If you're feeling confident and energetic, write cleanly.\n"
         "- If you're tired or stressed, let natural imperfections show (typos, hesitations, shorter messages).\n"

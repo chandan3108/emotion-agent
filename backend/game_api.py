@@ -740,6 +740,11 @@ def _clean_and_format_memory_content(content: str, event_type: str) -> str:
     # 3. Handle third-person to first-person translation
     s = content
     
+    # Strip thoughts/thinks indicators
+    s = re.sub(r'<think>.*?</think>', '', s, flags=re.DOTALL)
+    s = re.sub(r'\*thinks\s*>\s*', '', s, flags=re.IGNORECASE)
+    s = re.sub(r'\*thinks\*\s*', '', s, flags=re.IGNORECASE)
+    
     s = re.sub(r"\bRem's\b", "my", s, flags=re.IGNORECASE)
     s = re.sub(r"\bRem'\b", "my", s, flags=re.IGNORECASE)
     s = re.sub(r"\bRem\b", "I", s, flags=re.IGNORECASE)
@@ -748,6 +753,20 @@ def _clean_and_format_memory_content(content: str, event_type: str) -> str:
     s = re.sub(r"\buser's\b", "your", s, flags=re.IGNORECASE)
     s = re.sub(r"\bthe user\b", "you", s, flags=re.IGNORECASE)
     s = re.sub(r"\buser\b", "you", s, flags=re.IGNORECASE)
+    
+    # Plural translations (before singular replacements)
+    s = re.sub(r"\bthey both\b", "we both", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthem both\b", "us both", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey were\b", "we were", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey are\b", "we are", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey have\b", "we have", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey had\b", "we had", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey mutually\b", "we mutually", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey shared\b", "we shared", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey bonded\b", "we bonded", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey agreed\b", "we agreed", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey talked\b", "we talked", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bthey laughed\b", "we laughed", s, flags=re.IGNORECASE)
     
     s = re.sub(r"\btheir\b", "your", s, flags=re.IGNORECASE)
     s = re.sub(r"\bthem\b", "you", s, flags=re.IGNORECASE)
@@ -862,13 +881,16 @@ async def get_memory(user_id: str):
     """Full memory hierarchy: STM, episodic, identity."""
     core = _get_core(user_id)
     stm = core.memory.get_stm(decay=False, filter_date=False)
+    # Filter out summary entries from STM to keep them out of topics and memory display
+    stm_filtered = [m for m in stm if not m.get("content", "").startswith("[Summary of")]
+    
     episodic = core.memory.get_episodic(min_salience=0.1)
     identity = core.memory.get_identity(min_confidence=0.3)
 
     return {
         "stm": {
-            "count": len(stm),
-            "entries": [{"content": m.get("content", "")[:200], "timestamp": m.get("timestamp", ""), "topic": m.get("topic", "")} for m in stm[-20:]],
+            "count": len(stm_filtered),
+            "entries": [{"content": m.get("content", "")[:200], "timestamp": m.get("timestamp", ""), "topic": m.get("topic", "")} for m in stm_filtered[-20:]],
         },
         "episodic": {
             "count": len(episodic),
@@ -1596,6 +1618,9 @@ async def get_messages(user_id: str):
                 content=content[7:],
                 timestamp=ts,
             ))
+        elif content.startswith("[Summary of"):
+            # Skip internal summary entries so they aren't shown in the chat UI
+            continue
         else:
             messages.append(MessageEntry(
                 role="user",

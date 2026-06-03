@@ -573,7 +573,7 @@ def _select_active_directives(
 
         # Circadian fatigue guidelines
         if circadian == "deep_night":
-            directives.append((2, "[CIRCADIAN FATIGUE] It's deep night (exhausted). Type with more typos, lowercase, dry humor, and keep replies short and sleepy."))
+            directives.append((2, "[CIRCADIAN FATIGUE] It's late night. You're winding down and feel slightly tired. Keep your tone relaxed, casual, and slightly shorter. Avoid extremely short, single-word dismissive replies like 'Hm' or 'ok' unless prompted."))
         elif circadian == "morning":
             directives.append((4, "[CIRCADIAN] Morning time. You are waking up or starting your day. Slightly slower pace."))
         
