@@ -1569,7 +1569,7 @@ Return ONLY valid JSON:
                 ("llama-3.1-8b-instant", 400, 0.4),
             ]
             
-            async with httpx.AsyncClient(timeout=4.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 for model_id, max_toks, temp in models:
                     try:
                         resp = await client.post(

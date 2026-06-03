@@ -2667,8 +2667,8 @@ async def generate_response(core: CognitiveCore, user_message: str,
         primary_success = False
 
         try:
-            # Main model execution with a strict 5.0 second timeout to prevent Vercel 504s
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            # Main model execution — backend runs on Railway (no Vercel gateway limit)
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(
                     INFERENCE_URL,
                     headers={"Authorization": f"Bearer {HF_TOKEN}"},
@@ -2701,8 +2701,8 @@ async def generate_response(core: CognitiveCore, user_message: str,
                     fallback_body = body.copy()
                     fallback_body["model"] = fallback["id"]
                     
-                    # Use a strict 4.0 second timeout for fallback models to keep total response time under 8s
-                    async with httpx.AsyncClient(timeout=4.0) as retry_client:
+                    # Fallback model timeout — generous to handle load spikes
+                    async with httpx.AsyncClient(timeout=20.0) as retry_client:
                         retry_resp = await retry_client.post(
                             INFERENCE_URL,
                             headers={"Authorization": f"Bearer {os.environ.get('GROQ_API_KEY')}"},
@@ -3022,7 +3022,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         
         # Also add Rem's response to STM so summaries capture both sides
         core.memory.add_stm(
-            f"[Rem] {response_text}", {"valence": 0.0, "arousal": 0.0}, {},
+            f"[Rem] {response_text[:200]}", {"valence": 0.0, "arousal": 0.0}, {},
             topic=""
         )
         

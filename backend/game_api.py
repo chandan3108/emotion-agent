@@ -210,7 +210,6 @@ class ChatResponse(BaseModel):
     schedule: Optional[List[Dict[str, Any]]] = None
     future_plans: Optional[List[Dict[str, Any]]] = None
     streak_days: int = 0
-    typing_delay_ms: int = 1200  # Client-side typing simulation delay in ms
 
 
 class LinkRequest(BaseModel):
@@ -566,11 +565,11 @@ async def chat(user_id: str, payload: ChatRequest):
     try:
         from .discord_bot import generate_response, _generate_conversation_summary
 
-        # Vercel Hobby tier timeout is 10s. Use 9.0s here — the typing delay is now
-        # handled client-side, so we no longer sleep inside the function.
-        response_text, processing_result = await asyncio.wait_for(
-            generate_response(core, payload.message, message_history, return_processing_result=True),
-            timeout=9.0
+        # The frontend calls the backend API directly (NEXT_PUBLIC_API_URL on Railway),
+        # NOT through Vercel serverless functions, so there is no 10s gateway limit.
+        # Let the pipeline run with its own internal timeouts (60-120s process_message, 30s LLM calls).
+        response_text, processing_result = await generate_response(
+            core, payload.message, message_history, return_processing_result=True
         )
         if response_text == "__RATE_LIMITED__":
             raise asyncio.TimeoutError("Rate limited")
@@ -589,8 +588,7 @@ async def chat(user_id: str, payload: ChatRequest):
         import random
         response_text = random.choice(fallbacks)
 
-    # Calculate typing delay to return to client (ms) — client simulates the delay
-    # so the backend doesn't sleep and eat into Vercel's 10s function timeout.
+    # Calculate typing delay based on response length and schedule/circadian multipliers
     base_delay = 0.8
     char_delay = len(response_text) * 0.012  # 12ms per character
     delay = base_delay + char_delay
@@ -615,9 +613,10 @@ async def chat(user_id: str, payload: ChatRequest):
         multiplier = 2.0
 
     delay = delay * multiplier
-    delay = min(delay, 4.0)  # Cap at 4s
-    typing_delay_ms = int(delay * 1000)
-    print(f"[CHAT DELAY] Sending client typing delay of {delay:.2f}s (activity: {current_activity}, multiplier: {multiplier})")
+    delay = min(delay, 5.0)  # Cap at 5s to avoid freezing the UI experience too long
+
+    print(f"[CHAT DELAY] Simulating typing delay of {delay:.2f}s (activity: {current_activity}, multiplier: {multiplier})")
+    await asyncio.sleep(delay)
 
     # Fire background task (same as Discord's handle_dm)
     try:
@@ -694,8 +693,7 @@ async def chat(user_id: str, payload: ChatRequest):
         roleplay=roleplay_data,
         schedule=full_schedule,
         future_plans=future_plans,
-        streak_days=core.xp_system.streak_days,
-        typing_delay_ms=typing_delay_ms
+        streak_days=core.xp_system.streak_days
     )
 
 
