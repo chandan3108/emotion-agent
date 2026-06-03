@@ -1179,11 +1179,48 @@ async def end_active_date(user_id: str):
             # Engagement penalty: decrease by 0.1
             core.psyche.update_engagement(-0.1)
             
+            # Create an unresolved wound immediately
+            try:
+                core.psyche.create_wound(
+                    cause=f"User abruptly ended our date early at {location} while we were {activity}.",
+                    intensity=0.7
+                )
+            except Exception as wound_err:
+                print(f"[WEB API] Error creating wound: {wound_err}")
+                
+            # Inject immediate negative emotional undercurrent based on phase
+            try:
+                phase = core.relationship_phases.current_phase
+                negative_emotions = {
+                    "Discovery": "frustration",
+                    "Building": "disappointment",
+                    "Steady": "attachment_anxiety",
+                    "Deep": "deep_hurt",
+                    "Bonded": "deep_hurt",
+                    "Volatile": "betrayal",
+                    "Maintenance": "passive_aggression"
+                }
+                selected_undercurrent = negative_emotions.get(phase, "disappointment")
+                
+                if not hasattr(core.personality_evolution, "emotional_undercurrents") or core.personality_evolution.emotional_undercurrents is None:
+                    core.personality_evolution.emotional_undercurrents = []
+                
+                core.personality_evolution.emotional_undercurrents.append({
+                    "emotion": selected_undercurrent,
+                    "intensity": 0.7,
+                    "trigger": f"User ended the date early at {location}"
+                })
+                core.personality_evolution.emotional_undercurrents = core.personality_evolution.emotional_undercurrents[-5:]
+                core.personality_evolution.save()
+            except Exception as uc_err:
+                print(f"[WEB API] Error injecting emotional undercurrent: {uc_err}")
+            
             # Record negative episodic memory
             try:
                 core.memory.add_episodic(
                     event_type="date_ended_early",
                     content=f"User abruptly ended our date early at {location} while we were {activity}.",
+                    emotional_valence=-0.6,
                     relational_impact=-0.5
                 )
             except Exception as mem_err:
@@ -1604,9 +1641,169 @@ Make the details specific, opinionated, and realistic for a modern college stude
             self_identity = {}
         self_identity["_persona_flavor"] = persona_flavor
         core.state["_self_identity"] = self_identity
+
+        # Choose starting archetype
+        archetypes = ["naggy", "hard_to_get", "bored", "happy_fruity", "neutral"]
+        chosen_archetype = random.choice(archetypes)
         
+        if "current_psyche" not in core.state:
+            core.state["current_psyche"] = {}
+        core.state["current_psyche"]["starting_archetype"] = chosen_archetype
+        
+        # Reset defaults
+        core.state["current_psyche"]["relationship_phase"] = "Discovery"
+        core.state["current_psyche"]["forgiveness_state"] = "FORGIVEN"
+        core.state["current_psyche"]["forgiveness_progress"] = 1.0
+        core.state["current_psyche"]["phase_confidence"] = 0.3
+        core.state["current_psyche"]["unresolved_wounds"] = []
+        
+        if "personality_evolution" not in core.state:
+            core.state["personality_evolution"] = {}
+        core.state["personality_evolution"]["emotional_undercurrents"] = []
+        
+        if "core_personality" not in core.state:
+            core.state["core_personality"] = {}
+            
+        if "mood" not in core.state:
+            core.state["mood"] = {}
+            
+        if chosen_archetype == "naggy":
+            # Mood
+            core.state["mood"].update({
+                "happiness": 0.20,
+                "stress": 0.70,
+                "anger": 0.0,
+                "affection": 0.10,
+                "energy": 0.50,
+                "boredom": 0.30,
+                "anxiety": 0.50,
+                "excitement": 0.10,
+                "sadness": 0.20,
+                "contentment": 0.20,
+                "frustration": 0.65,
+                "curiosity": 0.40,
+                "playfulness": 0.15,
+                "vulnerability": 0.10
+            })
+            # Core personality
+            core.state["core_personality"]["attachment_style"] = "anxious"
+            # Psyche
+            core.state["current_psyche"].update({
+                "trust": 0.25,
+                "hurt": 0.0,
+                "engagement": 0.65
+            })
+            
+        elif chosen_archetype == "hard_to_get":
+            # Mood
+            core.state["mood"].update({
+                "happiness": 0.30,
+                "stress": 0.20,
+                "anger": 0.0,
+                "affection": 0.05,
+                "energy": 0.50,
+                "boredom": 0.40,
+                "anxiety": 0.30,
+                "excitement": 0.05,
+                "sadness": 0.10,
+                "contentment": 0.30,
+                "frustration": 0.10,
+                "curiosity": 0.30,
+                "playfulness": 0.10,
+                "vulnerability": 0.02
+            })
+            # Core personality
+            core.state["core_personality"]["attachment_style"] = "avoidant"
+            # Psyche
+            core.state["current_psyche"].update({
+                "trust": 0.10,
+                "hurt": 0.0,
+                "engagement": 0.30
+            })
+            
+        elif chosen_archetype == "bored":
+            # Mood
+            core.state["mood"].update({
+                "happiness": 0.30,
+                "stress": 0.20,
+                "anger": 0.0,
+                "affection": 0.10,
+                "energy": 0.20,
+                "boredom": 0.80,
+                "anxiety": 0.20,
+                "excitement": 0.05,
+                "sadness": 0.10,
+                "contentment": 0.30,
+                "frustration": 0.10,
+                "curiosity": 0.20,
+                "playfulness": 0.10,
+                "vulnerability": 0.05
+            })
+            # Core personality
+            core.state["core_personality"]["attachment_style"] = "avoidant"
+            # Psyche
+            core.state["current_psyche"].update({
+                "trust": 0.30,
+                "hurt": 0.0,
+                "engagement": 0.20
+            })
+            
+        elif chosen_archetype == "happy_fruity":
+            # Mood
+            core.state["mood"].update({
+                "happiness": 0.80,
+                "stress": 0.10,
+                "anger": 0.0,
+                "affection": 0.60,
+                "energy": 0.70,
+                "boredom": 0.10,
+                "anxiety": 0.20,
+                "excitement": 0.70,
+                "sadness": 0.05,
+                "contentment": 0.60,
+                "frustration": 0.05,
+                "curiosity": 0.70,
+                "playfulness": 0.70,
+                "vulnerability": 0.30
+            })
+            # Core personality
+            core.state["core_personality"]["attachment_style"] = "secure"
+            # Psyche
+            core.state["current_psyche"].update({
+                "trust": 0.50,
+                "hurt": 0.0,
+                "engagement": 0.80
+            })
+            
+        else: # neutral
+            # Default values
+            core.state["mood"].update({
+                "happiness": 0.40,
+                "stress": 0.20,
+                "anger": 0.0,
+                "affection": 0.20,
+                "energy": 0.50,
+                "boredom": 0.30,
+                "anxiety": 0.30,
+                "excitement": 0.10,
+                "sadness": 0.10,
+                "contentment": 0.30,
+                "frustration": 0.10,
+                "curiosity": 0.50,
+                "playfulness": 0.20,
+                "vulnerability": 0.10
+            })
+            core.state["core_personality"]["attachment_style"] = "secure"
+            core.state["current_psyche"].update({
+                "trust": 0.30,
+                "hurt": 0.0,
+                "engagement": 0.50
+            })
+        
+        # Rebind in-memory components to update references and avoid caching bugs
+        core._init_systems()
         core._save_state()
-        print(f"[PERSONA] Loaded profile seed: {json.dumps(seed_data)}")
+        print(f"[PERSONA] Loaded profile seed and applied starting archetype '{chosen_archetype}': {json.dumps(seed_data)}")
 
         
     except Exception as e:

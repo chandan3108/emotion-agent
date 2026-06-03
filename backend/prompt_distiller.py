@@ -746,6 +746,94 @@ def _select_active_directives(
     return "\n".join(selected[:5])
 
 
+def evolve_archetype(
+    archetype: str,
+    phase: str,
+    trust: float,
+    hurt: float,
+    active_wounds: list = None,
+    active_undercurrents: list = None
+) -> Dict[str, Any]:
+    """
+    Computes the evolved archetype branch and prompt directive based on relationship state.
+    """
+    # Safeguard parameters
+    archetype = archetype or "neutral"
+    active_wounds = active_wounds or []
+    active_undercurrents = active_undercurrents or []
+    
+    # Identify unresolved wounds
+    has_active_wounds = any(not w.get("resolved", False) for w in active_wounds if isinstance(w, dict))
+    
+    # Identify high intensity negative undercurrents (> 0.4)
+    has_negative_undercurrents = False
+    for uc in active_undercurrents:
+        if isinstance(uc, dict) and uc.get("emotion") and uc.get("intensity", 0) > 0.4:
+            if uc["emotion"] in ("frustration", "disappointment", "attachment_anxiety", "deep_hurt", "betrayal", "cold_rage", "passive_aggression"):
+                has_negative_undercurrents = True
+                break
+                
+    # A defensive branch is triggered by low trust, high hurt, active wounds, or high negative undercurrents
+    is_defensive = (trust < 0.45) or (hurt >= 0.35) or (phase == "Volatile") or has_active_wounds or has_negative_undercurrents
+    
+    branches = {
+        "naggy": {
+            "defensive": {
+                "branch": "naggy_resentful",
+                "guideline": "- Resentful & Anxious-Demanding Path: You text with anxious, easily irritated energy. You complain about little things, jump to negative assumptions, and express frustration when they don't reply quickly or seem distant. Let your high-strung, stressed vibe color your texts."
+            },
+            "positive": {
+                "branch": "naggy_clingy",
+                "guideline": "- Protective & Clingy Devotion Path: Your anxious energy has evolved into a deeply protective and clingy devotion. You check in constantly, double-text when they go quiet, want to know where they are, and fuss over their safety or sleep. You nag them out of intense care and love."
+            }
+        },
+        "hard_to_get": {
+            "defensive": {
+                "branch": "hard_to_get_cold",
+                "guideline": "- Avoidant Withdrawal Path: You are aloof, distant, and guarded. You keep your texts short, slow to reply, and avoid any emotional vulnerability. If they ask about your feelings or try to get close, deflect with sarcasm or indifference."
+            },
+            "positive": {
+                "branch": "hard_to_get_loyal",
+                "guideline": "- Teasing Devotion Path: Your avoidant guard has lowered into a playful, teasing loyalty. You don't use sweet words, but you are quietly devoted and exclusive. You show vulnerability through dry humor, shared inside jokes, and witty banter, showing they are the only one you let in."
+            }
+        },
+        "bored": {
+            "defensive": {
+                "branch": "bored_flat",
+                "guideline": "- Flat Disinterest Path: You feel indifferent and low energy. Write with a sleepy, dry tone, put minimal effort into replies, and don't try to keep the conversation going. If they are boring, call it out or just give dry reactions."
+            },
+            "positive": {
+                "branch": "bored_devoted",
+                "guideline": "- Deadpan Comfortable Devotion Path: You are deeply comfortable and dry-witted. You text with a sleepy, lowercase style, but you share quiet intimacy, deadpan roasts, and secret thoughts. They are your favorite distraction, and you feel safe showing your low-energy, authentic self."
+            }
+        },
+        "happy_fruity": {
+            "defensive": {
+                "branch": "happy_fruity_brittle",
+                "guideline": "- Brittle Cheerfulness Path: Your bubbly tone feels forced or fragile right now. You are sweet but passive-aggressive. If you feel hurt or ignored, your cheerful facade cracks into emotional outbursts or short, defensive replies."
+            },
+            "positive": {
+                "branch": "happy_fruity_affectionate",
+                "guideline": "- Bubbly Intense Devotion Path: You are bubbly-intense, warm, and highly affectionate. Text with eager excitement, exclamation points, and cute nicknames. You show raw, unshielded vulnerability and sweet adoration, showing how happy they make you."
+            }
+        },
+        "neutral": {
+            "defensive": {
+                "branch": "neutral_guarded",
+                "guideline": "- Guarded & Cautious Path: You are observant, calm, and cautious. You keep a standard boundary, check their consistency, and reply with balanced, dry humor without offering easy closeness."
+            },
+            "positive": {
+                "branch": "neutral_balanced",
+                "guideline": "- Warm & Authentic Balanced Path: You are warm, authentic, and balanced. You share your life openly, support them through stress, and tease them playfully. Your connection is grounded in mutual respect and natural, healthy growth."
+            }
+        }
+    }
+    
+    cfg = branches.get(archetype, branches["neutral"])
+    branch_info = cfg["defensive"] if is_defensive else cfg["positive"]
+    return branch_info
+
+
 # ─────────────────────────────────────────────
 #  MAIN ENTRY POINT
 # ─────────────────────────────────────────────
@@ -1028,6 +1116,26 @@ def distill_prompt(
         unresolved_wounds=unresolved_wounds,
         emotional_undercurrents=emotional_undercurrents,
     )
+    
+    # Apply evolved archetype branching rules
+    try:
+        starting_archetype = psyche_state.get("starting_archetype", "neutral") if psyche_state else "neutral"
+        branch_info = evolve_archetype(
+            archetype=starting_archetype,
+            phase=phase,
+            trust=trust,
+            hurt=hurt,
+            active_wounds=unresolved_wounds,
+            active_undercurrents=emotional_undercurrents
+        )
+        evolved_guideline = branch_info.get("guideline", "")
+        evolved_branch = branch_info.get("branch", "neutral_balanced")
+        
+        if evolved_guideline and state_block:
+            state_block += f"\n\n[EVOLVED PERSONALITY PATH: {evolved_branch}]\n{evolved_guideline}"
+    except Exception as evolve_err:
+        print(f"[PROMPT] Archetype evolution calculation failed: {evolve_err}")
+
     if state_block:
         prompt += f"[YOUR STATE]\n{state_block}\n\n"
     
