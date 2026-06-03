@@ -951,7 +951,29 @@ async def get_personality(user_id: str):
         named_mood = {}
 
     starting_archetype = core.state.get("current_psyche", {}).get("starting_archetype", "neutral")
-    evolved_branch = core.state.get("current_psyche", {}).get("evolved_branch", "neutral_balanced")
+    
+    # Calculate evolved branch dynamically based on relationship phase and state
+    try:
+        from .prompt_distiller import evolve_archetype
+        hurt = core.psyche.psyche.get("hurt", 0.0) if hasattr(core.psyche, 'psyche') else core.state.get("current_psyche", {}).get("hurt", 0.0)
+        unresolved_wounds = core.psyche.get_unresolved_wounds() if hasattr(core.psyche, 'get_unresolved_wounds') else []
+        undercurrents = core.state.get("emotional_undercurrents", [])
+        
+        branch_info = evolve_archetype(
+            archetype=starting_archetype,
+            phase=phase,
+            trust=trust,
+            hurt=hurt,
+            active_wounds=unresolved_wounds,
+            active_undercurrents=undercurrents
+        )
+        if phase == "Discovery":
+            evolved_branch = "Not Evolved Yet"
+        else:
+            evolved_branch = branch_info.get("branch", starting_archetype)
+    except Exception as e:
+        print(f"[API] Failed to compute dynamic evolved_branch: {e}")
+        evolved_branch = "Not Evolved Yet" if phase == "Discovery" else core.state.get("current_psyche", {}).get("evolved_branch", "neutral_balanced")
 
     return {
         "personality_text": core.personality_evolution.get_personality_text(),

@@ -338,11 +338,6 @@ export default function ChatPage() {
     try {
       const res: ChatResponse = await sendChat({ message: text });
 
-      // Simulate Rem's typing delay client-side (server sends the delay value)
-      // This prevents Vercel function timeouts from server-side sleeping.
-      const typingDelay = res.typing_delay_ms ?? 1200;
-      await new Promise((resolve) => setTimeout(resolve, typingDelay));
-
       if (res.reply_parts && res.reply_parts.length > 1) {
         for (let i = 0; i < res.reply_parts.length; i++) {
           const partMsg: Message = {
@@ -353,7 +348,7 @@ export default function ChatPage() {
           setMessages((prev) => [...prev, partMsg]);
           if (i < res.reply_parts.length - 1) {
             setLoading(true);
-            await new Promise((resolve) => setTimeout(resolve, 800 + Math.random() * 600));
+            await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 800));
           }
         }
       } else {

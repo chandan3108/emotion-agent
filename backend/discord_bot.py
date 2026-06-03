@@ -1493,6 +1493,42 @@ def strip_roleplay_markers(text: str) -> str:
     return text
 
 
+def clean_think_tags(text: str) -> str:
+    """Remove <think>...</think> and <vthink>...</vthink> tags and their contents robustly."""
+    if not text:
+        return ""
+    # Strip complete <think>...</think> and <vthink>...</vthink> blocks (case-insensitive, multi-line)
+    text = re.sub(r'<(v?think)>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # Strip unclosed <think> or <vthink> blocks (remove from the tag to the end of the text)
+    text = re.sub(r'<(v?think)>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # Strip any stray closing tags
+    text = re.sub(r'</(v?think)>', '', text, flags=re.IGNORECASE)
+    
+    # Handle plain-text thought prefixes (like "thinking - thought\nspoken")
+    plain_think = re.match(
+        r'^(?:think(?:ing)?)\s*[-—:]\s*(.*)',
+        text.strip(), re.DOTALL | re.IGNORECASE
+    )
+    if plain_think:
+        raw_after_prefix = plain_think.group(1).strip()
+        lines = raw_after_prefix.split('\n', 1)
+        if len(lines) > 1 and lines[1].strip():
+            text = lines[1].strip()
+        else:
+            cleaned = re.sub(
+                r"^(?:(?:ugh|hmm|okay|alright|hm|ah|oh)[,.]?\s*)?(?:(?:i (?:need|want|should|feel like i|don'?t want|gotta|have) (?:to |)[^,]*?,?\s*)+)",
+                '', raw_after_prefix, flags=re.IGNORECASE
+            ).strip()
+            if cleaned and len(cleaned) > 5:
+                text = cleaned
+            else:
+                text = raw_after_prefix
+
+    # Strip leftover plain-text markers like "thinking - " or "think - " at the start
+    text = re.sub(r'^(?:think(?:ing)?)\s*[-—:]\s*', '', text, flags=re.IGNORECASE).strip()
+    return text.strip()
+
+
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
@@ -2437,6 +2473,21 @@ async def generate_response(core: CognitiveCore, user_message: str,
     # Increment message counter
     core.state["_total_msg_count"] = _sc_msg_count + 1
     
+    # Check if the active topic is still relevant (not stale/abandoned)
+    topic_context = core.state.get("_topic_context")
+    if topic_context and topic_context.get("topic"):
+        topic_name = topic_context["topic"].lower()
+        import re as _re_topic
+        topic_words = [w for w in _re_topic.split(r'\W+', topic_name) if len(w) > 3]
+        recent_texts = [user_message]
+        if message_history:
+            recent_texts.extend([m.get("content", "") for m in message_history[-2:]])
+        recent_blob = " ".join(recent_texts).lower()
+        is_mentioned = any(w in recent_blob for w in topic_words) if topic_words else (topic_name in recent_blob)
+        if not is_mentioned:
+            print(f"[TOPIC CONTEXT] Cleared stale topic '{topic_context['topic']}' (not mentioned in last 3 messages)")
+            core.state["_topic_context"] = {}
+    
     # ===== BUILD PROMPT — use compressed distiller (fallback to legacy if issues) =====
     _prompt_kwargs = dict(
         phase=relationship_phase,
@@ -2740,18 +2791,12 @@ async def generate_response(core: CognitiveCore, user_message: str,
             import re as _re
             thought = ""
             
-            # PRIMARY: <think>...</think> tag format
-            think_match = _re.search(r'<think>(.*?)</think>', text, _re.DOTALL)
+            # Extract thought for logging/debugging
+            think_match = _re.search(r'<(v?think)>(.*?)(?:</\1>|$)', text, _re.DOTALL | _re.IGNORECASE)
             if think_match:
-                thought = think_match.group(1).strip()
-                # Everything after the closing </think> tag is the spoken text
-                after_think = text[think_match.end():].strip()
-                if after_think:
-                    # Clean up any leftover labels the model might add
-                    after_think = _re.sub(r'^(spoken_text\s*[:=]\s*|message\s*[:=]\s*)', '', after_think, flags=_re.IGNORECASE).strip()
-                    after_think = after_think.strip('"').strip("'")
-                    text = after_think
+                thought = think_match.group(2).strip()
                 print(f"\n💭 [REM'S THOUGHT]: {thought}\n")
+                text = clean_think_tags(text)
             
             # FALLBACK: JSON format (in case model still outputs JSON from cached behavior)
             elif text.strip().startswith("{"):
@@ -2893,16 +2938,13 @@ async def generate_response(core: CognitiveCore, user_message: str,
                         if not is_roleplay:
                             dedup_text = strip_roleplay_markers(dedup_text)
                         # Parse <think> tags or JSON if returned
-                        import re as _re2
-                        _think_m = _re2.search(r'<think>.*?</think>', dedup_text, _re2.DOTALL)
-                        if _think_m:
-                            dedup_text = dedup_text[_think_m.end():].strip()
-                        elif dedup_text.strip().startswith("{"):
+                        dedup_text = clean_think_tags(dedup_text)
+                        if dedup_text.strip().startswith("{"):
                             try:
                                 import json as _json
                                 parsed_dedup = _json.loads(dedup_text)
                                 if parsed_dedup.get("spoken_text"):
-                                    dedup_text = parsed_dedup["spoken_text"]
+                                    dedup_text = clean_think_tags(parsed_dedup["spoken_text"])
                             except Exception:
                                 pass
                         if dedup_text and len(dedup_text) > 2:
@@ -3429,6 +3471,7 @@ Respond with ONLY the message text, nothing else."""
                         data = resp.json()
                         msg = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
                         if msg and len(msg) > 3:
+                            msg = clean_think_tags(msg)
                             msg = msg.strip('"').strip("'")
                             async with channel.typing():
                                 await asyncio.sleep(random.uniform(1.5, 3.0))
@@ -3857,6 +3900,10 @@ Do FOUR things:
 2. USER-FACTS: Extract facts the USER shared about themselves (from "User:" lines ONLY).
 - Keys MUST be snake_case: hobby_piano, favorite_character_aot, location_city
 - Values MUST be THIRD PERSON: "User plays piano" NOT "plays piano"
+- STRICT RULE AGAINST HALLUCINATING NAMES/BACKGROUNDS:
+  * NEVER invent, guess, or assume the user's name, age, job, or personal background.
+  * ONLY extract a fact if it is explicitly stated in the conversation text.
+  * If the user references a third person (e.g., "my friend", "Udhayban Patel"), DO NOT associate or store that name as the user's own identity.
 - IDENTITY TEST: Only extract facts that will still be true in 2+ weeks.
   YES: "User studies CS", "User has a younger brother", "User lives in Hyderabad"
   NO: "User has a fever" (temporary health state), "User is eating lunch", "User is tired today"
@@ -4265,8 +4312,9 @@ async def _silent_retry(message: discord.Message, rate_limit_data: Dict[str, Any
                         if choices:
                             text = choices[0].get("message", {}).get("content", "").strip()
                             if text:
+                                cleaned_text = clean_think_tags(text)
                                 print(f"[SILENT RETRY] ✅ {model['label']} succeeded after {attempt} min!")
-                                await message.channel.send(text)
+                                await message.channel.send(cleaned_text)
                                 return
                     elif resp.status_code == 429:
                         continue  # Try next model

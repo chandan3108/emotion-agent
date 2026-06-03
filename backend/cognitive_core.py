@@ -1844,6 +1844,9 @@ EXTRACT:
    - Don't infer. Don't assume. Only what they literally said.
    - Use their name if known: "Chandu studies CS" not "User studies CS"
    - NEVER start facts with "The user" or "User" — use their name or rephrase
+   - STRICT ANTI-HALLUCINATION RULES:
+     * NEVER guess, assume, or fabricate the user's name, age, job, or background.
+     * DO NOT store facts about other people mentioned in the text as facts about the user. If the user mentions a third party (e.g., "my friend", "Udhayban Patel"), do NOT extract that name or fact as user identity.
    - NEVER include Rem's own traits: music taste, psychology, college details — those are ABOUT REM
    - If Rem said "I like indie music" that is NOT a user identity fact
    - ONLY permanent traits/facts. NOT momentary states or opinions:

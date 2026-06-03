@@ -118,7 +118,6 @@ export interface ChatResponse {
   roleplay?: { active: boolean; activity: string; location: string } | null;
   schedule?: any[];
   future_plans?: any[];
-  typing_delay_ms?: number;
 }
 
 

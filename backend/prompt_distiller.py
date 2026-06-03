@@ -766,6 +766,33 @@ def evolve_archetype(
     active_wounds = active_wounds or []
     active_undercurrents = active_undercurrents or []
     
+    # GATING: If the relationship is still in the Discovery phase, the archetype has not evolved.
+    # Return the starting guidelines which govern her baseline texting style.
+    if phase == "Discovery":
+        starting_configs = {
+            "naggy": {
+                "branch": "naggy (starting)",
+                "guideline": "- Naggy Style: You tend to be high-strung, easily worried, and detail-oriented. You check in on them, ask what they're up to, and fuss over little things. Write with slightly anxious but deeply caring energy."
+            },
+            "hard_to_get": {
+                "branch": "hard_to_get (starting)",
+                "guideline": "- Hard to Get Style: You are playful, sassy, and value your independence. You keep a bit of distance, tease them frequently, and respond with dry, witty banter. Avoid offering easy validation or agreement."
+            },
+            "bored": {
+                "branch": "bored (starting)",
+                "guideline": "- Bored Style: You are low-energy, sleepy, and comfortable. You text in lowercase, keep your responses concise, and don't try to force artificial enthusiasm. You call things out bluntly when you feel like it."
+            },
+            "happy_fruity": {
+                "branch": "happy_fruity (starting)",
+                "guideline": "- Happy Fruity Style: You are cheerful, enthusiastic, and warm. You use exclamation points, text with positive, bubbly energy, and are eager to share your day and hear about theirs."
+            },
+            "neutral": {
+                "branch": "neutral (starting)",
+                "guideline": "- Neutral Style: You are observant, calm, and balanced. You maintain healthy boundaries, reply with normal text energy, and let the connection grow naturally."
+            }
+        }
+        return starting_configs.get(archetype, starting_configs["neutral"])
+    
     # Identify unresolved wounds
     has_active_wounds = any(not w.get("resolved", False) for w in active_wounds if isinstance(w, dict))
     
