@@ -958,6 +958,7 @@ async def get_personality(user_id: str):
         "micro_personality": core.state.get("micro_personality", {}),
         "starting_archetype": starting_archetype,
         "evolved_branch": evolved_branch,
+        "persona_flavor": core.state.get("_self_identity", {}).get("_persona_flavor", ""),
         "psyche": {
             "stance": core.psyche.stance,
             "respect": round(core.psyche.respect, 2) if core.psyche.respect else 0,

@@ -74,7 +74,7 @@ export default function MindPage() {
   const dayOfWeek = schedule?.day_of_week;
 
   const selfIdentity = complexity?.self_identity || {};
-  const personaFlavor = selfIdentity?._persona_flavor || selfIdentity?.persona_flavor;
+  const personaFlavor = selfIdentity?._persona_flavor || selfIdentity?.persona_flavor || personality?.persona_flavor;
   const innerMonologue = complexity?.inner_monologue || [];
   const rumination = complexity?.rumination;
   const knowledgeHoles = complexity?.knowledge_holes || [];
