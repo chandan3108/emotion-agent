@@ -84,6 +84,8 @@ export default function MindPage() {
   const neurochem = psyche?.neurochem || {};
   const vibePalette = personality?.vibe_palette || [];
   const interests = personality?.current_interests || [];
+  const habitsCpbm = personality?.habits_cpbm || {};
+  const microPersonality = personality?.micro_personality || {};
 
   const aboutUser = identity?.about_user || [];
   const userFacts = identity?.user_facts || {};
@@ -394,6 +396,101 @@ export default function MindPage() {
                       fontSize: "0.6875rem", color: "var(--accent-primary)",
                     }}>{v}</span>
                   ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Texting Quirks & Habits */}
+          {Object.keys(habitsCpbm).length > 0 && (
+            <section className="glass-panel" style={{ padding: 28 }}>
+              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "var(--accent-primary)" }}>✍️</span> Texting Quirks & Shorthand
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {(() => {
+                  const list = [];
+                  
+                  if (habitsCpbm.ellipsis_habit > 0.3) {
+                    list.push(
+                      <div key="ellipsis" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Ellipsis Habit</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                          Uses dots like ... a lot ({Math.round(habitsCpbm.ellipsis_habit * 100)}%)
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (habitsCpbm.double_text_habit > 0.3) {
+                    list.push(
+                      <div key="double_text" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Double Texting</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                          Tends to send messages in bursts ({Math.round(habitsCpbm.double_text_habit * 100)}%)
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (habitsCpbm.typo_intentionality > 0.3) {
+                    list.push(
+                      <div key="typos" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Typo Habit</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                          Allows typos & lowercase shorthand ({Math.round(habitsCpbm.typo_intentionality * 100)}%)
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (habitsCpbm.emoji_baseline > 0.3) {
+                    list.push(
+                      <div key="emojis" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Emoji Usage</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                          Baseline frequency ({Math.round(habitsCpbm.emoji_baseline * 100)}%)
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (habitsCpbm.punctuation_style) {
+                    list.push(
+                      <div key="punctuation" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Punctuation Style</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", textTransform: "capitalize" as const }}>
+                          {habitsCpbm.punctuation_style}
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (habitsCpbm.teasing_style) {
+                    list.push(
+                      <div key="teasing" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Teasing Style</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", textTransform: "capitalize" as const }}>
+                          {String(habitsCpbm.teasing_style).replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    );
+                  }
+                  
+                  return list.length > 0 ? list : [<div key="none" style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Standard texting style.</div>];
+                })()}
+              </div>
+              
+              {/* Signature phrases */}
+              {microPersonality.signature_phrases?.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6, fontWeight: 600 }}>Signature Phrases</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {microPersonality.signature_phrases.map((p: string, idx: number) => (
+                      <span key={idx} style={{ 
+                        fontSize: "0.75rem", color: "var(--text-primary)", fontStyle: "italic",
+                        background: "rgba(255,255,255,0.02)", padding: "4px 10px", borderRadius: 6,
+                        border: "1px solid var(--border-subtle)"
+                      }}>
+                        &quot;{p}&quot;
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>

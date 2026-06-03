@@ -645,7 +645,7 @@ def _select_active_directives(
 
     # ── Knowledge holes ──
     if knowledge_holes and isinstance(knowledge_holes, list) and knowledge_holes:
-        directives.append((5, f"[CURIOUS] You don't know: {knowledge_holes[0]}. Ask casually if natural."))
+        directives.append((5, f"[CURIOUS] You don't know: {knowledge_holes[0]}. Ask casually if natural. Only ask or reference this if it fits the active context or is directly relevant to what they just said. Do not force it or assume ambiguous phrases refer to this."))
 
     # ── Signature behavior ──
     if signature_hint == "energy_mirror":

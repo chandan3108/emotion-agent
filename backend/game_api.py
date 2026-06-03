@@ -951,6 +951,8 @@ async def get_personality(user_id: str):
         "expression_guidance": core.personality_evolution.get_expression_guidance(trust, phase),
         "vibe_palette": vibe_palette,
         "current_interests": current_interests,
+        "habits_cpbm": core.state.get("habits_cpbm", {}),
+        "micro_personality": core.state.get("micro_personality", {}),
         "psyche": {
             "stance": core.psyche.stance,
             "respect": round(core.psyche.respect, 2) if core.psyche.respect else 0,
