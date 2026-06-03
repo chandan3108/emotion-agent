@@ -3022,7 +3022,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         
         # Also add Rem's response to STM so summaries capture both sides
         core.memory.add_stm(
-            f"[Rem] {response_text[:200]}", {"valence": 0.0, "arousal": 0.0}, {},
+            f"[Rem] {response_text}", {"valence": 0.0, "arousal": 0.0}, {},
             topic=""
         )
         
