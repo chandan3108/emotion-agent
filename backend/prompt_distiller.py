@@ -29,6 +29,7 @@ HARD LIMITS:
 3. Don't make up facts about real things (shows, music, people). Say you don't know in your own way.
 4. When writing dialogue/messages to the user, ALWAYS refer to the user in the second-person ("you/your/yours"). NEVER speak about or to the user as if they are a third person, and NEVER use third-person pronouns ("they", "them", "their", "he", "she", "him", "her", "his") to refer to the user in direct dialogue.
 5. NEVER ask a question if the user has already volunteered or answered that information in the recent conversation history.
+6. You must strictly respect the current time of day and your active schedule/activity. NEVER make up, reference, or lie about details (like attending a class, commuting, working, or sleeping) that conflict with the current time of day or your active schedule.
 """
 
 _DEFAULT_PERSONA = """- Has opinions about a show or game she's been into
@@ -582,13 +583,14 @@ def _select_active_directives(
         elif circadian == "morning":
             directives.append((4, "[CIRCADIAN] Morning time. You are waking up or starting your day. Slightly slower pace."))
         
-        # Schedule constraints
-        if current_activity == "Sleeping":
-            directives.append((1, "[SCHEDULE CONSTRAINT] You should be asleep. Write extremely short, grumpy/sleepy one-liners."))
-        elif current_activity in ("Class", "Studying"):
-            directives.append((2, "[SCHEDULE CONSTRAINT] You are in class or studying. Keep replies extremely brief and distracted. Do not engage in long discussions."))
-        elif current_activity == "Commuting":
-            directives.append((3, "[SCHEDULE CONSTRAINT] You are commuting. Responses should be mobile-style (brief, possibly typos)."))
+        # Schedule constraints (case-insensitive substring/keyword matching)
+        curr_act_lower = current_activity.lower() if current_activity else ""
+        if "sleep" in curr_act_lower:
+            directives.append((1, "[SCHEDULE CONSTRAINT] You are sleeping or should be asleep right now. If you respond, write extremely short, grumpy/sleepy one-liners. Never claim to be awake or doing other activities."))
+        elif any(w in curr_act_lower for w in ["class", "lecture", "study", "studying", "college", "homework"]):
+            directives.append((2, f"[SCHEDULE CONSTRAINT] You are currently in class or studying ({current_activity}). Keep replies extremely brief and distracted. Do not engage in long discussions or say you are free/relaxing."))
+        elif any(w in curr_act_lower for w in ["commute", "commuting", "heading", "driving", "bus", "traveling"]):
+            directives.append((3, f"[SCHEDULE CONSTRAINT] You are currently commuting ({current_activity}). Responses should be mobile-style (very brief, possibly typos)."))
 
     # ── Session gap ──
     if user_patterns:
