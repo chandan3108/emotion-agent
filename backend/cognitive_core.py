@@ -62,17 +62,21 @@ class CognitiveCore:
         try:
             from .semantic_search import get_semantic_search
             sem = get_semantic_search()
+            # Filter to match exactly what semantic search indexes (avoid mismatch loops)
             existing_memories = {
-                "episodic": self.memory.get_episodic(min_salience=0.0),
-                "identity": self.memory.get_identity(min_confidence=0.0),
-                "stm_summaries": self.memory.get_stm(decay=False),
-                "learned_facts": self.memory.memory.get("learned_facts", [])
+                "episodic": [m for m in self.memory.get_episodic(min_salience=0.0) if m.get("content") and len(m.get("content", "")) > 3],
+                "identity": [m for m in self.memory.get_identity(min_confidence=0.0) if m.get("fact") and len(m.get("fact", "")) > 3],
+                "stm_summaries": [m for m in self.memory.get_stm(decay=False) if m.get("content", "").startswith("[Summary of") and len(m.get("content", "")) > 3],
+                "learned_facts": [f for f in self.memory.memory.get("learned_facts", []) if f.get("fact") and len(f.get("fact", "")) > 3]
             }
             stats = sem.get_stats(self.user_id)
             total_existing = sum(stats.values())
             total_memories = sum(len(v) for v in existing_memories.values())
             if total_memories > 0 and total_existing < total_memories:
+                print(f"[SEMANTIC] Found unindexed memories ({total_existing}/{total_memories}). Triggering reindex...")
                 sem.reindex_user(self.user_id, existing_memories)
+            else:
+                print(f"[SEMANTIC] Embedding index up to date ({total_existing}/{total_memories}). Skipping reindex.")
         except Exception as e:
             print(f"[SEMANTIC] Startup reindex skipped: {e}")
         
@@ -132,10 +136,32 @@ class CognitiveCore:
         self.diary = DiarySystem(self.state)
         
         # FTS5 memory search index
-        from .memory_search import get_memory_search
-        self.memory_search = get_memory_search()
-        # Reindex user's memories for full-text search
-        self.memory_search.reindex_user(self.user_id, self.state.get("memory_hierarchy", {}))
+        try:
+            import sqlite3
+            from .memory_search import get_memory_search
+            self.memory_search = get_memory_search()
+            
+            # Count exact FTS5 indexable memories to prevent redundant writes
+            existing_fts = {
+                "episodic": [m for m in self.state.get("memory_hierarchy", {}).get("episodic", []) if m.get("content")],
+                "identity": [m for m in self.state.get("memory_hierarchy", {}).get("identity", []) if m.get("fact") and not m.get("fact", "").startswith("[knowledge]")],
+                "learned_facts": [m for m in self.state.get("memory_hierarchy", {}).get("learned_facts", []) if m.get("fact")],
+                "stm": [m for m in self.state.get("memory_hierarchy", {}).get("stm", []) if m.get("content", "").startswith("[Summary of")]
+            }
+            total_memories_fts = sum(len(v) for v in existing_fts.values())
+            
+            # Get current database FTS5 count
+            with sqlite3.connect(self.memory_search.db_path) as conn:
+                cursor = conn.execute("SELECT COUNT(*) FROM indexed_entries WHERE user_id = ?", (self.user_id,))
+                total_existing_fts = cursor.fetchone()[0]
+                
+            if total_memories_fts > 0 and total_existing_fts < total_memories_fts:
+                print(f"[FTS5] Found unindexed memories ({total_existing_fts}/{total_memories_fts}). Triggering reindex...")
+                self.memory_search.reindex_user(self.user_id, self.state.get("memory_hierarchy", {}))
+            else:
+                print(f"[FTS5] FTS5 index up to date ({total_existing_fts}/{total_memories_fts}). Skipping reindex.")
+        except Exception as e:
+            print(f"[FTS5] Startup reindex skipped: {e}")
 
     def reload_state(self):
         """

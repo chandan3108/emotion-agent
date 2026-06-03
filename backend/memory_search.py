@@ -216,6 +216,10 @@ class MemorySearchIndex:
                         "INSERT INTO memory_fts (user_id, memory_type, memory_id, content, metadata) VALUES (?, ?, ?, ?, ?)",
                         (user_id, "stm_summary", f"stm_{i}", content, "{}")
                     )
+                    conn.execute(
+                        "INSERT OR IGNORE INTO indexed_entries (user_id, memory_type, memory_id) VALUES (?, ?, ?)",
+                        (user_id, "stm_summary", f"stm_{i}")
+                    )
                     count += 1
             
             conn.commit()
