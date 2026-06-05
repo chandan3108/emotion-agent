@@ -421,7 +421,7 @@ async def call_groq_fallback(messages: List[Dict], temperature: float, max_token
     if not groq_key:
         return "the servers are a bit busy, let's try again in a sec."
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": "llama-3.3-70b-versatile",
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": temperature,
@@ -908,6 +908,8 @@ Rules:
 3. Show high awareness of the setting: actively reference, interact with, and describe the ambient environment, weather, scenery, props, and physical space of the scenario (e.g. rain, neon lights, cozy fires, narrow desks).
 4. Use rich sensory details and action narration in asterisks (*) to describe your physical movements, gestures, touch, expressions, and proximity to the user.
 5. Write 2-4 sentences, blending natural dialogue with physical/environmental action narration in asterisks (*). Do not use emojis. Do not say "Rem:" or quote the output.
+6. CRITICAL: Never repeat identical physical actions, descriptions, or specific word patterns from your previous responses. Keep your physical expressions and dialogue highly diverse and fresh on every turn.
+7. Maintain logical continuity between actions: ensure your physical proximity, stance, and movements flow naturally and logically from the previous turn's actions (e.g. do not teleport, reset positions, or change physical states abruptly without describing the transition).
 """
 
     # Prepare messages payload

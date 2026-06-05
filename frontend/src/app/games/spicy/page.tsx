@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { startSpicy, chatSpicy, endSpicy } from "@/lib/gameApi";
+import Avatar3D from "./Avatar3D";
 
 const formatMessage = (content: string) => {
   if (!content) return "";
@@ -60,6 +61,64 @@ export default function SpicyGamePage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const [activeEmotion, setActiveEmotion] = useState("neutral");
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role === "assistant") {
+        const detectEmotion = (text: string) => {
+          const t = text.toLowerCase();
+          
+          // 1. Flustered / Shy / Blushing
+          if (t.includes("blush") || t.includes("fluster") || t.includes("stutter") || t.includes("stammer") || t.includes("shy") || t.includes("embarrass") || t.includes("redden")) {
+            return "submissive & vulnerable";
+          }
+          
+          // 2. Angry / Defiant / Glaring
+          if (t.includes("glare") || t.includes("scowl") || t.includes("frown") || t.includes("growl") || t.includes("huff") || t.includes("annoyed") || t.includes("pout") || t.includes("angry") || t.includes("snarl")) {
+            return "super dominant";
+          }
+          
+          // 3. Flirty / Seductive / Smirking / Kissing
+          if (t.includes("smirk") || t.includes("wink") || t.includes("teas") || t.includes("flirt") || t.includes("nibble") || t.includes("kiss") || t.includes("whisper") || t.includes("seduce") || t.includes("bite") || t.includes("lip")) {
+            return "flirty";
+          }
+          
+          // 4. Happy / Playful
+          if (t.includes("smile") || t.includes("grin") || t.includes("giggle") || t.includes("laugh") || t.includes("chuckle") || t.includes("happy") || t.includes("joy") || t.includes("excited")) {
+            return "playful";
+          }
+
+          // 5. Surprised / Shocked
+          if (t.includes("gasp") || t.includes("surprise") || t.includes("shock") || t.includes("widen")) {
+            return "surprised";
+          }
+
+          // Fallback to neutral for general text
+          return "neutral";
+        };
+
+        const emotion = detectEmotion(lastMsg.content);
+        console.log("[SPICY CHAT] Detected active emotion:", emotion, "from content:", lastMsg.content.substring(0, 100));
+        setActiveEmotion(emotion);
+
+        // Reset back to neutral after 5 seconds to prevent facial expressions from being stuck
+        if (emotion !== "neutral") {
+          const timer = setTimeout(() => {
+            setActiveEmotion("neutral");
+          }, 5000);
+          return () => clearTimeout(timer);
+        }
+      } else {
+        // When the user inputs, reset back to neutral
+        setActiveEmotion("neutral");
+      }
+    } else {
+      setActiveEmotion("neutral");
+    }
   }, [messages]);
 
   const handleStartSession = async () => {
@@ -210,125 +269,133 @@ export default function SpicyGamePage() {
   }
 
   return (
-    <div style={{ padding: "30px 36px", height: "calc(100vh - 60px)", display: "flex", flexDirection: "column" }} className="fade-in-up">
-      {/* HUD Bar */}
-      <div className="glass-panel" style={{ padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderColor: "rgba(244, 63, 94, 0.15)", background: "rgba(30,10,20,0.2)" }}>
-        <div>
-          <span style={{ fontSize: "0.5625rem", textTransform: "uppercase", color: "#f43f5e", fontWeight: 700, letterSpacing: "0.05em" }}>
-            Unfiltered Sandbox
-          </span>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 500, marginTop: 1 }}>
-            🎭 {session.scenario} | 💗 {session.mood}
-          </div>
-        </div>
-        
-        {/* End / Destruct buttons */}
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={handleSelfDestruct}
-            style={{
-              padding: "6px 14px", borderRadius: 6, background: "rgba(239, 68, 68, 0.15)",
-              border: "1px solid rgba(239, 68, 68, 0.3)", color: "#f87171", fontSize: "0.6875rem", fontWeight: 600,
-              cursor: "pointer", transition: "all 0.2s"
-            }}
-          >
-            💥 Self-Destruct
-          </button>
-          <button
-            onClick={handleEndSession}
-            disabled={loading}
-            style={{
-              padding: "6px 16px", borderRadius: 6, background: "rgba(244, 63, 94, 0.15)",
-              border: "1px solid rgba(244, 63, 94, 0.3)", color: "#ffe4e6", fontSize: "0.6875rem", fontWeight: 600,
-              cursor: "pointer", transition: "all 0.2s"
-            }}
-          >
-            End & Extract Secret
-          </button>
-        </div>
+    <div style={{ padding: "30px 36px", height: "calc(100vh - 60px)", display: "flex", gap: "24px" }} className="fade-in-up">
+      {/* Left Pane: 3D Anime Avatar */}
+      <div style={{ flex: "1", minWidth: "300px", maxWidth: "45%", display: "flex", flexDirection: "column", gap: "12px" }}>
+        <Avatar3D mood={activeEmotion} isSpeaking={loading} />
       </div>
 
-      {/* Chat Window */}
-      <div 
-        className="glass-panel" 
-        style={{ 
-          flex: 1, 
-          padding: 24, 
-          overflowY: "auto", 
-          display: "flex", 
-          flexDirection: "column", 
-          gap: 16,
-          borderColor: "rgba(244, 63, 94, 0.1)",
-          background: "rgba(8, 8, 15, 0.7)"
-        }}
-      >
-        {messages.map((m, i) => {
-          const isUser = m.role === "user";
-          return (
-            <div 
-              key={i} 
+      {/* Right Pane: Chat Window & Session Controls */}
+      <div style={{ flex: "1.5", display: "flex", flexDirection: "column", height: "100%" }}>
+        {/* HUD Bar */}
+        <div className="glass-panel" style={{ padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderColor: "rgba(244, 63, 94, 0.15)", background: "rgba(30,10,20,0.2)" }}>
+          <div>
+            <span style={{ fontSize: "0.5625rem", textTransform: "uppercase", color: "#f43f5e", fontWeight: 700, letterSpacing: "0.05em" }}>
+              Unfiltered Sandbox
+            </span>
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 500, marginTop: 1 }}>
+              🎭 {session.scenario} | 💗 {session.mood} | 👤 Mood: <span style={{ color: "#f43f5e", textTransform: "capitalize", fontWeight: 600 }}>{activeEmotion}</span>
+            </div>
+          </div>
+          
+          {/* End / Destruct buttons */}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={handleSelfDestruct}
               style={{
-                alignSelf: isUser ? "flex-end" : "flex-start",
-                maxWidth: "70%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: isUser ? "flex-end" : "flex-start",
-                gap: 4
+                padding: "6px 14px", borderRadius: 6, background: "rgba(239, 68, 68, 0.15)",
+                border: "1px solid rgba(239, 68, 68, 0.3)", color: "#f87171", fontSize: "0.6875rem", fontWeight: 600,
+                cursor: "pointer", transition: "all 0.2s"
               }}
             >
-              <div 
-                style={{
-                  background: isUser ? "rgba(255,255,255,0.03)" : "rgba(244, 63, 94, 0.05)",
-                  border: isUser ? "1px solid var(--border-subtle)" : "1px solid rgba(244, 63, 94, 0.15)",
-                  padding: "10px 16px",
-                  borderRadius: isUser ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-                  color: isUser ? "var(--text-primary)" : "#ffe4e6",
-                  fontSize: "0.8125rem",
-                  lineHeight: 1.5,
-                  whiteSpace: "pre-line"
-                }}
-              >
-                {formatMessage(m.content)}
-              </div>
-              <span style={{ fontSize: "0.5625rem", color: "var(--text-muted)" }}>
-                {isUser ? "You" : "Rem"}
-              </span>
-            </div>
-          );
-        })}
-        {loading && (
-          <div style={{ alignSelf: "flex-start", display: "flex", gap: 4, alignItems: "center", padding: "10px 16px", background: "rgba(244, 63, 94, 0.02)", border: "1px solid rgba(244, 63, 94, 0.08)", borderRadius: "12px 12px 12px 2px" }}>
-            <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontStyle: "italic" }}>Rem is typing...</span>
+              💥 Self-Destruct
+            </button>
+            <button
+              onClick={handleEndSession}
+              disabled={loading}
+              style={{
+                padding: "6px 16px", borderRadius: 6, background: "rgba(244, 63, 94, 0.15)",
+                border: "1px solid rgba(244, 63, 94, 0.3)", color: "#ffe4e6", fontSize: "0.6875rem", fontWeight: 600,
+                cursor: "pointer", transition: "all 0.2s"
+              }}
+            >
+              End & Extract Secret
+            </button>
           </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+        </div>
 
-      {/* Input panel */}
-      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-        <input
-          type="text"
-          placeholder="Send a message..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
-          style={{
-            flex: 1, padding: "12px 18px", borderRadius: 8,
-            background: "rgba(255,255,255,0.01)", border: "1px solid rgba(244, 63, 94, 0.15)",
-            color: "var(--text-primary)", fontSize: "0.8125rem",
-          }}
-        />
-        <button
-          onClick={handleSendMessage}
-          disabled={loading || !inputText.trim()}
-          style={{
-            padding: "0 24px", borderRadius: 8, background: "#f43f5e",
-            color: "#fff", border: "none", fontSize: "0.8125rem", fontWeight: 600,
-            cursor: "pointer", transition: "all 0.2s"
+        {/* Chat Window */}
+        <div 
+          className="glass-panel" 
+          style={{ 
+            flex: 1, 
+            padding: 24, 
+            overflowY: "auto", 
+            display: "flex", 
+            flexDirection: "column", 
+            gap: 16,
+            borderColor: "rgba(244, 63, 94, 0.1)",
+            background: "rgba(8, 8, 15, 0.7)"
           }}
         >
-          Send
-        </button>
+          {messages.map((m, i) => {
+            const isUser = m.role === "user";
+            return (
+              <div 
+                key={i} 
+                style={{
+                  alignSelf: isUser ? "flex-end" : "flex-start",
+                  maxWidth: "70%",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: isUser ? "flex-end" : "flex-start",
+                  gap: 4
+                }}
+              >
+                <div 
+                  style={{
+                    background: isUser ? "rgba(255,255,255,0.03)" : "rgba(244, 63, 94, 0.05)",
+                    border: isUser ? "1px solid var(--border-subtle)" : "1px solid rgba(244, 63, 94, 0.15)",
+                    padding: "10px 16px",
+                    borderRadius: isUser ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                    color: isUser ? "var(--text-primary)" : "#ffe4e6",
+                    fontSize: "0.8125rem",
+                    lineHeight: 1.5,
+                    whiteSpace: "pre-line"
+                  }}
+                >
+                  {formatMessage(m.content)}
+                </div>
+                <span style={{ fontSize: "0.5625rem", color: "var(--text-muted)" }}>
+                  {isUser ? "You" : "Rem"}
+                </span>
+              </div>
+            );
+          })}
+          {loading && (
+            <div style={{ alignSelf: "flex-start", display: "flex", gap: 4, alignItems: "center", padding: "10px 16px", background: "rgba(244, 63, 94, 0.02)", border: "1px solid rgba(244, 63, 94, 0.08)", borderRadius: "12px 12px 12px 2px" }}>
+              <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontStyle: "italic" }}>Rem is typing...</span>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input panel */}
+        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <input
+            type="text"
+            placeholder="Send a message..."
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
+            style={{
+              flex: 1, padding: "12px 18px", borderRadius: 8,
+              background: "rgba(255,255,255,0.01)", border: "1px solid rgba(244, 63, 94, 0.15)",
+              color: "var(--text-primary)", fontSize: "0.8125rem",
+            }}
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={loading || !inputText.trim()}
+            style={{
+              padding: "0 24px", borderRadius: 8, background: "#f43f5e",
+              color: "#fff", border: "none", fontSize: "0.8125rem", fontWeight: 600,
+              cursor: "pointer", transition: "all 0.2s"
+            }}
+          >
+            Send
+          </button>
+        </div>
       </div>
 
       {/* Secret keepsakes romantic unlocked modal */}

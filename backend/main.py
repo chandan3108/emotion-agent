@@ -91,3 +91,24 @@ async def ingest(request: Request, db: Session = Depends(get_db)):
     print("Model columns:", EmotionEvent.__table__.columns.keys())
 
     return {"ok": True, "id": event.id}
+
+
+@app.post("/api/debug/logs")
+async def save_debug_logs(request: Request):
+    try:
+        data = await request.json()
+        log_content = data.get("logs", "")
+        os.makedirs("scratch", exist_ok=True)
+        
+        filename = "scratch/avatar_debug_logs.txt"
+        if "gesture-recording" in log_content:
+            filename = "scratch/avatar_ticks.txt"
+            
+        with open(filename, "w") as f:
+            f.write(log_content)
+        print(f"✅ [DEBUG API] Saved logs to {filename}")
+        return {"ok": True}
+    except Exception as e:
+        print("❌ [DEBUG API] Error saving debug logs:", e)
+        return {"ok": False, "error": str(e)}
+
