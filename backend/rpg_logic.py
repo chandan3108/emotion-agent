@@ -509,16 +509,20 @@ async def evaluate_accusation(session: dict, suspect: str, weapon: str, motive: 
         for co in sc.get("contradictions", []):
             contradictions_info.append(f"- {co['id']}: {co['description']}")
             
+        suspects_str = "\n".join(suspects_info)
+        clues_str = "\n".join(clues_info)
+        contradictions_str = "\n".join(contradictions_info)
+        
         scenario_details = f"""
 --- SCENARIO DETAILS ---
 Suspects:
-{"\n".join(suspects_info)}
+{suspects_str}
 
 Clues:
-{"\n".join(clues_info)}
+{clues_str}
 
 Contradictions:
-{"\n".join(contradictions_info)}
+{contradictions_str}
 ------------------------
 """
 
