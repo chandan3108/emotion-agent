@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: "◐" },
   { href: "/diary", label: "Diary", icon: "◉" },
   { href: "/scrapbook", label: "Scrapbook", icon: "📸" },
+  { href: "/secrets", label: "Rem's Secrets", icon: "🫦" },
   { href: "/timeline", label: "Timeline", icon: "◆" },
   { href: "/stats", label: "Stats", icon: "◇" },
   { href: "/mind", label: "Mind", icon: "✦" },

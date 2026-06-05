@@ -894,7 +894,7 @@ Response style: Whatever feels authentic. Depth is natural here.
     
     # ===== INNER MONOLOGUE (accumulating train of thought) =====
     if inner_monologue:
-        mono_lines = [f"  {i+1}. \"{t[:80]}\"" for i, t in enumerate(inner_monologue[-5:])]
+        mono_lines = [f"  {i+1}. \"{t[:500]}\"" for i, t in enumerate(inner_monologue[-5:])]
         if mono_lines:
             prompt += "[YOUR TRAIN OF THOUGHT THIS CONVERSATION]\n"
             prompt += "\n".join(mono_lines) + "\n"
@@ -2091,6 +2091,52 @@ Reply with ONLY the summary (2-3 lines). Example: "Already talked about their ex
         print(f"[CONVERSATION SUMMARY] Failed (non-fatal): {e}")
 
 
+async def call_gemini_api(system_prompt: str, history: list, temperature: float = 0.8, max_tokens: int = 512) -> str:
+    """Call Google Gemini 2.5 Flash API with system instruction and contents."""
+    import os
+    import httpx
+    
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if not gemini_key:
+        raise ValueError("Missing GEMINI_API_KEY")
+        
+    contents = []
+    for m in history:
+        role = "user" if m.get("role") == "user" else "model"
+        content = m.get("content", "")
+        contents.append({
+            "role": role,
+            "parts": [{"text": content}]
+        })
+        
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+    payload = {
+        "systemInstruction": {
+            "parts": [{"text": system_prompt}]
+        },
+        "contents": contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+            "topP": 0.95
+        }
+    }
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(url, json=payload)
+        if resp.status_code == 200:
+            data = resp.json()
+            try:
+                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                return text.strip()
+            except (KeyError, IndexError) as e:
+                print(f"[GEMINI] Parsing error: {e}, Response: {data}")
+                raise ValueError("Failed to parse Gemini response")
+        else:
+            print(f"[GEMINI] API returned status {resp.status_code}: {resp.text}")
+            raise ValueError(f"Gemini API returned status {resp.status_code}")
+
+
 async def generate_response(core: CognitiveCore, user_message: str, 
                            message_history: list, return_processing_result: bool = False):
     """
@@ -2716,26 +2762,41 @@ async def generate_response(core: CognitiveCore, user_message: str,
         raw = None
         data = None
         primary_success = False
+        text = None
 
-        try:
-            # Main model execution — backend runs on Railway (no Vercel gateway limit)
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    INFERENCE_URL,
-                    headers={"Authorization": f"Bearer {HF_TOKEN}"},
-                    json=body,
-                )
-                status = resp.status_code
-                raw = await resp.aread()
-                if status == 200:
-                    data = resp.json()
-                    primary_success = True
-                    print(f"[DEBUG] Primary LLM API call succeeded: {MODEL_ID}")
-                else:
-                    print(f"[DEBUG] Primary LLM API call returned status {status}")
-        except all_errors as err:
-            print(f"[WARNING] Primary LLM call failed or timed out: {type(err).__name__}")
-            # Fall through to cascade
+        # Try Google Gemini 2.5 Flash as the primary endpoint if GEMINI_API_KEY is available
+        gemini_key = os.environ.get("GEMINI_API_KEY")
+        if gemini_key:
+            print("[GEMINI] Calling primary Gemini 2.5 Flash API...")
+            try:
+                text = await call_gemini_api(system_msg, history, temperature=temp_jitter, max_tokens=body.get("max_tokens", 256))
+                primary_success = True
+                status = 200
+                print("[GEMINI] Gemini response succeeded!")
+            except Exception as e:
+                print(f"[GEMINI] Primary Gemini call failed: {e}. Falling back to Groq 17B...")
+
+        # If Gemini is not available or failed, try the original Groq model
+        if not primary_success:
+            try:
+                # Main model execution — backend runs on Railway (no Vercel gateway limit)
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(
+                        INFERENCE_URL,
+                        headers={"Authorization": f"Bearer {HF_TOKEN}"},
+                        json=body,
+                    )
+                    status = resp.status_code
+                    raw = await resp.aread()
+                    if status == 200:
+                        data = resp.json()
+                        primary_success = True
+                        print(f"[DEBUG] Primary LLM API call succeeded: {MODEL_ID}")
+                    else:
+                        print(f"[DEBUG] Primary LLM API call returned status {status}")
+            except all_errors as err:
+                print(f"[WARNING] Primary LLM call failed or timed out: {type(err).__name__}")
+                # Fall through to cascade
 
         # If primary failed or rate-limited, run cascade
         if not primary_success or (status and status >= 400):
@@ -2780,12 +2841,13 @@ async def generate_response(core: CognitiveCore, user_message: str,
         
         # Extract response
         try:
-            choices = data.get("choices")
-            if choices:
-                msg = choices[0].get("message") or {}
-                text = str(msg.get("content", "")).strip()
-            else:
-                text = str(data)
+            if text is None:
+                choices = data.get("choices")
+                if choices:
+                    msg = choices[0].get("message") or {}
+                    text = str(msg.get("content", "")).strip()
+                else:
+                    text = str(data)
                 
             # Parse response — supports <think> tags (primary), JSON (legacy fallback), and raw text
             import re as _re
@@ -2859,6 +2921,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         
         # Safety net: strip any remaining "think -" prefix that slipped through
         response_text = _re.sub(r'^(?:think(?:ing)?)\s*[-—:]\s*', '', response_text, flags=_re.IGNORECASE).strip()
+        response_text = clean_think_tags(response_text)
         
         print(f"[DEBUG FINAL RESPONSE] Before formatting: {response_text}")
         
@@ -3102,7 +3165,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
                 if any(p in thought_str.lower() for p in placeholders):
                     thought_str = "Thinking about how to respond to what they said..."
                 mono = core.state.get("_inner_monologue", [])
-                mono.append(thought_str[:120])
+                mono.append(thought_str[:750])
                 core.state["_inner_monologue"] = mono[-5:]
         except NameError:
             pass  # thought wasn't defined (JSON parse failed or no JSON format)

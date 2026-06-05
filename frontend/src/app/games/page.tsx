@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { getAchievements } from "@/lib/gameApi";
 
 export default function GamesHubPage() {
@@ -24,16 +23,113 @@ export default function GamesHubPage() {
     { id: "win_over_promise", title: "Trust Rebuilder", icon: "🤝", desc: "Completed the 'Broken Promise' scenario" },
     { id: "win_over_ghost", title: "Anger Tamer", icon: "🔥", desc: "Completed the 'Silent Treatment' scenario" },
     { id: "win_over_stranger", title: "Heart Melter", icon: "❄️", desc: "Completed the 'Cold Stranger' scenario" },
+    { id: "personality_certified", title: "Psyche Certified", icon: "🧠", desc: "Completed the 30-Question Personality Test" },
+    { id: "master_chef", title: "Star Sous Chef", icon: "🍳", desc: "Cooked a successful meal step-by-step with Rem" },
+    { id: "secret_unlocked", title: "Vibe Alchemist", icon: "🫦", desc: "Unlocked a romantic secret during Spicy Chat" },
+    { id: "yap_scholar", title: "Yap Scholar", icon: "🎓", desc: "Survived a 10-turn grounded debate in Yap Mode" },
+    { id: "detective_rem", title: "Master Detective", icon: "🕵️‍♂️", desc: "Solved a procedural Murder Mystery with Rem" },
+    { id: "court_master", title: "Courtroom Master", icon: "⚖️", desc: "Won a Trial Verdict in Law and Rem" }
+  ];
+
+  const games = [
+    {
+      href: "/games/rpg",
+      icon: "🕵️‍♂️",
+      title: "Sherlock Rem",
+      desc: "Investigate procedural murder mysteries and corporate hacks with Rem as your sarcasm-heavy partner. Search rooms for hidden clues, interrogate suspects, build alibis, and present your final accusation.",
+      color: "#38bdf8",
+      borderColor: "rgba(56, 189, 248, 0.2)",
+      bgColor: "linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
+      btnBg: "rgba(56, 189, 248, 0.15)",
+      btnText: "Start Case"
+    },
+    {
+      href: "/games/court",
+      icon: "⚖️",
+      title: "Law and Rem",
+      desc: "Defend clients in Ace Attorney courtroom battles. Question witnesses dynamically, raise objections with evidence, explore rooms during recesses, and win over the Judge and Jury LLMs.",
+      color: "#d4af37",
+      borderColor: "rgba(212, 175, 55, 0.2)",
+      bgColor: "linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
+      btnBg: "rgba(212, 175, 55, 0.15)",
+      btnText: "Take Stand"
+    },
+    {
+      href: "/games/spicy",
+      icon: "🌶️",
+      title: "Spicy Chat",
+      desc: "An isolated, uncensored fantasy chat sandbox with Rem powered by OpenRouter models. Customize locations and moods, and extract romantic Secrets keepsakes.",
+      color: "#f43f5e",
+      borderColor: "rgba(244, 63, 94, 0.2)",
+      bgColor: "linear-gradient(135deg, rgba(244, 63, 94, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
+      btnBg: "rgba(244, 63, 94, 0.15)",
+      btnText: "Enter Vault"
+    },
+    {
+      href: "/games/debate",
+      icon: "⚖️",
+      title: "Debate Battle",
+      desc: "Argue with Rem in a 5-turn clash of wits on ridiculous topics. You will be assigned a random stance. Can you convince the neutral LLM Judge to vote for you?",
+      color: "#f472b6",
+      borderColor: "rgba(236, 72, 153, 0.2)",
+      bgColor: "linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
+      btnBg: "rgba(236, 72, 153, 0.15)",
+      btnText: "Enter Arena"
+    },
+    {
+      href: "/games/win-over",
+      icon: "💔",
+      title: "Win Her Over",
+      desc: "Start with Rem in a state of high anger and distress. You have exactly 10 texts to successfully pacify her and rebuild trust. Saying the wrong thing will trigger a block.",
+      color: "#22d3ee",
+      borderColor: "rgba(6, 182, 212, 0.2)",
+      bgColor: "linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
+      btnBg: "rgba(6, 182, 212, 0.15)",
+      btnText: "Start Challenge"
+    },
+    {
+      href: "/games/personality",
+      icon: "🧠",
+      title: "Psyche Profiler",
+      desc: "Answer 30 personality/relationship questions. Rem will offer dynamic, sarcastic feedback after your answers and run a detailed LLM evaluation of your character.",
+      color: "#a78bfa",
+      borderColor: "rgba(167, 139, 250, 0.2)",
+      bgColor: "linear-gradient(135deg, rgba(167, 139, 250, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
+      btnBg: "rgba(167, 139, 250, 0.15)",
+      btnText: "Get Evaluated"
+    },
+    {
+      href: "/games/cook",
+      icon: "🍳",
+      title: "Cooking with Rem",
+      desc: "Choose a dish to cook together step-by-step. Keep the Chaos Meter low to avoid culinary disasters, and read Rem's sarcastic review in your Scrapbook Cookbook.",
+      color: "#f59e0b",
+      borderColor: "rgba(245, 158, 11, 0.2)",
+      bgColor: "linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
+      btnBg: "rgba(245, 158, 11, 0.15)",
+      btnText: "Start Cooking"
+    },
+    {
+      href: "/games/yap",
+      icon: "🗣️",
+      title: "Yap Mode",
+      desc: "Give Rem a topic and watch her load grounded, verified facts from the web to yap about it in-depth. Discuss facts and her sarcastic views with zero hallucinations.",
+      color: "#10b981",
+      borderColor: "rgba(16, 185, 129, 0.2)",
+      bgColor: "linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
+      btnBg: "rgba(16, 185, 129, 0.15)",
+      btnText: "Start Yapping"
+    }
   ];
 
   return (
-    <div style={{ padding: "40px 36px", maxWidth: 860, margin: "0 auto" }}>
+    <div style={{ padding: "40px 36px", maxWidth: 960, margin: "0 auto" }}>
       <div className="fade-in-up" style={{ marginBottom: 36 }}>
         <h1 className="section-title" style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
           🎮 Mini-Games Hub
         </h1>
         <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginTop: 6 }}>
-          Challenge Rem in isolated mini-experiences. These battles of wits and psychology will not affect your main relationship state.
+          Challenge Rem in isolated mini-experiences. These battles of wits, psychology, and romance will not affect your main relationship state.
         </p>
       </div>
 
@@ -41,106 +137,60 @@ export default function GamesHubPage() {
         className="fade-in-up stagger-1"
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
           gap: 20,
           marginBottom: 40,
         }}
       >
-        {/* Card 1: Debate Battle */}
-        <a
-          href="/games/debate"
-          className="glass-card"
-          style={{
-            padding: 32,
-            border: "1px solid rgba(236, 72, 153, 0.2)",
-            position: "relative",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            minHeight: 240,
-            background: "linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-            textDecoration: "none",
-            cursor: "pointer",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: "2rem", marginBottom: 12 }}>⚖️</div>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#f472b6", marginBottom: 8 }}>
-              Debate Battle
-            </h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", lineHeight: 1.5 }}>
-              Argue with Rem in a 5-turn clash of wits on ridiculous topics. You will be assigned a random stance. Can you convince the neutral LLM Judge to vote for you?
-            </p>
-          </div>
-          <div
-            className="action-button"
+        {games.map((g, i) => (
+          <a
+            key={i}
+            href={g.href}
+            className="glass-card"
             style={{
-              display: "block",
-              marginTop: 20,
-              textAlign: "center",
-              background: "rgba(236, 72, 153, 0.15)",
-              border: "1px solid #f472b6",
-              color: "#f472b6",
-              textTransform: "uppercase",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              letterSpacing: "0.08em",
-              padding: "10px 16px",
-              borderRadius: "var(--radius-md)",
+              padding: 28,
+              border: `1px solid ${g.borderColor}`,
+              position: "relative",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              minHeight: 250,
+              background: g.bgColor,
+              textDecoration: "none",
+              cursor: "pointer",
             }}
           >
-            Enter Arena
-          </div>
-        </a>
-
-        {/* Card 2: Win Her Over */}
-        <a
-          href="/games/win-over"
-          className="glass-card"
-          style={{
-            padding: 32,
-            border: "1px solid rgba(6, 182, 212, 0.2)",
-            position: "relative",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            minHeight: 240,
-            background: "linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-            textDecoration: "none",
-            cursor: "pointer",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: "2rem", marginBottom: 12 }}>💔</div>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 600, color: "#22d3ee", marginBottom: 8 }}>
-              Win Her Over
-            </h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", lineHeight: 1.5 }}>
-              Start with Rem in a state of high anger and distress. You have exactly 10 texts to successfully pacify her and rebuild trust. Saying the wrong thing will trigger a block.
-            </p>
-          </div>
-          <div
-            className="action-button"
-            style={{
-              display: "block",
-              marginTop: 20,
-              textAlign: "center",
-              background: "rgba(6, 182, 212, 0.15)",
-              border: "1px solid #22d3ee",
-              color: "#22d3ee",
-              textTransform: "uppercase",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              letterSpacing: "0.08em",
-              padding: "10px 16px",
-              borderRadius: "var(--radius-md)",
-            }}
-          >
-            Start Challenge
-          </div>
-        </a>
+            <div>
+              <div style={{ fontSize: "2rem", marginBottom: 12 }}>{g.icon}</div>
+              <h2 style={{ fontSize: "1.15rem", fontWeight: 600, color: g.color, marginBottom: 8 }}>
+                {g.title}
+              </h2>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", lineHeight: 1.5 }}>
+                {g.desc}
+              </p>
+            </div>
+            <div
+              className="action-button"
+              style={{
+                display: "block",
+                marginTop: 20,
+                textAlign: "center",
+                background: g.btnBg,
+                border: `1px solid ${g.color}`,
+                color: g.color,
+                textTransform: "uppercase",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                padding: "8px 14px",
+                borderRadius: "var(--radius-md)",
+              }}
+            >
+              {g.btnText}
+            </div>
+          </a>
+        ))}
       </div>
 
       {/* Achievements Section */}
@@ -152,7 +202,7 @@ export default function GamesHubPage() {
         {loading ? (
           <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>Loading achievements...</p>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
             {achievementsList.map((ach) => {
               const isUnlocked = unlocked.includes(ach.id);
               return (
@@ -174,9 +224,9 @@ export default function GamesHubPage() {
                 >
                   <div
                     style={{
-                      fontSize: "1.75rem",
-                      width: 44,
-                      height: 44,
+                      fontSize: "1.5rem",
+                      width: 40,
+                      height: 40,
                       borderRadius: "50%",
                       background: isUnlocked ? "rgba(16, 185, 129, 0.1)" : "rgba(255, 255, 255, 0.05)",
                       display: "flex",
@@ -190,14 +240,14 @@ export default function GamesHubPage() {
                   <div>
                     <h4
                       style={{
-                        fontSize: "0.875rem",
+                        fontSize: "0.8125rem",
                         fontWeight: 600,
                         color: isUnlocked ? "var(--text-primary)" : "var(--text-muted)",
                       }}
                     >
                       {ach.title}
                     </h4>
-                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    <p style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
                       {isUnlocked ? ach.desc : "Locked Challenge"}
                     </p>
                   </div>

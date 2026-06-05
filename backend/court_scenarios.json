@@ -1,0 +1,213 @@
+[
+  {
+    "case_id": "gallery_theft",
+    "title": "The Midnight Gallery Theft",
+    "difficulty": "normal",
+    "description": "A priceless golden heirloom timepiece has been stolen from the Vance Gallery exhibition cabinet. Toby, a nervous art restorer, stands accused. You and Rem must cross-examine the butler and the collector to reveal the true culprit.",
+    "client_name": "Toby",
+    "client_role": "The Restorer",
+    "client_bio": "An anxious, young art restorer who was hired to clean fine paintings. He claims he was working in the attic gallery and never approached the display cabinet.",
+    "prosecutor_name": "Prosecutor Payne",
+    "judge_name": "Judge Sterling",
+    "starting_location": "Defense Bench",
+    "initial_evidence": [
+      {
+        "id": "theft_time_estimate",
+        "name": "Theft Time Log",
+        "desc": "Security analysis estimates the theft took place precisely between 9:45 PM and 10:15 PM."
+      },
+      {
+        "id": "security_log",
+        "name": "Security Log",
+        "desc": "The bouncer's log shows that all gallery doors were locked from the outside at 10:00 PM."
+      }
+    ],
+    "witnesses": [
+      {
+        "id": "arthur_butler",
+        "name": "Arthur",
+        "role": "The Gallery Butler",
+        "bio": "A stiff, elderly butler who insists he is fiercely loyal to the gallery and hates art thieves.",
+        "testimony": [
+          "I was patrolling the gallery exterior grounds from 9:30 PM to 10:30 PM.",
+          "At exactly 10:05 PM, I saw the defendant, Toby, running near the streetlamp outside.",
+          "The streetlamp illuminated his face perfectly, and I saw him clutching a golden display box.",
+          "He ran off into the dark alleyways before I could call out to him."
+        ],
+        "contradictions": {
+          "2": {
+            "evidence_id": "outage_log",
+            "narrative": "Arthur gasps! You point out that according to the Gallery Power Outage Log, the streetlights in that zone were completely dark between 9:30 PM and 10:30 PM. It would have been impossible to see Toby's face or the golden box! Arthur breaks down, admitting: 'Alright, alright! I was drinking in the wine cellar and fell asleep. But when I woke up at 10:15 PM, I saw Mr. Mickey hiding a heavy canvas sack in his office desk!'",
+            "unlock_evidence": []
+          }
+        },
+        "press_reactions": {
+          "1": "I was checking the courtyard. It was cold, so I was moving quickly.",
+          "2": "I saw a figure sprinting by the streetlamp near the west gate.",
+          "3": "Yes, the light was bright and clear! I'd recognize that face anywhere!",
+          "4": "By the time I reached the gate, he was gone into the fog."
+        },
+        "press_unlocks": {
+          "1": {
+            "evidence_id": "outage_log",
+            "name": "Outage Log",
+            "desc": "A gallery maintenance sheet showing a localized power surge blacked out all courtyard streetlamps from 9:30 PM to 10:30 PM.",
+            "dialogue": "Rem raises an eyebrow. 'Arthur, you said you were patrolling, but didn't the power grid flicker? Here is the outage log showing the courtyard lights were completely dead!' Toby's eyes light up."
+          }
+        }
+      },
+      {
+        "id": "mickey_collector",
+        "name": "Mickey",
+        "role": "The Art Collector",
+        "bio": "A wealthy, arrogant gallery owner who is heavily insured and seems unusually calm about the theft.",
+        "testimony": [
+          "Toby spent the entire afternoon staring at my golden display cabinet instead of cleaning paintings.",
+          "He begged me for cash advances earlier that day, muttering about gambling debts.",
+          "I was in my private study writing letters all night from 9:45 PM to 10:15 PM.",
+          "The golden watch was securely locked inside the display cabinet during that entire block of time."
+        ],
+        "contradictions": {
+          "3": {
+            "evidence_id": "pawn_slip",
+            "narrative": "OBJECTION! You slam the pawn slip onto the defense bench. Mickey gasps and stumbles back. You prove that the golden timepiece wasn't in the cabinet at all—Mickey had pawned it at 8:30 PM that very evening for cash! He staged the theft to frame Toby and claim the gallery insurance payout! The judge bangs his gavel. Toby is declared NOT GUILTY!",
+            "unlock_evidence": []
+          }
+        },
+        "press_reactions": {
+          "0": "He was cleaning the frames, but his eyes were glued to the gold watch.",
+          "1": "He claimed he needed money by midnight or he was in deep trouble.",
+          "2": "My study is locked, and I was writing correspondence in peace.",
+          "3": "I polished the glass myself. The heirloom was inside, shining bright."
+        },
+        "press_unlocks": {}
+      }
+    ],
+    "recess_locations": [
+      {
+        "id": "study_desk",
+        "name": "Mickey's Study Desk",
+        "desc": "A mahogany desk with drawers. Searching it reveals a pawn slip showing Mickey pawned a 'golden heirloom watch' at 8:30 PM for $5,000.",
+        "clue": {
+          "id": "pawn_slip",
+          "name": "Watch Pawn Slip",
+          "desc": "A receipt from a local pawn shop registering a golden watch matching the stolen heirloom, dated 8:30 PM on the night of the theft."
+        }
+      },
+      {
+        "id": "exhibition_cabinet",
+        "name": "Gallery Exhibition Room",
+        "desc": "The shattered glass display box. Nothing new is found here.",
+        "clue": null
+      }
+    ]
+  },
+  {
+    "case_id": "velvet_poisoning",
+    "title": "The Red Velvet Club Poisoning",
+    "difficulty": "hard",
+    "description": "Johnny Malone, an FBI informant, has been poisoned backstage. Lady Beatrice Vance is accused of poisoning his bourbon. You and Rem must cross-examine the sister and the singer to expose the true medical timeline.",
+    "client_name": "Lady Beatrice",
+    "client_role": "The Grieving Wife",
+    "client_bio": "The elegant wife of a local banker. She claims she went to Johnny's room only to retrieve her personal letters, leaving him alive and well.",
+    "prosecutor_name": "Miles Edgeworth",
+    "judge_name": "Judge Marshall",
+    "starting_location": "Defense Bench",
+    "initial_evidence": [
+      {
+        "id": "toxicology_report",
+        "name": "Toxicology Report",
+        "desc": "Coroner's report showing Johnny Malone died of a massive digitalis (cardiac medication) overdose."
+      },
+      {
+        "id": "bourbon_glass",
+        "name": "Bourbon Glass",
+        "desc": "A half-empty glass on Johnny's table. Chemistry tests detect white arsenic powder residue in the glass."
+      },
+      {
+        "id": "keycard_log",
+        "name": "Keycard Log",
+        "desc": "Beatrice's VIP card logged entering Johnny's room at 9:08 PM and leaving at 9:15 PM."
+      }
+    ],
+    "witnesses": [
+      {
+        "id": "evelyn_physician",
+        "name": "Dr. Evelyn Vance",
+        "role": "The Family Physician",
+        "bio": "Beatrice's quiet sister. She carried the cardiac medications for the family and was seen near the dressing room corridor.",
+        "testimony": [
+          "I was walking down the backstage hallway at 9:05 PM to check on Beatrice.",
+          "I saw Beatrice enter Johnny's room holding a small apothecary vial in her hand.",
+          "Johnny was in good health when she entered, and I heard him drinking from his glass.",
+          "Beatrice poured poison from her vial into the glass, killing him in a fit of anger."
+        ],
+        "contradictions": {
+          "3": {
+            "evidence_id": "syringe_clue",
+            "narrative": "OBJECTION! You slam the medical syringe on the table! The toxicology report shows Johnny died of digitalis poisoning, but the bourbon glass contained arsenic! If Beatrice poisoned the glass with arsenic, Johnny would have died of arsenic poisoning. However, this medical syringe contains traces of digitalis with Evelyn's initials! Evelyn poisoned Johnny's heart medication injection earlier, and she is framing her sister to cover it up! Evelyn breaks down in tears. Lady Beatrice is declared NOT GUILTY!",
+            "unlock_evidence": []
+          }
+        },
+        "press_reactions": {
+          "0": "The corridor was quiet. I was walking towards the dressing rooms.",
+          "1": "She was acting stealthily, hiding the vial in her lace handkerchief.",
+          "2": "I heard ice clinking. Johnny was definitely drinking his bourbon.",
+          "3": "She hated Johnny because he was blackmailing her about the bank debts."
+        },
+        "press_unlocks": {
+          "2": {
+            "evidence_id": "digitalis_case",
+            "name": "Digitalis Ampoules",
+            "desc": "A case of cardiac digitalis ampoules from Evelyn's medical bag, with one vial missing.",
+            "dialogue": "Rem interrupts. 'Evelyn, you claim Beatrice had a vial, but you carried digitalis in your medical bag. Here is the case of ampoules we found, and one digitalis vial is missing!'"
+          }
+        }
+      },
+      {
+        "id": "val_singer",
+        "name": "Vixen Val",
+        "role": "Lounge Singer",
+        "bio": "A lounge performer who has a dressing room next to Johnny's and was rehearsing all evening.",
+        "testimony": [
+          "I was in my dressing room warming up my vocals from 8:50 PM to 9:20 PM.",
+          "At 9:10 PM, I heard loud shouting between Beatrice and Johnny through the thin wall.",
+          "Beatrice screamed: 'You will never expose my husband!'",
+          "Shortly after, I heard Johnny choking and coughing, then complete silence."
+        ],
+        "contradictions": {
+          "3": {
+            "evidence_id": "toxicology_report",
+            "narrative": "OBJECTION! You point out that digitalis overdose takes at least 20 to 30 minutes to cause cardiac arrest, choking, and death. If Johnny choked and coughed at 9:12 PM, he must have been poisoned much earlier, around 8:40 PM, long before Beatrice ever entered the room at 9:08 PM! Val confesses she heard the choking *before* Beatrice entered, and was bribed by Evelyn to change the timeline!",
+            "unlock_evidence": []
+          }
+        },
+        "press_reactions": {
+          "0": "I was singing scales. The piano backstage was quiet.",
+          "1": "Their voices were very loud. They were arguing about money and bank records.",
+          "2": "Beatrice was furious. She was threatening him.",
+          "3": "I assumed he was drunk at first, but then it got deathly quiet."
+        },
+        "press_unlocks": {}
+      }
+    ],
+    "recess_locations": [
+      {
+        "id": "dressing_room_piano",
+        "name": "Backstage Dressing Room Piano",
+        "desc": "You search inside the piano casing. Taped under the lid, you discover a discarded medical syringe with traces of digitalis poison and Evelyn's medical seal.",
+        "clue": {
+          "id": "syringe_clue",
+          "name": "Digitalis Syringe",
+          "desc": "A discarded medical syringe found hidden in the backstage piano, containing trace digitalis fluids and Evelyn's physician initials."
+        }
+      },
+      {
+        "id": "club_bar",
+        "name": "Club Bar Counter",
+        "desc": "A trash bin behind the bar containing spilled wine. Nothing useful is found here.",
+        "clue": null
+      }
+    ]
+  }
+]

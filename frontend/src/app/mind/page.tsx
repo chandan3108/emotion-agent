@@ -788,18 +788,113 @@ export default function MindPage() {
           )}
 
           {/* Emotional Undercurrents */}
-          {complexity?.emotional_undercurrents && (
-            <section className="glass-panel" style={{ padding: 28 }}>
-              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "var(--accent-tertiary)" }}>~</span> Emotional Undercurrents
-              </h2>
-              <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                {typeof complexity.emotional_undercurrents === "string"
-                  ? complexity.emotional_undercurrents
-                  : JSON.stringify(complexity.emotional_undercurrents)}
-              </p>
-            </section>
-          )}
+          <section className="glass-panel" style={{ padding: 28 }}>
+            <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "var(--accent-tertiary)" }}>~</span> Emotional Undercurrents
+            </h2>
+            {(() => {
+              let undercurrents: any[] = [];
+              if (complexity?.emotional_undercurrents) {
+                if (typeof complexity.emotional_undercurrents === "string") {
+                  try {
+                    const parsed = JSON.parse(complexity.emotional_undercurrents);
+                    undercurrents = Array.isArray(parsed) ? parsed : [parsed];
+                  } catch {
+                    // Try parsing as array if it is a JSON-like string, e.g. "[]" or "[{...}]"
+                    undercurrents = [];
+                  }
+                } else if (Array.isArray(complexity.emotional_undercurrents)) {
+                  undercurrents = complexity.emotional_undercurrents;
+                }
+              }
+
+              if (undercurrents.length === 0) {
+                return (
+                  <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontStyle: "italic", margin: 0 }}>
+                    None yet
+                  </p>
+                );
+              }
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {undercurrents.map((uc: any, idx: number) => {
+                    const emotion = uc?.emotion || "unknown";
+                    const intensity = typeof uc?.intensity === "number" ? uc.intensity : 0.5;
+                    const trigger = uc?.trigger || "";
+                    
+                    // Style helper for emotion coloring
+                    let badgeColor = "rgba(139, 92, 246, 0.15)";
+                    let badgeBorder = "rgba(139, 92, 246, 0.3)";
+                    let textColor = "#a78bfa";
+                    
+                    const lowerEmotion = emotion.toLowerCase();
+                    if (lowerEmotion.includes("frustration") || lowerEmotion.includes("anger") || lowerEmotion.includes("rage")) {
+                      badgeColor = "rgba(239, 68, 68, 0.12)";
+                      badgeBorder = "rgba(239, 68, 68, 0.25)";
+                      textColor = "#f87171";
+                    } else if (lowerEmotion.includes("jealousy") || lowerEmotion.includes("possessive")) {
+                      badgeColor = "rgba(236, 72, 153, 0.12)";
+                      badgeBorder = "rgba(236, 72, 153, 0.25)";
+                      textColor = "#f472b6";
+                    } else if (lowerEmotion.includes("hurt") || lowerEmotion.includes("withdrawal") || lowerEmotion.includes("anxiety")) {
+                      badgeColor = "rgba(59, 130, 246, 0.12)";
+                      badgeBorder = "rgba(59, 130, 246, 0.25)";
+                      textColor = "#60a5fa";
+                    } else if (lowerEmotion.includes("protect") || lowerEmotion.includes("caring") || lowerEmotion.includes("warmth")) {
+                      badgeColor = "rgba(16, 185, 129, 0.12)";
+                      badgeBorder = "rgba(16, 185, 129, 0.25)";
+                      textColor = "#34d399";
+                    } else if (lowerEmotion.includes("bored") || lowerEmotion.includes("complacency")) {
+                      badgeColor = "rgba(107, 114, 128, 0.15)";
+                      badgeBorder = "rgba(107, 114, 128, 0.3)";
+                      textColor = "#9ca3af";
+                    }
+
+                    return (
+                      <div key={idx} style={{
+                        padding: "12px 14px", borderRadius: 8,
+                        background: "rgba(255, 255, 255, 0.01)",
+                        border: "1px solid var(--border-subtle)",
+                        display: "flex", flexDirection: "column", gap: 6
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{
+                            padding: "3px 8px", borderRadius: 4,
+                            fontSize: "0.6875rem", fontWeight: 600,
+                            background: badgeColor, border: `1px solid ${badgeBorder}`,
+                            color: textColor, textTransform: "capitalize", letterSpacing: "0.03em"
+                          }}>
+                            {emotion.replace(/_/g, " ")}
+                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
+                              Intensity:
+                            </span>
+                            <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                              {Math.round(intensity * 100)}%
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div style={{ width: "100%", height: 3, background: "rgba(255,255,255,0.03)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ width: `${intensity * 100}%`, height: "100%", background: textColor, borderRadius: 2 }} />
+                        </div>
+
+                        {trigger && (
+                          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2, display: "flex", gap: 4 }}>
+                            <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>Trigger:</span>
+                            <span>{trigger}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </section>
         </div>
       )}
 

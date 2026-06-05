@@ -116,6 +116,180 @@ class AchievementsResponse(BaseModel):
     unlocked: List[str]  # list of scenario / challenge IDs unlocked
 
 
+# --- NEW GAME SCHEMAS ---
+class PersonalityStartResponse(BaseModel):
+    session_id: str
+    total_questions: int
+    questions: List[dict]
+
+class PersonalityAnswerRequest(BaseModel):
+    session_id: str
+    question_id: int
+    choice: str  # A, B, C, D
+
+class PersonalityAnswerResponse(BaseModel):
+    banter: str
+    finished: bool
+    result: Optional[dict] = None
+
+class CookingStartRequest(BaseModel):
+    dish_name: Optional[str] = ""
+
+class CookingStartResponse(BaseModel):
+    session_id: str
+    dish_name: str
+    category: str
+    thumbnail: str
+    ingredients: List[str]
+    steps: List[str]
+    greeting: str
+
+class CookingStepRequest(BaseModel):
+    user_message: str
+    action: str  # "next", "disaster", "skip"
+
+class CookingStepResponse(BaseModel):
+    banter: str
+    current_step: int
+    chaos_meter: float
+    finished: bool
+
+class SpicyStartRequest(BaseModel):
+    scenario: str
+    mood: str
+
+class SpicyStartResponse(BaseModel):
+    session_id: str
+    greeting: str
+
+class SpicyChatRequest(BaseModel):
+    message: str
+
+class SpicyChatResponse(BaseModel):
+    response: str
+
+class SpicyEndResponse(BaseModel):
+    secret_unlocked: bool
+    secret: Optional[dict] = None
+
+
+class YapStartRequest(BaseModel):
+    topic: str
+
+class YapStartResponse(BaseModel):
+    session_id: str
+    greeting: str
+    facts: List[str]
+
+class YapChatRequest(BaseModel):
+    message: str
+
+class YapChatResponse(BaseModel):
+    response: str
+    turn_count: int
+    finished: bool
+    achievement_unlocked: bool
+    facts: Optional[List[str]] = None
+
+
+# --- RPG Quest & Murder Mystery Models ---
+class RpgStartRequest(BaseModel):
+    scenario_id: str
+
+class RpgStartResponse(BaseModel):
+    session_id: str
+    title: str
+    current_location: str
+    narrator_text: str
+    rem_dialogue: str
+    suggested_choices: List[str]
+    suspects: List[dict]
+    weapons: List[dict]
+    clues: List[dict]
+    max_turns: int
+    difficulty: str
+    rem_consultations_left: int
+    health: Optional[int] = None
+
+class RpgTurnRequest(BaseModel):
+    user_action: str
+
+class RpgTurnResponse(BaseModel):
+    current_location: str
+    narrator_text: str
+    rem_dialogue: str
+    suggested_choices: List[str]
+    suspect_states: Dict[str, dict]
+    inventory: List[str]
+    clues_found: List[str]
+    turn_count: int
+    max_turns: int
+    finished: bool
+    rem_consultations_left: int
+    discovered_contradictions: List[str]
+    active_effects: List[str]
+    health: Optional[int] = None
+
+class RpgAccuseRequest(BaseModel):
+    suspect: str
+    weapon: str
+    motive: str
+
+class RpgAccuseResponse(BaseModel):
+    success: bool
+    narrator_text: str
+    rem_dialogue: str
+    secret_culprit: str
+    secret_weapon: str
+
+
+# --- Courtroom Battle ("Law and Rem") Models ---
+class CourtStartRequest(BaseModel):
+    case_id: str
+
+class CourtStartResponse(BaseModel):
+    session_id: str
+    title: str
+    difficulty: str
+    client_name: str
+    client_role: str
+    client_bio: str
+    prosecutor_name: str
+    judge_name: str
+    inventory: List[dict]
+    witnesses: List[dict]
+    recess_locations: List[dict]
+    strikes_left: int
+    jury_sentiment: int
+    current_witness_idx: int
+    recess_searched: List[str]
+    rem_consults_left: int
+    rem_chat_history: List[dict]
+    history: List[dict]
+    phase: str
+    finished: bool
+
+class CourtActionRequest(BaseModel):
+    action_type: str  # call_witness, press, present_evidence, text_question, consult_rem
+    statement_idx: Optional[int] = 0
+    evidence_id: Optional[str] = ""
+    question: Optional[str] = ""
+
+class CourtRecessRequest(BaseModel):
+    room_id: str
+
+class CourtVerdictRequest(BaseModel):
+    closing_argument: str
+
+class CourtVerdictResponse(BaseModel):
+    success: bool
+    verdict_text: str
+    votes_not_guilty: int
+    votes_guilty: int
+    judge_decision: str
+    rem_dialogue: str
+
+
 class MessageEntry(BaseModel):
     role: str
     content: str
@@ -2303,4 +2477,783 @@ async def chat_win_over(user_id: str, payload: WinOverChatRequest):
         game_status=game_status,
         evaluation=evaluation
     )
+
+
+# =====================================================
+#  PERSONALITY TEST ENDPOINTS
+# =====================================================
+
+@router.post("/{user_id}/games/personality/start", response_model=PersonalityStartResponse)
+async def start_personality_game(user_id: str):
+    core = _get_core(user_id)
+    from .games_logic import PERSONALITY_QUESTIONS
+    
+    session_id = f"pers_{int(datetime.now(timezone.utc).timestamp())}"
+    session = {
+        "id": session_id,
+        "answers": {},
+        "current_question_id": 1,
+        "finished": False,
+        "history": []
+    }
+    
+    core.state["_active_personality_game"] = session
+    core._save_state()
+    
+    return PersonalityStartResponse(
+        session_id=session_id,
+        total_questions=len(PERSONALITY_QUESTIONS),
+        questions=PERSONALITY_QUESTIONS
+    )
+
+
+@router.post("/{user_id}/games/personality/answer", response_model=PersonalityAnswerResponse)
+async def answer_personality_game(user_id: str, payload: PersonalityAnswerRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_personality_game")
+    if not session or session.get("id") != payload.session_id or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active personality game session found")
+        
+    from .games_logic import PERSONALITY_QUESTIONS, generate_personality_banter, analyze_personality_results
+    
+    q_id = payload.question_id
+    choice = payload.choice.strip().upper()
+    if choice not in ["A", "B", "C", "D"]:
+        raise HTTPException(status_code=400, detail="Invalid choice. Must be A, B, C, or D.")
+        
+    answers = session.get("answers", {})
+    # Convert keys to int since JSON storage might make them strings
+    answers = {int(k): v for k, v in answers.items()}
+    answers[q_id] = choice
+    session["answers"] = answers
+    
+    history = session.get("history", [])
+    history.append({"role": "user", "content": f"Q{q_id} Answer: {choice}"})
+    
+    # Generate banter
+    banter = await generate_personality_banter(q_id, choice, history)
+    history.append({"role": "assistant", "content": banter})
+    session["history"] = history
+    
+    finished = len(answers) >= len(PERSONALITY_QUESTIONS)
+    result = None
+    
+    if finished:
+        session["finished"] = True
+        result = await analyze_personality_results(answers)
+        core.state["_unlocked_personality"] = result
+        
+        # Save to achievements
+        achievements = core.state.get("_achievements", [])
+        if "personality_certified" not in achievements:
+            achievements.append("personality_certified")
+            core.state["_achievements"] = achievements
+    else:
+        session["current_question_id"] = q_id + 1
+        
+    core.state["_active_personality_game"] = session
+    core._save_state()
+    
+    return PersonalityAnswerResponse(
+        banter=banter,
+        finished=finished,
+        result=result
+    )
+
+
+# =====================================================
+#  COOKING WITH REM ENDPOINTS
+# =====================================================
+
+@router.get("/{user_id}/games/cook/search")
+async def search_recipes(user_id: str, query: str):
+    from .games_logic import search_recipes_from_api
+    results = await search_recipes_from_api(query)
+    return {"results": results}
+
+
+@router.post("/{user_id}/games/cook/start", response_model=CookingStartResponse)
+async def start_cooking_game(user_id: str, payload: CookingStartRequest):
+    core = _get_core(user_id)
+    from .games_logic import fetch_recipe_from_api, fetch_recipe_by_id, generate_cooking_banter
+    
+    dish_input = payload.dish_name.strip() if payload.dish_name else ""
+    recipe = None
+    if dish_input.isdigit():
+        recipe = await fetch_recipe_by_id(dish_input)
+        
+    if not recipe:
+        recipe = await fetch_recipe_from_api(dish_input)
+        
+    session_id = f"cook_{int(datetime.now(timezone.utc).timestamp())}"
+    
+    # Get active archetype flavor
+    self_identity = core.state.get("personality_evolution", {}).get("self_identity", {})
+    active_archetype = self_identity.get("_persona_flavor", self_identity.get("persona_flavor", "neutral"))
+    
+    greeting = await generate_cooking_banter(
+        recipe["name"], 
+        0, 
+        recipe["steps"][0], 
+        0.0, 
+        active_archetype, 
+        f"let's cook: {recipe['name']}", 
+        []
+    )
+    
+    session = {
+        "id": session_id,
+        "recipe": recipe,
+        "current_step": 0,
+        "chaos_meter": 0.0,
+        "greeting": greeting,
+        "history": [{"role": "assistant", "content": greeting}],
+        "finished": False
+    }
+    
+    core.state["_active_cooking_game"] = session
+    core._save_state()
+    
+    return CookingStartResponse(
+        session_id=session_id,
+        dish_name=recipe["name"],
+        category=recipe["category"],
+        thumbnail=recipe["thumbnail"],
+        ingredients=recipe["ingredients"],
+        steps=recipe["steps"],
+        greeting=greeting
+    )
+
+
+@router.post("/{user_id}/games/cook/step", response_model=CookingStepResponse)
+async def step_cooking_game(user_id: str, payload: CookingStepRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_cooking_game")
+    if not session or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active cooking session found")
+        
+    from .games_logic import generate_cooking_banter
+    
+    recipe = session.get("recipe", {})
+    steps = recipe.get("steps", [])
+    current_step = session.get("current_step", 0)
+    chaos_meter = session.get("chaos_meter", 0.0)
+    
+    user_msg = payload.user_message.strip()
+    action = payload.action.strip().lower()
+    
+    history = session.get("history", [])
+    history.append({"role": "user", "content": user_msg})
+    
+    # Update chaos meter
+    if action == "disaster":
+        chaos_meter = min(1.0, chaos_meter + 0.25)
+    elif action == "next" and chaos_meter > 0:
+        # Slight cooling down of chaos on successful step progress
+        chaos_meter = max(0.0, chaos_meter - 0.05)
+        
+    next_step = current_step + 1
+    finished = next_step >= len(steps)
+    
+    banter = ""
+    # Get active archetype flavor
+    self_identity = core.state.get("personality_evolution", {}).get("self_identity", {})
+    active_archetype = self_identity.get("_persona_flavor", self_identity.get("persona_flavor", "neutral"))
+    
+    if finished:
+        session["finished"] = True
+        banter = f"and that's the dish done! plating it up now. let's see what we made..."
+        history.append({"role": "assistant", "content": banter})
+        
+        # Save to cookbook
+        cookbook = core.state.get("_cookbook", [])
+        
+        # Sarcastic sous chef evaluation comment
+        evaluation_prompt = f"""You are Rem. Evaluate the user's cooking session:
+Recipe: {recipe['name']}
+Final Chaos Level: {chaos_meter:.2f}
+Active Archetype: {active_archetype}
+
+Write a 1-sentence sarcastic review of their final dish to print in their scrapbook cookbook. Speak in lowercase, casual, typing style."""
+        comment = await call_groq(evaluation_prompt, temperature=0.8, max_tokens=80)
+        if not comment:
+            comment = "actually looked edible. color me surprised."
+            
+        cookbook.append({
+            "id": f"cb_{int(datetime.now(timezone.utc).timestamp())}",
+            "dish": recipe["name"],
+            "thumbnail": recipe["thumbnail"],
+            "date": datetime.now(timezone.utc).isoformat(),
+            "status": "disaster" if chaos_meter > 0.5 else "success",
+            "chaos_level": round(chaos_meter, 2),
+            "sous_chef_comment": comment
+        })
+        core.state["_cookbook"] = cookbook
+        
+        # Achievements
+        achievements = core.state.get("_achievements", [])
+        if "master_chef" not in achievements:
+            achievements.append("master_chef")
+            core.state["_achievements"] = achievements
+    else:
+        session["current_step"] = next_step
+        step_desc = steps[next_step]
+        banter = await generate_cooking_banter(
+            recipe["name"], 
+            next_step, 
+            step_desc, 
+            chaos_meter, 
+            active_archetype, 
+            user_msg, 
+            history
+        )
+        history.append({"role": "assistant", "content": banter})
+        
+    session["chaos_meter"] = chaos_meter
+    session["history"] = history
+    core.state["_active_cooking_game"] = session
+    core._save_state()
+    
+    return CookingStepResponse(
+        banter=banter,
+        current_step=current_step if finished else next_step,
+        chaos_meter=chaos_meter,
+        finished=finished
+    )
+
+
+@router.get("/{user_id}/games/cookbook")
+async def get_cookbook(user_id: str):
+    core = _get_core(user_id)
+    return {"cookbook": core.state.get("_cookbook", [])}
+
+
+# =====================================================
+#  SPICY CHAT ENDPOINTS
+# =====================================================
+
+@router.post("/{user_id}/games/spicy/start", response_model=SpicyStartResponse)
+async def start_spicy_chat(user_id: str, payload: SpicyStartRequest):
+    core = _get_core(user_id)
+    from .games_logic import generate_spicy_chat_response
+    
+    session_id = f"spicy_{int(datetime.now(timezone.utc).timestamp())}"
+    scenario = payload.scenario.strip()
+    mood = payload.mood.strip()
+    
+    # Vaguely link flavor to main archetype
+    self_identity = core.state.get("personality_evolution", {}).get("self_identity", {})
+    active_archetype = self_identity.get("_persona_flavor", self_identity.get("persona_flavor", "neutral"))
+    
+    # Generate flirty/unhinged starting message
+    greeting = await generate_spicy_chat_response(
+        scenario, 
+        mood, 
+        active_archetype, 
+        [], 
+        f"start the roleplay as Rem (the 20-year-old female psychology student) in the scenario: '{scenario}'. introduce yourself matching the starting mood '{mood}'."
+    )
+    
+    session = {
+        "id": session_id,
+        "scenario": scenario,
+        "mood": mood,
+        "greeting": greeting,
+        "history": [{"role": "assistant", "content": greeting}],
+        "finished": False
+    }
+    
+    core.state["_active_spicy_chat"] = session
+    core._save_state()
+    
+    return SpicyStartResponse(
+        session_id=session_id,
+        greeting=greeting
+    )
+
+
+@router.post("/{user_id}/games/spicy/chat", response_model=SpicyChatResponse)
+async def chat_spicy_game(user_id: str, payload: SpicyChatRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_spicy_chat")
+    if not session or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active spicy session found")
+        
+    from .games_logic import generate_spicy_chat_response
+    
+    scenario = session.get("scenario")
+    mood = session.get("mood")
+    history = session.get("history", [])
+    
+    # Main archetype
+    self_identity = core.state.get("personality_evolution", {}).get("self_identity", {})
+    active_archetype = self_identity.get("_persona_flavor", self_identity.get("persona_flavor", "neutral"))
+    
+    user_msg = payload.message.strip()
+    history.append({"role": "user", "content": user_msg})
+    
+    response = await generate_spicy_chat_response(
+        scenario, 
+        mood, 
+        active_archetype, 
+        history[:-1], 
+        user_msg
+    )
+    
+    history.append({"role": "assistant", "content": response})
+    session["history"] = history
+    core.state["_active_spicy_chat"] = session
+    core._save_state()
+    
+    return SpicyChatResponse(response=response)
+
+
+@router.post("/{user_id}/games/spicy/end", response_model=SpicyEndResponse)
+async def end_spicy_game(user_id: str):
+    core = _get_core(user_id)
+    session = core.state.get("_active_spicy_chat")
+    if not session or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active spicy session found")
+        
+    from .games_logic import extract_spicy_secrets
+    
+    session["finished"] = True
+    history = session.get("history", [])
+    
+    secret = await extract_spicy_secrets(history)
+    secret_unlocked = secret is not None
+    
+    if secret_unlocked and secret:
+        # Add timestamp and ID
+        secret["id"] = f"sec_{int(datetime.now(timezone.utc).timestamp())}"
+        secret["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        secrets_list = core.state.get("_secrets", [])
+        secrets_list.append(secret)
+        core.state["_secrets"] = secrets_list
+        
+        # Save to achievements
+        achievements = core.state.get("_achievements", [])
+        if "secret_unlocked" not in achievements:
+            achievements.append("secret_unlocked")
+            core.state["_achievements"] = achievements
+            
+    core.state["_active_spicy_chat"] = session
+    core._save_state()
+    
+    return SpicyEndResponse(
+        secret_unlocked=secret_unlocked,
+        secret=secret
+    )
+
+
+@router.get("/{user_id}/games/secrets")
+async def get_secrets(user_id: str):
+    core = _get_core(user_id)
+    return {"secrets": core.state.get("_secrets", [])}
+
+
+# =====================================================
+#  YAP MODE ENDPOINTS
+# =====================================================
+
+@router.post("/{user_id}/games/yap/start", response_model=YapStartResponse)
+async def start_yap_game(user_id: str, payload: YapStartRequest):
+    core = _get_core(user_id)
+    from .games_logic import search_yap_topic, generate_yap_response
+    
+    session_id = f"yap_{int(datetime.now(timezone.utc).timestamp())}"
+    topic = payload.topic.strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic cannot be empty")
+        
+    # Search for facts using Tavily/DDG
+    facts = await search_yap_topic(topic)
+    
+    # Generate Rem's opening yap reaction
+    greeting = await generate_yap_response(
+        topic=topic,
+        facts=facts,
+        history=[],
+        user_msg=f"introduce the topic '{topic}' and state your initial opinion based on the facts."
+    )
+    
+    session = {
+        "id": session_id,
+        "topic": topic,
+        "facts": facts,
+        "greeting": greeting,
+        "history": [{"role": "assistant", "content": greeting}],
+        "turn_count": 0,
+        "finished": False
+    }
+    
+    core.state["_active_yap_chat"] = session
+    core._save_state()
+    
+    return YapStartResponse(
+        session_id=session_id,
+        greeting=greeting,
+        facts=facts
+    )
+
+
+@router.post("/{user_id}/games/yap/chat", response_model=YapChatResponse)
+async def chat_yap_game(user_id: str, payload: YapChatRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_yap_chat")
+    if not session or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active yap session found")
+        
+    from .games_logic import generate_yap_response, search_yap_topic
+    from .knowledge_grounding import _llm_classify_factual
+    
+    topic = session.get("topic")
+    facts = session.get("facts", [])
+    history = session.get("history", [])
+    turn_count = session.get("turn_count", 0) + 1
+    
+    user_msg = payload.message.strip()
+    
+    # 1. Dynamically classify if the message requires a factual search for new facts
+    recent_context = "\n".join([f"{'User' if h['role']=='user' else 'Rem'}: {h['content']}" for h in history[-3:]])
+    classification = await _llm_classify_factual(user_msg, recent_context)
+    
+    new_facts_loaded = False
+    if classification.get("needs_search"):
+        search_query = classification.get("search_query", "").strip()
+        # Verify it is not already covered by current facts
+        facts_lower = " ".join(facts).lower()
+        if search_query and not any(word in facts_lower for word in search_query.split() if len(word) > 4):
+            print(f"[YAP DYNAMIC SEARCH] User message references new info. Query: '{search_query}'")
+            new_fetched = await search_yap_topic(search_query)
+            # Append only unique new facts
+            added_any = False
+            for nf in new_fetched:
+                if nf not in facts and len(nf) > 20:
+                    facts.append(nf)
+                    added_any = True
+            if added_any:
+                new_facts_loaded = True
+                print(f"[YAP DYNAMIC SEARCH] Loaded new facts into session. Total count: {len(facts)}")
+                
+    history.append({"role": "user", "content": user_msg})
+    
+    # 2. Generate response anchored in the updated facts list
+    response = await generate_yap_response(
+        topic=topic,
+        facts=facts,
+        history=history[:-1],
+        user_msg=user_msg
+    )
+    
+    history.append({"role": "assistant", "content": response})
+    session["history"] = history
+    session["turn_count"] = turn_count
+    session["facts"] = facts
+    
+    achievement_unlocked = False
+    if turn_count >= 10:
+        achievements = core.state.get("_achievements", [])
+        if "yap_scholar" not in achievements:
+            achievements.append("yap_scholar")
+            core.state["_achievements"] = achievements
+            achievement_unlocked = True
+            
+    core.state["_active_yap_chat"] = session
+    core._save_state()
+    
+    return YapChatResponse(
+        response=response,
+        turn_count=turn_count,
+        finished=False,
+        achievement_unlocked=achievement_unlocked,
+        facts=facts if new_facts_loaded else None
+    )
+
+
+# ── RPG QUEST & MURDER MYSTERY ENDPOINTS ──
+
+@router.get("/{user_id}/games/rpg/scenarios")
+async def get_rpg_scenarios(user_id: str):
+    core = _get_core(user_id)
+    from .rpg_logic import load_scenarios
+    scenarios = load_scenarios()
+    return scenarios
+
+
+@router.post("/{user_id}/games/rpg/start", response_model=RpgStartResponse)
+async def start_rpg_game(user_id: str, payload: RpgStartRequest):
+    core = _get_core(user_id)
+    from .rpg_logic import initialize_rpg_session, load_scenarios
+    
+    scenarios = load_scenarios()
+    sc = next((s for s in scenarios if s["quest_id"] == payload.scenario_id), None)
+    if not sc:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+        
+    try:
+        session = await initialize_rpg_session(payload.scenario_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    session_id = f"rpg_{int(datetime.now(timezone.utc).timestamp())}"
+    session["id"] = session_id
+    core.state["_active_rpg_session"] = session
+    core._save_state()
+    
+    narrator_text = next((h["content"] for h in reversed(session["history"]) if h["role"] == "narrator"), "")
+    rem_dialogue = next((h["content"] for h in reversed(session["history"]) if h["role"] == "rem"), "")
+    
+    return RpgStartResponse(
+        session_id=session_id,
+        title=session["title"],
+        current_location=session["current_location"],
+        narrator_text=narrator_text,
+        rem_dialogue=rem_dialogue,
+        suggested_choices=session["suggested_choices"],
+        suspects=sc["suspects"],
+        weapons=sc["weapons"],
+        clues=sc["clues"],
+        max_turns=session["max_turns"],
+        difficulty=session.get("difficulty", "normal"),
+        rem_consultations_left=session.get("rem_consultations_left", 2),
+        health=session.get("health")
+    )
+
+
+@router.post("/{user_id}/games/rpg/turn", response_model=RpgTurnResponse)
+async def turn_rpg_game(user_id: str, payload: RpgTurnRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_rpg_session")
+    if not session or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active RPG session found")
+        
+    from .rpg_logic import generate_rpg_turn
+    
+    try:
+        session = await generate_rpg_turn(session, payload.user_action)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    core.state["_active_rpg_session"] = session
+    core._save_state()
+    
+    narrator_text = next((h["content"] for h in reversed(session["history"]) if h["role"] == "narrator"), "")
+    rem_dialogue = next((h["content"] for h in reversed(session["history"]) if h["role"] == "rem"), "")
+    
+    return RpgTurnResponse(
+        current_location=session["current_location"],
+        narrator_text=narrator_text,
+        rem_dialogue=rem_dialogue,
+        suggested_choices=session["suggested_choices"],
+        suspect_states=session["suspect_states"],
+        inventory=session["inventory"],
+        clues_found=session["clues_found"],
+        turn_count=session["turn_count"],
+        max_turns=session["max_turns"],
+        finished=session["finished"],
+        rem_consultations_left=session.get("rem_consultations_left", 2),
+        discovered_contradictions=session.get("discovered_contradictions", []),
+        active_effects=session.get("active_effects", []),
+        health=session.get("health")
+    )
+
+
+@router.post("/{user_id}/games/rpg/accuse", response_model=RpgAccuseResponse)
+async def accuse_rpg_game(user_id: str, payload: RpgAccuseRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_rpg_session")
+    if not session or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active RPG session found")
+        
+    from .rpg_logic import evaluate_accusation
+    
+    try:
+        result = await evaluate_accusation(session, payload.suspect, payload.weapon, payload.motive)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    if result["success"]:
+        achievements = core.state.get("_achievements", [])
+        if "detective_rem" not in achievements:
+            achievements.append("detective_rem")
+            core.state["_achievements"] = achievements
+            
+    session["finished"] = True
+    core.state["_active_rpg_session"] = session
+    core._save_state()
+    
+    return RpgAccuseResponse(
+        success=result["success"],
+        narrator_text=result["narrator_text"],
+        rem_dialogue=result["rem_dialogue"],
+        secret_culprit=result["secret_culprit"],
+        secret_weapon=result["secret_weapon"]
+    )
+
+
+# ── COURTROOM BATTLE ("LAW AND REM") ENDPOINTS ──
+
+@router.get("/{user_id}/games/court/scenarios")
+async def get_court_scenarios(user_id: str):
+    from .court_logic import load_court_scenarios
+    return load_court_scenarios()
+
+
+@router.post("/{user_id}/games/court/start", response_model=CourtStartResponse)
+async def start_court_game(user_id: str, payload: CourtStartRequest):
+    core = _get_core(user_id)
+    from .court_logic import initialize_court_session
+    try:
+        session = await initialize_court_session(payload.case_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    session_id = f"court_{int(datetime.now(timezone.utc).timestamp())}"
+    session["id"] = session_id
+    core.state["_active_court_session"] = session
+    core._save_state()
+    
+    return CourtStartResponse(
+        session_id=session_id,
+        title=session["title"],
+        difficulty=session["difficulty"],
+        client_name=session["client_name"],
+        client_role=session["client_role"],
+        client_bio=session["client_bio"],
+        prosecutor_name=session["prosecutor_name"],
+        judge_name=session["judge_name"],
+        inventory=session["inventory"],
+        witnesses=session["witnesses"],
+        recess_locations=session["recess_locations"],
+        strikes_left=session["strikes_left"],
+        jury_sentiment=session["jury_sentiment"],
+        current_witness_idx=session["current_witness_idx"],
+        recess_searched=session["recess_searched"],
+        rem_consults_left=session.get("rem_consults_left", 5),
+        rem_chat_history=session.get("rem_chat_history", []),
+        history=session["history"],
+        phase=session["phase"],
+        finished=session["finished"]
+    )
+
+
+@router.post("/{user_id}/games/court/action", response_model=CourtStartResponse)
+async def court_action(user_id: str, payload: CourtActionRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_court_session")
+    if not session or session.get("finished"):
+        raise HTTPException(status_code=400, detail="No active courtroom session found")
+        
+    from .court_logic import process_court_action
+    
+    try:
+        session = await process_court_action(session, payload.dict())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    core.state["_active_court_session"] = session
+    core._save_state()
+    
+    return CourtStartResponse(
+        session_id=session["id"],
+        title=session["title"],
+        difficulty=session["difficulty"],
+        client_name=session["client_name"],
+        client_role=session["client_role"],
+        client_bio=session["client_bio"],
+        prosecutor_name=session["prosecutor_name"],
+        judge_name=session["judge_name"],
+        inventory=session["inventory"],
+        witnesses=session["witnesses"],
+        recess_locations=session["recess_locations"],
+        strikes_left=session["strikes_left"],
+        jury_sentiment=session["jury_sentiment"],
+        current_witness_idx=session["current_witness_idx"],
+        recess_searched=session["recess_searched"],
+        rem_consults_left=session.get("rem_consults_left", 5),
+        rem_chat_history=session.get("rem_chat_history", []),
+        history=session["history"],
+        phase=session["phase"],
+        finished=session["finished"]
+    )
+
+
+@router.post("/{user_id}/games/court/recess", response_model=CourtStartResponse)
+async def court_recess_search(user_id: str, payload: CourtRecessRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_court_session")
+    if not session or session.get("finished") or session.get("phase") != "recess":
+        raise HTTPException(status_code=400, detail="Not in recess phase or no active session")
+        
+    from .court_logic import process_recess_search
+    
+    try:
+        session = await process_recess_search(session, payload.room_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    core.state["_active_court_session"] = session
+    core._save_state()
+    
+    return CourtStartResponse(
+        session_id=session["id"],
+        title=session["title"],
+        difficulty=session["difficulty"],
+        client_name=session["client_name"],
+        client_role=session["client_role"],
+        client_bio=session["client_bio"],
+        prosecutor_name=session["prosecutor_name"],
+        judge_name=session["judge_name"],
+        inventory=session["inventory"],
+        witnesses=session["witnesses"],
+        recess_locations=session["recess_locations"],
+        strikes_left=session["strikes_left"],
+        jury_sentiment=session["jury_sentiment"],
+        current_witness_idx=session["current_witness_idx"],
+        recess_searched=session["recess_searched"],
+        rem_consults_left=session.get("rem_consults_left", 5),
+        rem_chat_history=session.get("rem_chat_history", []),
+        history=session["history"],
+        phase=session["phase"],
+        finished=session["finished"]
+    )
+
+
+@router.post("/{user_id}/games/court/verdict", response_model=CourtVerdictResponse)
+async def court_submit_verdict(user_id: str, payload: CourtVerdictRequest):
+    core = _get_core(user_id)
+    session = core.state.get("_active_court_session")
+    if not session or session.get("finished") or session.get("phase") != "closing":
+        raise HTTPException(status_code=400, detail="Not in closing arguments phase or no active session")
+        
+    from .court_logic import evaluate_court_verdict
+    
+    try:
+        session = await evaluate_court_verdict(session, payload.closing_argument)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    if session["verdict_result"] and session["verdict_result"]["success"]:
+        achievements = core.state.get("_achievements", [])
+        if "court_master" not in achievements:
+            achievements.append("court_master")
+            core.state["_achievements"] = achievements
+            
+    core.state["_active_court_session"] = session
+    core._save_state()
+    
+    res = session["verdict_result"]
+    return CourtVerdictResponse(
+        success=res["success"],
+        verdict_text=res["verdict_text"],
+        votes_not_guilty=res["votes_not_guilty"],
+        votes_guilty=res["votes_guilty"],
+        judge_decision=res["judge_decision"],
+        rem_dialogue=res["rem_dialogue"]
+    )
+
+
+
 

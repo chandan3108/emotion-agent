@@ -1,0 +1,664 @@
+[
+  {
+    "quest_id": "murder_manor",
+    "title": "Murder at Blackwood Manor",
+    "description": "Lord Blackwood is dead. You and Rem must explore the rooms, interrogate suspects, and collect physical evidence to find the killer, weapon, and motive before the snowstorm subsides.",
+    "starting_location": "Grand Library",
+    "max_turns": 16,
+    "locations": [
+      {
+        "id": "library",
+        "name": "Grand Library",
+        "desc": "The room is dark, smell of mahogany and tobacco. Lord Blackwood's body lies slumped over his desk. A broken teacup sits nearby."
+      },
+      {
+        "id": "boudoir",
+        "name": "Boudoir",
+        "desc": "Lady Blackwood's private sitting room. Plush velvet chairs, cosmetics on the vanity, and a massive mahogany bookshelf."
+      },
+      {
+        "id": "servants",
+        "name": "Servants Quarters",
+        "desc": "Arthur's room. Neat, sparse, and clean. A wool uniform hangs in the wardrobe."
+      },
+      {
+        "id": "kitchen",
+        "name": "Manor Kitchen",
+        "desc": "Smells of garlic and roasting meat. Large cutting boards, copper pots, and a locked pantry cabinet."
+      },
+      {
+        "id": "conservatory",
+        "name": "Conservatory",
+        "desc": "A glassy greenhouse filled with exotic plants and shadows. Rain batters the panes, and dirt-covered tools sit in the corner."
+      }
+    ],
+    "suspects": [
+      {
+        "name": "Lady Blackwood",
+        "role": "The Grieving Widow",
+        "bio": "Cold, aristocratic, and fiercely protective of her social standing. She married Lord Blackwood for status, but his mounting debts threatened to ruin them.",
+        "motive": "To secure the inheritance and property before Lord Blackwood could liquidate it to pay off his massive gambling debts.",
+        "starting_suspicion": 0.35
+      },
+      {
+        "name": "Arthur",
+        "role": "The Loyal Butler",
+        "bio": "Dressed in a tweed suit, he has served the family for 15 years. Extremely formal, but his hands shake slightly when pouring tea.",
+        "motive": "Lord Blackwood fired him the night before without a pension. Arthur's sick daughter depends on the family's financial aid.",
+        "starting_suspicion": 0.20
+      },
+      {
+        "name": "Chef Charles",
+        "role": "The Cook",
+        "bio": "A hot-tempered cook who constantly mutters under his breath. He had shouting matches with Lord Blackwood about wages and respect.",
+        "motive": "Lord Blackwood threatened to blacklist him from cooking in London after Charles was caught stealing fine wines from the cellar.",
+        "starting_suspicion": 0.25
+      }
+    ],
+    "weapons": [
+      {
+        "id": "candlestick",
+        "name": "Heavy Candlestick",
+        "desc": "A heavy solid-brass candlestick stained with old wax. Ideal for a blunt strike."
+      },
+      {
+        "id": "cyanide_vial",
+        "name": "Cyanide Vial",
+        "desc": "A tiny glass bottle with a skull label, smelling faintly of bitter almonds."
+      },
+      {
+        "id": "kitchen_knife",
+        "name": "Carving Knife",
+        "desc": "A razor-sharp chef's carving knife from the kitchen display."
+      }
+    ],
+    "clues": [
+      {
+        "id": "torn_will",
+        "name": "Torn Will",
+        "desc": "A shredded legal document showing Lord Blackwood intended to rewrite his will and cut off Lady Blackwood completely.",
+        "belongs_to": "Lady Blackwood",
+        "hidden_at": "Boudoir"
+      },
+      {
+        "id": "tweed_scrap",
+        "name": "Tweed Scrap",
+        "desc": "A small scrap of grey tweed wool fabric matching Arthur's butler uniform, snagged on a desk drawer latch.",
+        "belongs_to": "Arthur",
+        "hidden_at": "Grand Library"
+      },
+      {
+        "id": "poison_journal",
+        "name": "Botany Journal",
+        "desc": "A guide detailing toxic mushrooms and plant poisons, with Charles' initials on the cover.",
+        "belongs_to": "Chef Charles",
+        "hidden_at": "Conservatory"
+      },
+      {
+        "id": "pantry_key",
+        "name": "Spare Key",
+        "desc": "A bronze key that fits the locked cabinet where kitchen poison was stored, found under the library rug.",
+        "belongs_to": "Arthur",
+        "hidden_at": "Grand Library"
+      }
+    ]
+  },
+  {
+    "quest_id": "cyber_heist",
+    "title": "The Neo-Tokyo Core Heist",
+    "description": "A high-security neural prototype core has been stolen from the Arasaka Penthouse. You and Rem have been hired as corporate investigators to solve the hack and identify the thief.",
+    "starting_location": "Penthouse Vault",
+    "max_turns": 16,
+    "locations": [
+      {
+        "id": "vault",
+        "name": "Penthouse Vault",
+        "desc": "The steel door has been cleanly deactivated. The prototype glass tube is shattered, and residual liquid nitrogen drips onto the neon floor."
+      },
+      {
+        "id": "server",
+        "name": "Server Deck",
+        "desc": "A freezing room filled with glowing mainframe towers and hum of cooling fans. Level-5 security login required."
+      },
+      {
+        "id": "locker",
+        "name": "Locker Room",
+        "desc": "The security team's lounge. Heavy weapon racks, gear storage lockers, and a scent of synthetic oil."
+      },
+      {
+        "id": "fixer_suite",
+        "name": "Fixer Suite",
+        "desc": "Jaxx's workspace. Luxury holographic displays, fine leather chairs, and a bar stocked with premium synthetic whiskey."
+      },
+      {
+        "id": "helipad",
+        "name": "Rooftop Helipad",
+        "desc": "Wind whips the rain across the rooftop landing zone. An automated drone carrier is docked here waiting for clearance."
+      }
+    ],
+    "suspects": [
+      {
+        "name": "V01D",
+        "role": "The Cyber-Decker",
+        "bio": "A silent freelance netrunner wearing a glowing visor. Claims he was only scanning traffic for public glitches.",
+        "motive": "Rival syndicate Militech offered him a bounty to steal the prototype code to cure his deteriorating cyber-neural condition.",
+        "starting_suspicion": 0.35
+      },
+      {
+        "name": "Buster",
+        "role": "The Solo Bodyguard",
+        "bio": "An imposing security chief with heavy chrome implants. Claims the camera network was looped from the outside.",
+        "motive": "Deeply in debt to the yakuza syndicates, who threatened to deactivate his cybernetics if he didn't allow their operatives access.",
+        "starting_suspicion": 0.20
+      },
+      {
+        "name": "Jaxx",
+        "role": "The Fixer",
+        "bio": "A smooth-talking coordinator who arranged the vault codes. Insists he was in a secure boardroom during the hack.",
+        "motive": "He was passed over for promotion to Arasaka Director, and wanted to leak the core schematics to destroy the rival project's value.",
+        "starting_suspicion": 0.25
+      }
+    ],
+    "weapons": [
+      {
+        "id": "decrypter",
+        "name": "Quantum Decrypter",
+        "desc": "A modified data slate with custom bypass software used to loop Arasaka mainframe protocols."
+      },
+      {
+        "id": "shock_baton",
+        "name": "Shock Baton",
+        "desc": "A heavy police-grade tactical baton that causes electrical feedback in neural cybernetics."
+      },
+      {
+        "id": "laser_cutter",
+        "name": "Laser Cutter",
+        "desc": "A pocket industrial-grade micro laser tool capable of cutting vault wires."
+      }
+    ],
+    "clues": [
+      {
+        "id": "decker_drives",
+        "name": "Datapad",
+        "desc": "A datapad containing decrypted core schematics and communication logs with a Militech contact.",
+        "belongs_to": "V01D",
+        "hidden_at": "Server Deck"
+      },
+      {
+        "id": "yakuza_coin",
+        "name": "Yakuza Token",
+        "desc": "A gold-pressed credential coin representing yakuza debts, found stashed in Buster's locker.",
+        "belongs_to": "Buster",
+        "hidden_at": "Locker Room"
+      },
+      {
+        "id": "fixer_badge",
+        "name": "Corporate Keycard",
+        "desc": "A level-5 corporate keycard logged entering the vault room precisely 3 minutes before the alarm loop began.",
+        "belongs_to": "Jaxx",
+        "hidden_at": "Fixer Suite"
+      },
+      {
+        "id": "hacked_slate",
+        "name": "Decryption Slate",
+        "desc": "A decryption slate showing cybernetic bypass logs matching V01D's unique netrunner neural signature.",
+        "belongs_to": "V01D",
+        "hidden_at": "Penthouse Vault"
+      }
+    ]
+  },
+  {
+    "quest_id": "jazz_club_betrayal",
+    "title": "The Red Velvet Club Betrayal",
+    "difficulty": "hard",
+    "description": "Rain beats down on the neon-lit alleyways of 1947 Chicago. Inside the smokey Red Velvet Club, informant Johnny Malone is found strangled in his dressing room. Rem and you have until the police arrive to untangle conflicting alibis, expose hidden motives, and catch the killer.",
+    "starting_location": "Backstage Dressing Room",
+    "max_turns": 20,
+    "locations": [
+      {
+        "id": "dressing_room",
+        "name": "Backstage Dressing Room",
+        "desc": "Smells of cheap perfume, hairspray, and copper. Johnny lies slumped over the dressing table vanity, eyes wide. The backstage piano sits open."
+      },
+      {
+        "id": "jazz_stage",
+        "name": "Main Stage",
+        "desc": "A circular stage with a spotlight beating on an empty microphone stand. Instruments sit abandoned. The bar counter is just off to the left."
+      },
+      {
+        "id": "darkroom",
+        "name": "Leo's Darkroom",
+        "desc": "Bathed in a red glow. Wet photos hang on clotheslines to dry. Chemical baths smell of sulfur and vinegar."
+      },
+      {
+        "id": "mickey_office",
+        "name": "Mickey's Office",
+        "desc": "A mahogany desk dominates the room. Safe in the wall is closed. Venetian blinds filter the neon buzz of the club sign."
+      },
+      {
+        "id": "vip_lounge",
+        "name": "VIP Lounge Corner",
+        "desc": "An exclusive dimly-lit booths area overlooking the stage, curtained off. Smells of expensive velvet and stale smoke."
+      },
+      {
+        "id": "back_alley",
+        "name": "Rainy Back Alley",
+        "desc": "The wet, trash-strewn alley behind the club. A neon light casts a reddish glow over a metal fire escape. A locked green dumpster sits nearby."
+      }
+    ],
+    "suspects": [
+      {
+        "name": "Vixen Val",
+        "role": "The Lounge Singer",
+        "bio": "Johnny's former flame. Singing tonight at the club. Beautiful, but her mascara is smudged and she keeps wringing a handkerchief.",
+        "motive": "Johnny threatened to leak her dark past to the newspapers, destroying her rising career in the music scene.",
+        "starting_suspicion": 0.35,
+        "alibi": "She claims she was performing on stage from 9:00 PM to 9:30 PM, and insists Leo can verify she didn't leave."
+      },
+      {
+        "name": "Mickey",
+        "role": "The Club Owner",
+        "bio": "A heavy-set man in a double-breasted suit, chewing an unlit cigar. He runs the club with an iron fist and loans money to desperate patrons.",
+        "motive": "Johnny was an FBI informant about to testify about Mickey's illegal gambling syndicate and mob ties.",
+        "starting_suspicion": 0.40,
+        "alibi": "Insists he was locked in his private office drafting contract notes from 9:00 PM to 9:30 PM, and saw nobody."
+      },
+      {
+        "name": "Leo",
+        "role": "The Blackmail Photographer",
+        "bio": "A nervous man with wire glasses and camera strapped to his neck. His fingers are stained with chemicals.",
+        "motive": "Johnny found Leo's hidden negatives of cheating spouses and threatened to expose Leo's blackmail operation.",
+        "starting_suspicion": 0.30,
+        "alibi": "Claims he was locked in his darkroom developing film from 8:45 PM to 9:15 PM and saw no one."
+      },
+      {
+        "name": "Buster",
+        "role": "The Bouncer",
+        "bio": "An imposing man in a tight suit. Mickey's loyal enforcer. Guarding the backstage corridor all evening.",
+        "motive": "Johnny discovered Buster was skimming money from Mickey's blackjack tables and threatened to tell Mickey.",
+        "starting_suspicion": 0.25,
+        "alibi": "Claims he was standing guard at the backstage dressing room corridor door from 9:00 PM to 9:20 PM, then stepped to the alley for a smoke."
+      },
+      {
+        "name": "Dr. Evelyn Vance",
+        "role": "The Club Regular",
+        "bio": "A sophisticated woman in a heavy fur coat and dark veil. A private psychiatrist who frequently visits Mickey's backroom gambling table.",
+        "motive": "Johnny stole her clinical files containing blackmail material on city officials and illegal drug prescriptions.",
+        "starting_suspicion": 0.30,
+        "alibi": "Claims she was sitting at the VIP Lounge Corner table from 8:50 PM to 9:30 PM, and never approached backstage."
+      }
+    ],
+    "weapons": [
+      {
+        "id": "strangle_wire",
+        "name": "Piano Wire",
+        "desc": "A thin, high-tension steel wire snapped off the backstage dressing room piano, stained with blood."
+      },
+      {
+        "id": "poisoned_bourbon",
+        "name": "Poisoned Bourbon",
+        "desc": "A glass of premium whiskey sitting on Johnny's table, containing trace sediments of white arsenic powder."
+      },
+      {
+        "id": "snub_nose_38",
+        "name": "Snub-Nose .38",
+        "desc": "A small caliber police revolver stashed behind the bar register with one spent shell."
+      },
+      {
+        "id": "poison_syringe",
+        "name": "Medical Syringe",
+        "desc": "A medical syringe containing trace residue of fast-acting digitalis poison."
+      }
+    ],
+    "clues": [
+      {
+        "id": "arsenic_powder",
+        "name": "Arsenic Vial",
+        "desc": "A small apothecary vial containing rat poison, found hidden inside Vixen Val's makeup vanity box.",
+        "belongs_to": "Vixen Val",
+        "hidden_at": "Backstage Dressing Room"
+      },
+      {
+        "id": "blackmail_photos",
+        "name": "Blackmail Negatives",
+        "desc": "Holographic photograph negatives showing Mickey meeting with Chicago's major syndicate bosses.",
+        "belongs_to": "Mickey",
+        "hidden_at": "Leo's Darkroom"
+      },
+      {
+        "id": "debt_note",
+        "name": "Signed Promissory Note",
+        "desc": "A signed note confirming Johnny owed Mickey $10,000, with a handwritten threat 'Pay up or sleep' written on it.",
+        "belongs_to": "Mickey",
+        "hidden_at": "Mickey's Office"
+      },
+      {
+        "id": "informant_ledger",
+        "name": "Malone's Ledger",
+        "desc": "Johnny Malone's pocket ledger containing names of blackmailed patrons and Leo's darkroom combination code.",
+        "belongs_to": "Leo",
+        "hidden_at": "Main Stage"
+      },
+      {
+        "id": "skimming_ledger",
+        "name": "Skimming Records",
+        "desc": "A small ledger logging casino table cuts, proving Buster was stealing money from Mickey.",
+        "belongs_to": "Buster",
+        "hidden_at": "Rainy Back Alley"
+      },
+      {
+        "id": "medical_prescription",
+        "name": "Mob Prescriptions",
+        "desc": "Doctor prescriptions signed by Vance authorizing lethal narcotics for syndicates, stuffed under the booth seat.",
+        "belongs_to": "Dr. Evelyn Vance",
+        "hidden_at": "VIP Lounge Corner"
+      },
+      {
+        "id": "bouncers_lighter",
+        "name": "Silver Lighter",
+        "desc": "A monogrammed silver lighter with the initials 'B.G.', found inside the backstage piano casing.",
+        "belongs_to": "Buster",
+        "hidden_at": "Backstage Dressing Room"
+      }
+    ],
+    "contradictions": [
+      {
+        "id": "val_leo_clash",
+        "description": "Val claims Leo saw her on stage between 9:00 PM and 9:30 PM, but Leo claims he was locked in the darkroom from 8:45 PM to 9:15 PM."
+      },
+      {
+        "id": "mickey_presence_clash",
+        "description": "Mickey claims he stayed locked in his office all night, but Val mentions seeing Mickey pacing near the backstage hallway at 9:10 PM."
+      },
+      {
+        "id": "buster_smoke_clash",
+        "description": "Buster claims he was guarding the door from 9:00 PM to 9:20 PM, but Leo claims he saw Buster walking towards the back alley at 9:05 PM."
+      },
+      {
+        "id": "evelyn_vip_clash",
+        "description": "Evelyn claims she sat in the VIP Corner from 8:50 PM to 9:30 PM, but Mickey states the corner table was empty at 9:15 PM."
+      },
+      {
+        "id": "bouncer_lighter_clash",
+        "description": "Buster claims he has not entered the dressing room all night, but his monogrammed lighter was found in the dressing room piano."
+      }
+    ]
+  },
+  {
+    "quest_id": "hotel_eutopia",
+    "title": "The Hotel Eutopia Closed-Space Mystery",
+    "difficulty": "extreme",
+    "description": "A devastating blizzard has trapped you and Rem inside Hotel Eutopia, a fading art-deco resort perched over a frozen gorge. Lord Sterling Vance is found poisoned in the Grand Ballroom. With cut power lines, a failing heating system, and a murderer among you who will resort to violence to escape, you must survive and solve the case before the cold gets you.",
+    "starting_location": "Grand Lobby",
+    "max_turns": 30,
+    "locations": [
+      {
+        "id": "lobby",
+        "name": "Grand Lobby",
+        "desc": "A fading art-deco lobby with high columns, blocked revolving doors piled with snow, and a large fireplace struggling to warm the room."
+      },
+      {
+        "id": "ballroom",
+        "name": "Grand Ballroom",
+        "desc": "Lord Sterling's body lies in a velvet armchair near the frozen fireplace. Crystal chandeliers hum faintly from the flickering backup generator."
+      },
+      {
+        "id": "suite404",
+        "name": "Suite 404",
+        "desc": "Lady Beatrice's luxurious suite. Heavy velvet drapes, a vanity table with spilled lavender water, and a desk with locked drawers."
+      },
+      {
+        "id": "cellar",
+        "name": "Wine Cellar",
+        "desc": "A chilly underground cellar with rows of dusty wine bottles. A metal service hatch leads to the Boiler Room."
+      },
+      {
+        "id": "boiler",
+        "name": "Boiler Room",
+        "desc": "A warm but hazardous basement chamber filled with roaring pipes and high-pressure steam valves. Vents hiss in the dark."
+      },
+      {
+        "id": "elevator",
+        "name": "Elevator Shaft",
+        "desc": "The metal elevator doors are pried open, exposing the dark shaft where a frayed steel cable holds the unstable cage in place."
+      },
+      {
+        "id": "observatory",
+        "name": "Rooftop Observatory",
+        "desc": "A high dome with a large brass telescope. Snow lashes against the glass panels, and the freezing wind is deafening."
+      },
+      {
+        "id": "kitchen",
+        "name": "Hotel Kitchen",
+        "desc": "The large culinary area. Cold copper pots are scattered, stoves are cold, and a heavy wooden chopping block sits in the center."
+      },
+      {
+        "id": "library",
+        "name": "Library Room",
+        "desc": "Floor-to-ceiling bookshelves housing old maps and Vance family archives. A leather chair sits by a window overlooking the gorge."
+      },
+      {
+        "id": "quarters",
+        "name": "Staff Quarters",
+        "desc": "Simple living units for the hotel staff. A small dresser and narrow iron cots. Damp clothes hang on lines."
+      },
+      {
+        "id": "garden",
+        "name": "Courtyard Garden",
+        "desc": "The hotel's courtyard, buried under three feet of fresh snow. A marble fountain is frozen solid, and stone arches cast long shadows."
+      },
+      {
+        "id": "laundry",
+        "name": "Laundry Room",
+        "desc": "Smells of bleach and damp fabric. Large rotary washing machines sit silent, and deep steel sinks are filled with grey water."
+      }
+    ],
+    "suspects": [
+      {
+        "name": "Lady Beatrice Vance",
+        "role": "The Wealthy Widow",
+        "bio": "Sterling's haughty wife. Draped in expensive furs, she maintains a facade of grief but is secretly bankrupt and was about to be disinherited.",
+        "motive": "To secure the inheritance before Sterling could file divorce papers and cut her out of his will completely.",
+        "starting_suspicion": 0.35,
+        "alibi": "Claims she was resting in Suite 404 from 10:00 PM to 10:45 PM, attended by her sister Evelyn."
+      },
+      {
+        "name": "Dr. Evelyn Vance",
+        "role": "The Family Physician",
+        "bio": "Beatrice's quiet sister. She carried the cardiac medications for Sterling, but hides a deep resentment of Beatrice.",
+        "motive": "Secretly in love with Sterling, she poisoned him in a jealous rage after learning he was planning to flee the country alone.",
+        "starting_suspicion": 0.25,
+        "alibi": "Claims she was in Suite 404 administering Beatrice's sleeping drops between 10:00 PM and 10:30 PM."
+      },
+      {
+        "name": "Mickey Malone",
+        "role": "The Syndicate Boss",
+        "bio": "A guest in a tailored suit who runs Chicago's gambling operations. Claims he was only here for the mountain air.",
+        "motive": "Sterling owed his syndicate $50,000 in debts and refused to hand over the deeds to the Hotel Eutopia as collateral.",
+        "starting_suspicion": 0.40,
+        "alibi": "Insists he was playing cards in the Library Room with Grace Harper from 9:45 PM to 10:30 PM."
+      },
+      {
+        "name": "Julian Mercer",
+        "role": "The Concierge",
+        "bio": "A creepily polite young man who runs hotel operations. He knows the building's layout better than anyone.",
+        "motive": "He is Sterling's unrecognized illegitimate son, seeking retribution for a lifetime of poverty and abandonment.",
+        "starting_suspicion": 0.30,
+        "alibi": "Claims he was fixing a pipe in the Laundry Room from 10:15 PM to 10:45 PM."
+      },
+      {
+        "name": "Vixen Val",
+        "role": "The Lounge Performer",
+        "bio": "The resident jazz singer. Beautiful and guarded. She is secretly working as Mickey's informant in the hotel.",
+        "motive": "Sterling found out she was spying for Malone and threatened to expose her criminal record to the federal authorities.",
+        "starting_suspicion": 0.25,
+        "alibi": "Claims she was rehearsing on the piano in the Grand Ballroom from 10:00 PM to 10:30 PM, all by herself."
+      },
+      {
+        "name": "Aiden Thorne",
+        "role": "The Blackmailing Journalist",
+        "bio": "A sharp, cynical reporter stranded by the storm. He is Beatrice's nephew, hunting for a scoop.",
+        "motive": "To blackmail Sterling with proof of his financial crimes, but Sterling refused to pay and threatened his life.",
+        "starting_suspicion": 0.30,
+        "alibi": "Claims he was in the Rooftop Observatory taking notes on the storm from 10:00 PM to 10:40 PM."
+      },
+      {
+        "name": "Chef Charles",
+        "role": "The Executive Chef",
+        "bio": "A hot-tempered culinary chef who was caught screaming at Sterling in the kitchen earlier that evening.",
+        "motive": "Sterling fired him hours before the blizzard for refusing to serve spoiled meats to guests, ruining his reputation.",
+        "starting_suspicion": 0.35,
+        "alibi": "Claims he was alone in the Staff Quarters packing his knives and luggage from 10:00 PM to 10:50 PM."
+      },
+      {
+        "name": "Arthur Pendelton",
+        "role": "The Old Butler",
+        "bio": "Sterling's loyal butler for 30 years. Rigid and quiet, but knows every family dispute and dark secret.",
+        "motive": "Sterling was planning to close the hotel and abandon the staff, leaving Arthur with nothing after a lifetime of service.",
+        "starting_suspicion": 0.20,
+        "alibi": "Claims he was cleaning the silver cabinets in the Grand Lobby from 10:00 PM to 10:35 PM."
+      },
+      {
+        "name": "Sterling Vance Jr.",
+        "role": "The Disinherited Son",
+        "bio": "Sterling's estranged son who arrived secretly. He is carrying a concealed military sidearm.",
+        "motive": "His father disinherited him in favor of Beatrice, leaving him broke and facing military court-martial debts.",
+        "starting_suspicion": 0.30,
+        "alibi": "Claims he was hiding out in the Courtyard Garden to avoid an confrontation with his father from 10:10 PM to 10:40 PM."
+      },
+      {
+        "name": "Grace Harper",
+        "role": "The Hotel Manager",
+        "bio": "The co-owner of Hotel Eutopia. Highly stressed and desperate to keep the hotel afloat.",
+        "motive": "Sterling backed out of a merger deal at the last minute, which would result in the immediate bank foreclosure of the hotel.",
+        "starting_suspicion": 0.25,
+        "alibi": "Claims she was reviewing accounts in the Library Room with Mickey Malone from 9:45 PM to 10:30 PM."
+      }
+    ],
+    "weapons": [
+      {
+        "id": "digitalis_poison",
+        "name": "Digitalis Poison",
+        "desc": "A small medical ampoule containing concentrated digitalis cardiac glycosides, lethal in high doses."
+      },
+      {
+        "id": "fire_axe",
+        "name": "Fire Axe",
+        "desc": "A heavy, red-painted rescue axe pulled from the Lobby's safety glass box."
+      },
+      {
+        "id": "strangle_cord",
+        "name": "Strangle Cord",
+        "desc": "A thick length of waxed cord used for bundling laundry sheets, capable of silent strangulation."
+      },
+      {
+        "id": "lead_pipe",
+        "name": "Lead Pipe",
+        "desc": "A solid, heavy plumbing lead pipe covered in rust and industrial grease."
+      },
+      {
+        "id": "kitchen_cleaver",
+        "name": "Kitchen Cleaver",
+        "desc": "A broad, razor-sharp steel cleaver used for cutting meats, stamped with Chef Charles' initials."
+      }
+    ],
+    "clues": [
+      {
+        "id": "syringe_case",
+        "name": "Syringe Case",
+        "desc": "A small velvet-lined case containing a medical syringe and trace residues of cardiac fluid, found hidden in Evelyn's room.",
+        "belongs_to": "Dr. Evelyn Vance",
+        "hidden_at": "Staff Quarters"
+      },
+      {
+        "id": "torn_will",
+        "name": "Torn Will Draft",
+        "desc": "A torn draft of Lord Sterling's will, showing he intended to leave Beatrice with nothing, found in a vanity desk.",
+        "belongs_to": "Lady Beatrice Vance",
+        "hidden_at": "Suite 404"
+      },
+      {
+        "id": "bloodied_towel",
+        "name": "Bloodied Towel",
+        "desc": "A damp hotel bath towel stained with blood and soot, stuffed deep inside a dirty linen laundry bin.",
+        "belongs_to": "Grace Harper",
+        "hidden_at": "Laundry Room"
+      },
+      {
+        "id": "boiler_key",
+        "name": "Boiler Key",
+        "desc": "A master boiler maintenance keycard belonging to the concierge, found hidden under a wine barrel rack.",
+        "belongs_to": "Julian Mercer",
+        "hidden_at": "Wine Cellar"
+      },
+      {
+        "id": "maintenance_manual",
+        "name": "Elevator Guide",
+        "desc": "An elevator schematic and maintenance manual detailing how to override door locks, found in the concierge desk.",
+        "belongs_to": "Julian Mercer",
+        "hidden_at": "Staff Quarters"
+      },
+      {
+        "id": "safe_schematics",
+        "name": "Safe Schematics",
+        "desc": "Wall safe schematics matching Sterling's private office safe, annotated with Mickey's hand-written notes, found in a ballroom sofa.",
+        "belongs_to": "Mickey Malone",
+        "hidden_at": "Grand Ballroom"
+      },
+      {
+        "id": "notepad_scrap",
+        "name": "Blackmail Note",
+        "desc": "A scrap of writing pad paper stating: 'Pay by midnight or the world knows about Beatrice's debts', found under a library book.",
+        "belongs_to": "Aiden Thorne",
+        "hidden_at": "Library Room"
+      },
+      {
+        "id": "broken_watch",
+        "name": "Broken Watch",
+        "desc": "A silver military pocket watch, smashed at exactly 10:15 PM, matching Sterling Jr.'s initials, found in the elevator grease.",
+        "belongs_to": "Sterling Vance Jr.",
+        "hidden_at": "Elevator Shaft"
+      },
+      {
+        "id": "butler_cufflink",
+        "name": "Silver Cufflink",
+        "desc": "A silver initialed monogram cufflink matching Arthur's butler uniform, found snagged on the ballroom curtain.",
+        "belongs_to": "Arthur Pendelton",
+        "hidden_at": "Grand Lobby"
+      },
+      {
+        "id": "pistol_sterling",
+        "name": "Military Pistol",
+        "desc": "A standard army-issue .45 automatic pistol, cold to the touch, hidden inside a hollow tree trunk in the garden.",
+        "belongs_to": "Sterling Vance Jr.",
+        "hidden_at": "Courtyard Garden"
+      }
+    ],
+    "contradictions": [
+      {
+        "id": "evelyn_beatrice_clash",
+        "description": "Beatrice claims Evelyn was with her from 10:00 PM to 10:45 PM, but Evelyn states she left Beatrice's bedroom at 10:30 PM."
+      },
+      {
+        "id": "mickey_grace_clash",
+        "description": "Mickey claims he played cards with Grace in the library until 10:30 PM, but Arthur saw Grace leaving for the laundry room at 10:10 PM."
+      },
+      {
+        "id": "julian_chef_clash",
+        "description": "Julian claims he was in the laundry room from 10:15 PM to 10:45 PM, but Charles mentions hearing Julian's voice arguing in the cellar at 10:20 PM."
+      },
+      {
+        "id": "aiden_val_clash",
+        "description": "Aiden claims he was in the observatory from 10:00 PM to 10:40 PM, but Val heard footsteps moving through the library corridor at 10:15 PM."
+      },
+      {
+        "id": "son_garden_clash",
+        "description": "Sterling Jr. claims he was in the garden from 10:10 PM to 10:40 PM, but Arthur saw snow tracks leading from the lobby to the elevator corridor at 10:15 PM."
+      },
+      {
+        "id": "butler_lobby_clash",
+        "description": "Arthur claims he remained in the lobby cleaning silver until 10:35 PM, but Grace notes Arthur was absent when she passed through the lobby at 10:25 PM."
+      }
+    ]
+  }
+]

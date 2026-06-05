@@ -399,3 +399,279 @@ export function getAchievements(userId: string = DEFAULT_USER_ID) {
   return apiFetch<{ unlocked: string[] }>(`/api/user/${userId}/games/achievements`);
 }
 
+
+// ── Personality Test APIs ──
+export function startPersonality(userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ session_id: string; total_questions: number; questions: any[] }>(`/api/user/${userId}/games/personality/start`, {
+    method: "POST"
+  });
+}
+
+export function answerPersonality(sessionId: string, questionId: number, choice: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ banter: string; finished: boolean; result: any }>(`/api/user/${userId}/games/personality/answer`, {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId, question_id: questionId, choice })
+  });
+}
+
+// ── Cooking APIs ──
+export function searchRecipes(query: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ results: any[] }>(`/api/user/${userId}/games/cook/search?query=${encodeURIComponent(query)}`);
+}
+
+export function startCooking(dishName: string = "", userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ session_id: string; dish_name: string; category: string; thumbnail: string; ingredients: string[]; steps: string[]; greeting: string }>(`/api/user/${userId}/games/cook/start`, {
+    method: "POST",
+    body: JSON.stringify({ dish_name: dishName })
+  });
+}
+
+export function stepCooking(userMessage: string, action: "next" | "disaster" | "skip", userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ banter: string; current_step: number; chaos_meter: number; finished: boolean }>(`/api/user/${userId}/games/cook/step`, {
+    method: "POST",
+    body: JSON.stringify({ user_message: userMessage, action })
+  });
+}
+
+export function getCookbook(userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ cookbook: any[] }>(`/api/user/${userId}/games/cookbook`);
+}
+
+// ── Spicy Chat APIs ──
+export function startSpicy(scenario: string, mood: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ session_id: string; greeting: string }>(`/api/user/${userId}/games/spicy/start`, {
+    method: "POST",
+    body: JSON.stringify({ scenario, mood })
+  });
+}
+
+export function chatSpicy(message: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ response: string }>(`/api/user/${userId}/games/spicy/chat`, {
+    method: "POST",
+    body: JSON.stringify({ message })
+  });
+}
+
+export function endSpicy(userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ secret_unlocked: boolean; secret: any }>(`/api/user/${userId}/games/spicy/end`, {
+    method: "POST"
+  });
+}
+
+export function getSecrets(userId: string = DEFAULT_USER_ID) {
+  return apiFetch<{ secrets: any[] }>(`/api/user/${userId}/games/secrets`);
+}
+
+// ── Yap Mode APIs ──
+export interface YapStartResponse {
+  session_id: string;
+  greeting: string;
+  facts: string[];
+}
+
+export interface YapChatResponse {
+  response: string;
+  turn_count: number;
+  finished: boolean;
+  achievement_unlocked: boolean;
+  facts?: string[];
+}
+
+export function startYap(topic: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<YapStartResponse>(`/api/user/${userId}/games/yap/start`, {
+    method: "POST",
+    body: JSON.stringify({ topic })
+  });
+}
+
+export function chatYap(message: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<YapChatResponse>(`/api/user/${userId}/games/yap/chat`, {
+    method: "POST",
+    body: JSON.stringify({ message })
+  });
+}
+
+// ── RPG Quest & Murder Mystery APIs ──
+
+export interface RpgScenario {
+  quest_id: string;
+  title: string;
+  difficulty?: string;
+  description: string;
+  starting_location: string;
+  max_turns: number;
+  locations: Array<{ id: string; name: string; desc: string }>;
+  suspects: Array<{ name: string; role: string; bio: string; starting_suspicion: number; alibi?: string }>;
+  weapons: Array<{ id: string; name: string; desc: string }>;
+  clues: Array<{ id: string; name: string; desc: string; hidden_at: string; belongs_to?: string }>;
+  contradictions?: Array<{ id: string; description: string }>;
+}
+
+export interface RpgStartResponse {
+  session_id: string;
+  title: string;
+  current_location: string;
+  narrator_text: string;
+  rem_dialogue: string;
+  suggested_choices: string[];
+  suspects: Array<{ name: string; role: string; bio: string; starting_suspicion: number; alibi?: string }>;
+  weapons: Array<{ id: string; name: string; desc: string }>;
+  clues: Array<{ id: string; name: string; desc: string; hidden_at: string; belongs_to?: string }>;
+  max_turns: number;
+  difficulty: string;
+  rem_consultations_left: number;
+  health?: number;
+}
+
+export interface RpgTurnResponse {
+  current_location: string;
+  narrator_text: string;
+  rem_dialogue: string;
+  suggested_choices: string[];
+  suspect_states: Record<string, { suspicion: number; interrogated: boolean; defensiveness: number; alibi?: string; last_statement?: string; current_location?: string }>;
+  inventory: string[];
+  clues_found: string[];
+  turn_count: number;
+  max_turns: number;
+  finished: boolean;
+  rem_consultations_left: number;
+  discovered_contradictions: string[];
+  active_effects: string[];
+  health?: number;
+}
+
+export interface RpgAccuseResponse {
+  success: boolean;
+  narrator_text: string;
+  rem_dialogue: string;
+  secret_culprit: string;
+  secret_weapon: string;
+}
+
+export function getRpgScenarios(userId: string = DEFAULT_USER_ID) {
+  return apiFetch<RpgScenario[]>(`/api/user/${userId}/games/rpg/scenarios`);
+}
+
+export function startRpgGame(scenarioId: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<RpgStartResponse>(`/api/user/${userId}/games/rpg/start`, {
+    method: "POST",
+    body: JSON.stringify({ scenario_id: scenarioId })
+  });
+}
+
+export function turnRpgGame(userAction: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<RpgTurnResponse>(`/api/user/${userId}/games/rpg/turn`, {
+    method: "POST",
+    body: JSON.stringify({ user_action: userAction })
+  });
+}
+
+export function accuseRpgGame(suspect: string, weapon: string, motive: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<RpgAccuseResponse>(`/api/user/${userId}/games/rpg/accuse`, {
+    method: "POST",
+    body: JSON.stringify({ suspect, weapon, motive })
+  });
+}
+
+
+// ── Courtroom Battle ("Law and Rem") Types ──
+
+export interface CourtScenario {
+  case_id: string;
+  title: string;
+  difficulty: string;
+  description: string;
+  client_name: string;
+  client_role: string;
+  client_bio: string;
+  prosecutor_name: string;
+  judge_name: string;
+}
+
+export interface CourtStartResponse {
+  session_id: string;
+  title: string;
+  difficulty: string;
+  client_name: string;
+  client_role: string;
+  client_bio: string;
+  prosecutor_name: string;
+  judge_name: string;
+  inventory: Array<{ id: string; name: string; desc: string }>;
+  witnesses: Array<{
+    id: string;
+    name: string;
+    role: string;
+    bio: string;
+    testimony: string[];
+  }>;
+  recess_locations: Array<{
+    id: string;
+    name: string;
+    desc: string;
+    clue: { id: string; name: string; desc: string } | null;
+  }>;
+  strikes_left: number;
+  jury_sentiment: number;
+  current_witness_idx: number;
+  recess_searched: string[];
+  rem_consults_left: number;
+  rem_chat_history: Array<{ role: string; content: string }>;
+  history: Array<{ role: string; speaker: string; content: string }>;
+  phase: "briefing" | "cross_examination" | "recess" | "closing" | "verdict";
+  finished: boolean;
+}
+
+export interface CourtVerdictResponse {
+  success: boolean;
+  verdict_text: string;
+  votes_not_guilty: number;
+  votes_guilty: number;
+  judge_decision: string;
+  rem_dialogue: string;
+}
+
+export function getCourtScenarios(userId: string = DEFAULT_USER_ID) {
+  return apiFetch<CourtScenario[]>(`/api/user/${userId}/games/court/scenarios`);
+}
+
+export function startCourtGame(caseId: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<CourtStartResponse>(`/api/user/${userId}/games/court/start`, {
+    method: "POST",
+    body: JSON.stringify({ case_id: caseId })
+  });
+}
+
+export function submitCourtAction(
+  actionType: "call_witness" | "press" | "present_evidence" | "text_question" | "consult_rem",
+  params: { statementIdx?: number; evidenceId?: string; question?: string },
+  userId: string = DEFAULT_USER_ID
+) {
+  return apiFetch<CourtStartResponse>(`/api/user/${userId}/games/court/action`, {
+    method: "POST",
+    body: JSON.stringify({
+      action_type: actionType,
+      statement_idx: params.statementIdx || 0,
+      evidence_id: params.evidenceId || "",
+      question: params.question || ""
+    })
+  });
+}
+
+export function searchRecessRoom(roomId: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<CourtStartResponse>(`/api/user/${userId}/games/court/recess`, {
+    method: "POST",
+    body: JSON.stringify({ room_id: roomId })
+  });
+}
+
+export function submitClosingArguments(closingArgument: string, userId: string = DEFAULT_USER_ID) {
+  return apiFetch<CourtVerdictResponse>(`/api/user/${userId}/games/court/verdict`, {
+    method: "POST",
+    body: JSON.stringify({ closing_argument: closingArgument })
+  });
+}
+
+
+
+

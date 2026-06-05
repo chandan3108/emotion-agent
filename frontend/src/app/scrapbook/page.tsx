@@ -1,22 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPostcards, getAchievements, type PostcardEntry } from "@/lib/gameApi";
+import { getPostcards, getAchievements, getCookbook, type PostcardEntry } from "@/lib/gameApi";
 
 export default function ScrapbookPage() {
   const [postcards, setPostcards] = useState<PostcardEntry[]>([]);
   const [unlocked, setUnlocked] = useState<string[]>([]);
+  const [cookbook, setCookbook] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
+  const [activeSubTab, setActiveSubTab] = useState<"dates" | "cookbook">("dates");
 
   useEffect(() => {
-    Promise.all([getPostcards(), getAchievements()])
-      .then(([pcRes, achRes]) => {
+    // Parse query parameter for initial tab
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "cookbook") {
+        setActiveSubTab("cookbook");
+      }
+    }
+
+    Promise.all([
+      getPostcards(),
+      getAchievements(),
+      getCookbook().catch(() => ({ cookbook: [] }))
+    ])
+      .then(([pcRes, achRes, cbRes]) => {
         if (pcRes && pcRes.postcards) {
           setPostcards(pcRes.postcards);
         }
         if (achRes && achRes.unlocked) {
           setUnlocked(achRes.unlocked);
+        }
+        if (cbRes && cbRes.cookbook) {
+          setCookbook(cbRes.cookbook);
         }
       })
       .catch((err) => {
@@ -139,20 +157,34 @@ export default function ScrapbookPage() {
   }
 
   return (
-    <div className="scrapbook-page page-container" style={{ padding: "40px 36px" }}>
+    <div className="scrapbook-page page-container" style={{ padding: "40px 36px", maxWidth: 1240, margin: "0 auto" }}>
       <style dangerouslySetInnerHTML={{ __html: `
+        .scrapbook-layout {
+          display: flex;
+          gap: 40px;
+          margin-top: 10px;
+        }
+        @media (max-width: 900px) {
+          .scrapbook-layout {
+            flex-direction: column;
+          }
+          .scrapbook-side-panel {
+            width: 100% !important;
+            position: static !important;
+          }
+        }
         .scrapbook-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 40px;
-          padding: 20px 0;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 32px;
+          padding: 10px 0;
           justify-items: center;
         }
 
         .postcard-container {
           perspective: 1000px;
-          width: 260px;
-          height: 320px;
+          width: 250px;
+          height: 310px;
           cursor: pointer;
         }
 
@@ -309,109 +341,321 @@ export default function ScrapbookPage() {
           </h1>
         </div>
         <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
-          Keepsake postcards Rem collected from your dates together. Click a postcard to read her handwritten note on the back.
+          Keepsake postcards and culinary logs Rem collected from your dates and cooking sessions together.
         </p>
       </div>
 
-      {/* Achievements Section */}
-      <div className="fade-in-up" style={{
-        margin: "0 auto 36px auto",
-        maxWidth: 700,
-        background: "rgba(255, 255, 255, 0.02)",
-        borderRadius: "var(--radius-md)",
-        padding: "16px 20px",
-        border: "1px solid var(--border-subtle)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10
-      }}>
-        <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>
-          🏆 Challenge Medals
-        </div>
-        <div style={{ display: "flex", gap: 12, justifyContent: "space-between" }}>
-          {[
-            { id: "debate_champion", title: "Debate Champion", icon: "👑", desc: "Won a Debate Battle" },
-            { id: "win_over_promise", title: "Trust Rebuilder", icon: "🤝", desc: "Won 'Broken Promise'" },
-            { id: "win_over_ghost", title: "Anger Tamer", icon: "🔥", desc: "Won 'Silent Treatment'" },
-            { id: "win_over_stranger", title: "Heart Melter", icon: "❄️", desc: "Won 'Cold Stranger'" }
-          ].map(ach => {
-            const hasMedal = unlocked.includes(ach.id);
-            return (
-              <div key={ach.id} style={{
-                flex: 1,
+      <div className="scrapbook-layout">
+        {/* Left Side Panel */}
+        <div className="scrapbook-side-panel glass-panel" style={{
+          width: 280,
+          flexShrink: 0,
+          padding: 24,
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+          height: "fit-content",
+          position: "sticky",
+          top: 40,
+          border: "1px solid var(--border-subtle)",
+        }}>
+          <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+            Scrapbook Navigation
+          </div>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button
+              onClick={() => setActiveSubTab("dates")}
+              style={{
+                width: "100%",
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                background: hasMedal ? "rgba(16, 185, 129, 0.05)" : "rgba(255,255,255,0.01)",
-                borderRadius: "var(--radius-md)",
-                border: hasMedal ? "1px solid rgba(16, 185, 129, 0.2)" : "1px solid var(--border-subtle)",
-                opacity: hasMedal ? 1 : 0.35,
-                fontSize: "0.75rem",
-              }}>
-                <span style={{ fontSize: "1.125rem" }}>{hasMedal ? ach.icon : "🔒"}</span>
-                <div>
-                  <div style={{ fontWeight: 600, color: hasMedal ? "var(--text-primary)" : "var(--text-muted)" }}>{ach.title}</div>
-                  <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", marginTop: 1 }}>{hasMedal ? "Unlocked" : "Locked"}</div>
+                gap: 12,
+                padding: "12px 16px",
+                borderRadius: 8,
+                border: "1px solid " + (activeSubTab === "dates" ? "var(--accent-primary)" : "var(--border-subtle)"),
+                background: activeSubTab === "dates" ? "rgba(151,117,250,0.08)" : "transparent",
+                color: activeSubTab === "dates" ? "var(--text-primary)" : "var(--text-muted)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                textAlign: "left"
+              }}
+            >
+              <span style={{ fontSize: "1.25rem" }}>📸</span>
+              <div style={{ flex: 1 }}>
+                <div>Date Keepsakes</div>
+                <div style={{ fontSize: "0.6875rem", fontWeight: 400, color: "var(--text-muted)", marginTop: 2 }}>
+                  {postcards.length} postcards
                 </div>
               </div>
-            );
-          })}
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab("cookbook")}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 16px",
+                borderRadius: 8,
+                border: "1px solid " + (activeSubTab === "cookbook" ? "var(--accent-primary)" : "var(--border-subtle)"),
+                background: activeSubTab === "cookbook" ? "rgba(151,117,250,0.08)" : "transparent",
+                color: activeSubTab === "cookbook" ? "var(--text-primary)" : "var(--text-muted)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                textAlign: "left"
+              }}
+            >
+              <span style={{ fontSize: "1.25rem" }}>🍳</span>
+              <div style={{ flex: 1 }}>
+                <div>Rem&apos;s Cookbook</div>
+                <div style={{ fontSize: "0.6875rem", fontWeight: 400, color: "var(--text-muted)", marginTop: 2 }}>
+                  {cookbook.length} recipes
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 16, fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
+            <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Rem&apos;s thoughts:</span>
+            <p style={{ fontStyle: "italic", marginTop: 4 }}>
+              {activeSubTab === "dates" 
+                ? "these postcards are memories from when we actually went somewhere. don't lose them." 
+                : "the recipes we made. some of them are actual food, others are just... disasters."}
+            </p>
+          </div>
+        </div>
+
+        {/* Right Content Area */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {activeSubTab === "dates" ? (
+            <>
+              {/* Achievements Section */}
+              <div className="fade-in-up" style={{
+                marginBottom: 28,
+                background: "rgba(255, 255, 255, 0.02)",
+                borderRadius: "var(--radius-md)",
+                padding: "16px 20px",
+                border: "1px solid var(--border-subtle)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10
+              }}>
+                <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                  🏆 Challenge Medals
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {[
+                    { id: "debate_champion", title: "Debate Champion", icon: "👑", desc: "Won a Debate Battle" },
+                    { id: "win_over_promise", title: "Trust Rebuilder", icon: "🤝", desc: "Won 'Broken Promise'" },
+                    { id: "win_over_ghost", title: "Anger Tamer", icon: "🔥", desc: "Won 'Silent Treatment'" },
+                    { id: "win_over_stranger", title: "Heart Melter", icon: "❄️", desc: "Won 'Cold Stranger'" }
+                  ].map(ach => {
+                    const hasMedal = unlocked.includes(ach.id);
+                    return (
+                      <div key={ach.id} style={{
+                        flex: "1 1 150px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 12px",
+                        background: hasMedal ? "rgba(16, 185, 129, 0.05)" : "rgba(255,255,255,0.01)",
+                        borderRadius: "var(--radius-md)",
+                        border: hasMedal ? "1px solid rgba(16, 185, 129, 0.2)" : "1px solid var(--border-subtle)",
+                        opacity: hasMedal ? 1 : 0.35,
+                        fontSize: "0.75rem",
+                      }}>
+                        <span style={{ fontSize: "1.125rem" }}>{hasMedal ? ach.icon : "🔒"}</span>
+                        <div>
+                          <div style={{ fontWeight: 600, color: hasMedal ? "var(--text-primary)" : "var(--text-muted)" }}>{ach.title}</div>
+                          <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", marginTop: 1 }}>{hasMedal ? "Unlocked" : "Locked"}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {postcards.length === 0 ? (
+                <div className="fade-in-up" style={{ textAlign: "center", padding: "80px 20px" }}>
+                  <div style={{ fontSize: "3rem", marginBottom: 16, opacity: 0.3 }}>📸</div>
+                  <h3 style={{ fontSize: "1.125rem", color: "var(--text-primary)", marginBottom: 8 }}>Scrapbook is Empty</h3>
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", maxWidth: 320, margin: "0 auto", lineHeight: 1.5 }}>
+                    Go on dates with Rem using Date Mode! When a date finishes, she will clip a postcard keepsake here.
+                  </p>
+                </div>
+              ) : (
+                <div className="scrapbook-grid">
+                  {postcards.map((pc, idx) => {
+                    const isFlipped = !!flippedCards[pc.id];
+                    return (
+                      <div
+                        key={pc.id}
+                        className={`postcard-container fade-in-up stagger-${Math.min(idx + 1, 6)} ${isFlipped ? "flipped" : ""}`}
+                        onClick={() => toggleFlip(pc.id)}
+                      >
+                        <div className="postcard-inner">
+                          {/* FRONT */}
+                          <div className="postcard-front">
+                            <div className="polaroid-img-area">
+                              {renderLocationSVG(pc.location)}
+                            </div>
+                            <div className="polaroid-label">
+                              <span className="polaroid-title">{pc.activity}</span>
+                              <span className="polaroid-location">{pc.location}</span>
+                            </div>
+                          </div>
+
+                          {/* BACK */}
+                          <div className="postcard-back">
+                            <div className="postcard-tag">POST CARD</div>
+                            <div className="postcard-stamp">📮</div>
+                            <div className="postcard-divider" />
+                            <div className="postcard-message-area">
+                              <p>&ldquo;{pc.note}&rdquo;</p>
+                            </div>
+                            <div className="postcard-date">
+                              {new Date(pc.timestamp).toLocaleDateString("en-IN", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric"
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            cookbook.length === 0 ? (
+              <div className="fade-in-up" style={{ textAlign: "center", padding: "80px 20px" }}>
+                <div style={{ fontSize: "3rem", marginBottom: 16, opacity: 0.3 }}>🍳</div>
+                <h3 style={{ fontSize: "1.125rem", color: "var(--text-primary)", marginBottom: 8 }}>Cookbook is Empty</h3>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", maxWidth: 320, margin: "0 auto", lineHeight: 1.5 }}>
+                  You haven&apos;t cooked anything with Rem yet! Launch the **Cooking with Rem** mini-game to cook dishes together.
+                </p>
+              </div>
+            ) : (
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: 28,
+                width: "100%",
+                padding: "10px 0"
+              }}>
+                {cookbook.map((entry, idx) => (
+                  <div
+                    key={entry.id || idx}
+                    className="fade-in-up"
+                    style={{
+                      background: "rgba(255, 255, 255, 0.02)",
+                      borderRadius: 12,
+                      border: "1px solid var(--border-subtle)",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                    }}
+                  >
+                    {/* Thumbnail / Header block */}
+                    <div style={{
+                      height: 140,
+                      background: entry.thumbnail ? `url(${entry.thumbnail}) center/cover no-repeat` : "linear-gradient(135deg, rgba(151,117,250,0.1), rgba(232,121,249,0.05))",
+                      position: "relative",
+                      display: "flex",
+                      alignItems: "flex-end",
+                      padding: 16
+                    }}>
+                      {/* Backdrop tint for title readability */}
+                      <div style={{
+                        position: "absolute",
+                        inset: 0,
+                        background: "linear-gradient(to top, rgba(8,8,15,0.9) 0%, rgba(8,8,15,0.2) 100%)",
+                      }} />
+                      
+                      <div style={{ position: "relative", zIndex: 1 }}>
+                        <span style={{
+                          fontSize: "0.5625rem", color: "var(--accent-secondary)",
+                          textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.05em"
+                        }}>
+                          Meal cooked
+                        </span>
+                        <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>
+                          {entry.dish}
+                        </h3>
+                      </div>
+
+                      {/* Status Badge */}
+                      <span style={{
+                        position: "absolute", top: 12, right: 12,
+                        fontSize: "0.625rem", fontWeight: 600, padding: "2px 8px", borderRadius: 4,
+                        background: entry.status === "success" ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                        border: "1px solid " + (entry.status === "success" ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"),
+                        color: entry.status === "success" ? "#34d399" : "#f87171",
+                        textTransform: "uppercase"
+                      }}>
+                        {entry.status === "success" ? "Success" : "Disaster"}
+                      </span>
+                    </div>
+
+                    {/* Info block */}
+                    <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
+                      {/* Chaos levels */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.6875rem", color: "var(--text-muted)" }}>
+                          <span>Chaos Level:</span>
+                          <span style={{ color: entry.chaos_level > 0.5 ? "var(--text-error)" : "var(--text-primary)" }}>
+                            {Math.round(entry.chaos_level * 100)}%
+                          </span>
+                        </div>
+                        <div style={{ width: "100%", height: 3, background: "rgba(255,255,255,0.03)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ 
+                            width: `${entry.chaos_level * 100}%`, height: "100%", 
+                            background: entry.chaos_level > 0.5 ? "linear-gradient(to right, #ff8787, #ff6b6b)" : "linear-gradient(to right, #69db7c, #37b24d)",
+                            borderRadius: 2 
+                          }} />
+                        </div>
+                      </div>
+
+                      {/* Sous Chef Review */}
+                      <div style={{
+                        padding: "12px 14px", borderRadius: 8,
+                        background: "rgba(255,255,255,0.01)",
+                        border: "1px solid var(--border-subtle)",
+                        fontSize: "0.8125rem", color: "var(--text-secondary)",
+                        fontStyle: "italic", fontFamily: "var(--font-caveat), 'Caveat', cursive",
+                        lineHeight: 1.4
+                      }}>
+                        &ldquo;{entry.sous_chef_comment}&rdquo;
+                      </div>
+
+                      {/* Bottom row */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", fontSize: "0.625rem", color: "var(--text-muted)" }}>
+                        <span>Cooked on:</span>
+                        <span>
+                          {new Date(entry.date).toLocaleDateString("en-IN", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric"
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
         </div>
       </div>
-
-      {postcards.length === 0 ? (
-        <div className="fade-in-up" style={{ textAlign: "center", padding: "80px 20px" }}>
-          <div style={{ fontSize: "3rem", marginBottom: 16, opacity: 0.3 }}>📸</div>
-          <h3 style={{ fontSize: "1.125rem", color: "var(--text-primary)", marginBottom: 8 }}>Scrapbook is Empty</h3>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", maxWidth: 320, margin: "0 auto", lineHeight: 1.5 }}>
-            Go on dates with Rem using Date Mode! When a date finishes, she will clip a postcard keepsake here.
-          </p>
-        </div>
-      ) : (
-        <div className="scrapbook-grid">
-          {postcards.map((pc, idx) => {
-            const isFlipped = !!flippedCards[pc.id];
-            return (
-              <div
-                key={pc.id}
-                className={`postcard-container fade-in-up stagger-${Math.min(idx + 1, 6)} ${isFlipped ? "flipped" : ""}`}
-                onClick={() => toggleFlip(pc.id)}
-              >
-                <div className="postcard-inner">
-                  {/* FRONT */}
-                  <div className="postcard-front">
-                    <div className="polaroid-img-area">
-                      {renderLocationSVG(pc.location)}
-                    </div>
-                    <div className="polaroid-label">
-                      <span className="polaroid-title">{pc.activity}</span>
-                      <span className="polaroid-location">{pc.location}</span>
-                    </div>
-                  </div>
-
-                  {/* BACK */}
-                  <div className="postcard-back">
-                    <div className="postcard-tag">POST CARD</div>
-                    <div className="postcard-stamp">📮</div>
-                    <div className="postcard-divider" />
-                    <div className="postcard-message-area">
-                      <p>&ldquo;{pc.note}&rdquo;</p>
-                    </div>
-                    <div className="postcard-date">
-                      {new Date(pc.timestamp).toLocaleDateString("en-IN", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric"
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

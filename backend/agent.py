@@ -21,6 +21,18 @@ INFERENCE_URL = "https://api.groq.com/openai/v1/chat/completions"
 router = APIRouter()
 
 
+def _clean_think_tags(text: str) -> str:
+    """Remove <think>...</think> and <vthink>...</vthink> tags robustly."""
+    if not text:
+        return ""
+    import re
+    text = re.sub(r'<(v?think)>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<(v?think)>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'</(v?think)>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'^(?:think(?:ing)?)\s*[-—:]\s*', '', text, flags=re.IGNORECASE)
+    return text.strip()
+
+
 class AgentMessage(BaseModel):
     role: str
     content: str
@@ -165,7 +177,7 @@ async def agent_respond(payload: AgentRequest) -> AgentResponse:
     except Exception:
         text = str(data)
 
-    return AgentResponse(reply=text.strip())
+    return AgentResponse(reply=_clean_think_tags(text.strip()))
 
 
 # ========== Enhanced Agent with Cognitive Core ==========
@@ -274,7 +286,7 @@ async def agent_respond_v2(payload: AgentRequest, user_id: str = "default") -> A
         except Exception:
             pass  # Non-critical, continue
         
-        return AgentResponse(reply=response_text)
+        return AgentResponse(reply=_clean_think_tags(response_text))
     
     # Build system message with cognitive context
     system_msg = (
@@ -575,7 +587,7 @@ async def agent_respond_v2(payload: AgentRequest, user_id: str = "default") -> A
     except Exception:
         pass  # Non-critical, continue
     
-    return AgentResponse(reply=response_text)
+    return AgentResponse(reply=_clean_think_tags(response_text))
 
 
 @router.get("/agent/state/{user_id}")

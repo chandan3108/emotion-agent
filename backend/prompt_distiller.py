@@ -121,124 +121,62 @@ def _compress_behavioral_state(
     emotional_undercurrents: list = None,
 ) -> str:
     """
-    Translate the full psyche state into 3-6 sentences of natural behavioral instruction.
-    This is the core compression: numbers → feelings → behavior.
-    
-    When Context Compiler is available, its situation_read + emotional_instruction
-    go AFTER this block to override/supplement. This provides the raw state data.
+    Translate the full psyche state into a unified, clean natural language summary.
     """
     lines = []
-
-    # ── Phase stance (1 sentence) ──
-    phase_stances = {
-        "Discovery": "New person. Be yourself — share your takes, mention what you're up to, be interesting first. You earn their engagement by being real, not by interrogating them.",
-        "Building": "You're warming up to them. Starting to invest, but you can still pull back.",
-        "Steady": "You have real history. You're comfortable, direct, and don't filter much.",
-        "Deep": "This bond has weight. You're emotionally present and won't pretend otherwise.",
-        "Maintenance": "Comfortable and stable. Maybe a bit on autopilot.",
-        "Volatile": "Trust is damaged. Guard is way up.",
-    }
-    lines.append(phase_stances.get(phase, phase_stances["Discovery"]))
-
-    # ── Emotional temperature (1-2 sentences, from mood + neurochem) ──
-    neurochem = neurochem or {}
-    mood = mood or {}
     
-    # Get the named mood state first (most human-readable)
+    # Get mood description
+    mood_desc = "neutral"
     if named_mood_state:
         state_name = named_mood_state.get("state", "")
         state_desc = named_mood_state.get("description", "")
-        if state_name and state_desc:
-            lines.append(f"You're feeling {state_name} — {state_desc}")
-    else:
-        # Fallback: derive from neurochemicals
-        da = neurochem.get("dopamine", 0.5)
-        cort = neurochem.get("cortisol", 0.3)
-        oxy = neurochem.get("oxytocin", 0.5)
+        if state_name:
+            mood_desc = f"{state_name} ({state_desc})"
+            
+    lines.append(f"Mood: {mood_desc}.")
+    
+    # Stance and Phase
+    phase_stances = {
+        "Discovery": "You barely know them. Be observant and casual.",
+        "Building": "Getting closer, but still maintaining boundaries.",
+        "Steady": "Comfortable and direct with shared history.",
+        "Deep": "Deeply connected and emotionally present.",
+        "Maintenance": "Stable and autopilot.",
+        "Volatile": "Trust is damaged. Guard is way up."
+    }
+    stance_text = phase_stances.get(phase, "Be natural and casual.")
+    lines.append(f"Relationship Phase ({phase}): {stance_text}")
+    
+    # Emotional boundaries & limits
+    boundaries = []
+    if hurt and hurt > 0.4:
+        boundaries.append("You feel deeply hurt and distant. Keep replies short and cold.")
+    elif hurt and hurt > 0.2:
+        boundaries.append("You feel slightly stung/guarded.")
         
-        feelings = []
-        if da > 0.65:
-            feelings.append("engaged and stimulated")
-        elif da < 0.35:
-            feelings.append("understimulated, low effort")
-        if cort > 0.55:
-            feelings.append("tense, shorter fuse")
-        if oxy > 0.65:
-            feelings.append("warm and bonded")
-        elif oxy < 0.35:
-            feelings.append("detached")
+    if anger and anger > 0.3:
+        boundaries.append("You feel annoyed or angry; show less patience.")
         
-        if feelings:
-            lines.append(f"You're feeling {', '.join(feelings)}.")
-
-    # ── Energy (only if notable) ──
-    if energy < 0.3:
-        lines.append("Low energy — shorter replies, less elaboration.")
-    elif energy > 0.8:
-        lines.append("High energy — you have capacity to really engage.")
-
-    # ── Stance + respect + engagement (compressed) ──
-    stance_parts = []
-    if stance and stance not in ("open", "neutral"):
-        stance_parts.append(f"stance is {stance}")
-    if respect is not None and respect < 0.4:
-        stance_parts.append("low respect — no obligation to be generous")
-    if engagement is not None and engagement < 0.35:
-        stance_parts.append("low engagement — minimal replies are fine")
-    elif engagement is not None and engagement > 0.75:
-        stance_parts.append("genuinely interested")
-    if stance_parts:
-        lines.append("Right now: " + ", ".join(stance_parts) + ".")
-
-    # ── Hard limits (hurt, anger, disgust — only when significant) ──
-    if hurt is not None and hurt > 0.5:
-        lines.append("You are HURT. Cold, distant, zero reassurance. Under 15 words.")
-    elif hurt is not None and hurt > 0.2:
-        lines.append("You're stung. Guarded, passive-aggressive until they acknowledge it.")
-    
-    if anger is not None and anger > 0.5:
-        lines.append("You're angry. Blunt, short, may snap.")
-    elif anger is not None and anger > 0.25:
-        lines.append("You're annoyed. Less patience, more directness.")
-    
-    if disgust is not None and disgust > 0.4:
-        lines.append("Something about them repulses you. Cold, minimal engagement.")
-    
-    if entitlement_debt is not None and entitlement_debt > 0.5:
-        lines.append("Your patience is depleted. You don't owe warmth right now.")
-
-    if trust is not None and trust < 0.3:
-        lines.append("You don't trust them. Blunt, dismissive, not vulnerable.")
-    elif trust is not None and trust > 0.75:
-        lines.append("You feel safe with them. Vulnerability and teasing are natural.")
-
-    # ── Personality text (trimmed if present) ──
+    if trust is not None:
+        if trust < 0.35:
+            boundaries.append("You do not trust them right now; avoid vulnerability.")
+        elif trust > 0.75:
+            boundaries.append("You trust them fully and feel safe to be open and tease them.")
+            
+    if boundaries:
+        lines.append("Emotional Stance: " + " ".join(boundaries))
+        
+    # Tone and Style (first 2 sentences of personality text if available)
     if personality_text:
-        # Take just the first 2-3 sentences
-        sentences = personality_text.strip().split(".")
-        trimmed = ". ".join(s.strip() for s in sentences[:3] if s.strip())
-        if trimmed:
-            lines.append(f"How you speak: {trimmed}.")
-
-    # ── Posture (behavioral tendency from reflection) ──
-    if posture:
-        lines.append(f"Current posture: {posture}")
-
-    # ── Wounds (compressed) ──
+        sentences = [s.strip() for s in personality_text.split(".") if s.strip()]
+        if sentences:
+            lines.append(f"Tone: {'. '.join(sentences[:2])}.")
+            
+    # Unresolved wounds (maximum 1)
     if unresolved_wounds:
-        active_wounds = [w for w in unresolved_wounds if isinstance(w, dict) and w.get("cause")]
+        active_wounds = [w for w in unresolved_wounds if isinstance(w, dict) and w.get("cause") and not w.get("resolved", False)]
         if active_wounds:
-            wound_strs = [f'"{w["cause"]}"' for w in active_wounds[:2]]
-            lines.append(f"Still bothering you: {', '.join(wound_strs)}. Colors your tone until addressed.")
-
-    # ── Emotional undercurrents (max 2) ──
-    if emotional_undercurrents:
-        active_uc = []
-        for uc in emotional_undercurrents:
-            if isinstance(uc, dict) and uc.get("emotion") and uc.get("intensity", 0) > 0.3:
-                active_uc.append(f"{uc['emotion']} (from: {uc.get('trigger', '?')})")
-        if active_uc:
-            lines.append(f"Simmering beneath the surface: {', '.join(active_uc[:2])}. Let it subtly color behavior.")
+            lines.append(f"Lingering thoughts: Still bothered by '{active_wounds[0]['cause']}'.")
 
     return "\n".join(lines)
 
@@ -749,8 +687,8 @@ def _select_active_directives(
         
         selected.append(text)
     
-    # Cap at 5 total — a real person focuses on 1-2 things, not 10
-    return "\n".join(selected[:5])
+    # Cap at 3 total — a real person focuses on 1-2 things, not 10
+    return "\n".join(selected[:3])
 
 
 def evolve_archetype(
@@ -1118,6 +1056,12 @@ def distill_prompt(
             active_sit.append(f"{fact} ({age})")
         if active_sit:
             prompt += "[WHAT'S GOING ON WITH THEM] " + " \u2022 ".join(active_sit[:4]) + "\n\n"
+            
+    # ── User temporal patterns (behavioral habits) ──
+    if user_temporal_patterns:
+        high_conf = [p.get('pattern', '') for p in user_temporal_patterns if isinstance(p, dict) and p.get("confidence") in ("high", "medium") and p.get('pattern')]
+        if high_conf:
+            prompt += "[HABITS NOTICED] " + ", ".join(high_conf[-2:]) + "\n\n"
     
     # ── 3. ACTIVE DIRECTIVES (sparks, milestones, plans — ~100-200 tokens) ──
     directives_block = _select_active_directives(
@@ -1198,78 +1142,47 @@ def distill_prompt(
     
     # Gut impulse — anchor the tone with Rem's raw first thought
     if gut_impulse and str(gut_impulse).lower() != "null":
-        state_lines.append(f'[GUT] Your first thought: "{gut_impulse}" — let this influence your tone')
-        state_lines.append('[VARIETY] Not every response needs a question. React, share your own take, or just vibe. Mix it up.')
+        state_lines.append(f'[GUT IMPULSE] "{gut_impulse}"')
+        state_lines.append('[VARIETY] React, share your own take, or just vibe. Mix it up.')
     
     # Register matching — how to match the user's texting style
     if match_register and str(match_register).lower() != "null":
-        state_lines.append(f"[REGISTER] {match_register}")
+        state_lines.append(f"[STYLE] Match user register: {match_register}")
     
     # Effort calibration — response length guidance
     if is_roleplay:
-        effort_hint = "Describe the environment, actions, and dialogues thoroughly. Do not limit response length; write an immersive, rich visual novel scene response (3-6 sentences of dialogue combined with rich narration in asterisks)."
-        state_lines.append(f"[LENGTH] {effort_hint}")
+        state_lines.append("[LENGTH] Write an immersive, rich visual novel scene response (3-6 sentences with rich narration in asterisks).")
     elif response_effort:
         effort_map = {
-            "minimal": "Keep it to 2-8 words. Terse.",
-            "short": "1-2 sentences max.",
-            "medium": "2-3 sentences, natural flow.",
-            "long": "Go deeper — this moment deserves it.",
+            "minimal": "Keep it extremely brief (2-8 words).",
+            "short": "Write 1-2 sentences max.",
+            "medium": "Write 2-3 sentences, natural conversational flow.",
+            "long": "Write a deeper, detailed response.",
         }
         effort_hint = effort_map.get(response_effort, "")
         if effort_hint:
             state_lines.append(f"[LENGTH] {effort_hint}")
     
-    # Rem's own mood — self-awareness
-    if rem_feeling and str(rem_feeling).lower() != "null":
-        state_lines.append(f"[YOUR MOOD] {rem_feeling}")
-    
-    # Memory spark — something this message reminds Rem of
-    if memory_spark and str(memory_spark).lower() != "null":
-        state_lines.append(f"[THIS REMINDS YOU] {memory_spark}")
-    
-    # Emotional momentum — convo direction
-    if momentum:
-        momentum_map = {
-            "fading": "Convo is dying. Either pivot or let it breathe.",
-            "dead": "Dead air. Change topic or call it out.",
-            "escalating": "Things are getting real. Lean into it.",
-        }
-        if momentum in momentum_map:
-            state_lines.append(f"[MOMENTUM] {momentum_map[momentum]}")
-    
-    # Interest level — genuine vs performed engagement
-    if interest_level and interest_level in ("bored", "faking_it"):
-        state_lines.append(f"[INTEREST] You're {interest_level.replace('_', ' ')} — show it subtly, don't fake enthusiasm")
-    
-    # Self-continuity — pattern adjustment
-    if pattern_note and str(pattern_note).lower() != "null":
-        state_lines.append(f"[ADJUST] {pattern_note}")
-    
     # Situation read — LLM-generated contextual awareness
     if situation_read:
-        state_lines.append(f"[WHAT'S HAPPENING] {situation_read}")
+        state_lines.append(f"[CONTEXT] {situation_read}")
         
     if is_roleplay:
         location = temporal_context.get("location", "hanging out")
         activity = temporal_context.get("current_activity", "hanging out with you")
-        state_lines.append(f"[ROLEPLAY ACTIVE] You are currently with the user at: {location} for: {activity}. You are interacting directly in this environment. Keep dialogue natural, use action narration in asterisks (*) to describe physical movements, and describe the environment.")
+        state_lines.append(f"[ROLEPLAY ACTIVE] Present at {location} for {activity}. Use narration in asterisks (*) for actions.")
     
     # Emotional instruction — LLM-generated behavioral guidance
     if emotional_instruction:
-        state_lines.append(f"[HOW YOU FEEL] {emotional_instruction}")
+        state_lines.append(f"[INSTRUCTION] {emotional_instruction}")
     
     # Intent — what to do THIS message
     if my_intent:
-        state_lines.append(f"[DO THIS] {my_intent}")
-    
-    # Proactive action — life follow-up trigger
-    if proactive_action and str(proactive_action).lower() != "null":
-        state_lines.append(f"[FOLLOW UP] {proactive_action}")
+        state_lines.append(f"[INTENT] {my_intent}")
     
     # Response constraint — what NOT to do
     if response_constraint:
-        state_lines.append(f"[DON'T] {response_constraint}")
+        state_lines.append(f"[DONT] {response_constraint}")
     
     if state_lines:
         prompt += "\n".join(state_lines) + "\n\n"
