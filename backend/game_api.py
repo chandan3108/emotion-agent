@@ -13,7 +13,8 @@ same dedup, same behavioral tracking, same milestone detection.
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from .auth import get_current_user_id
 from pydantic import BaseModel
 
 from .cognitive_core import CognitiveCore
@@ -427,8 +428,8 @@ def _get_core(user_id: str) -> CognitiveCore:
 #  EXISTING ENDPOINTS (XP, Diary, Timeline, Stats, etc.)
 # ═════════════════════════════════════════════════════
 
-@router.get("/{user_id}/xp", response_model=XPResponse)
-async def get_xp(user_id: str):
+@router.get("/xp", response_model=XPResponse)
+async def get_xp(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     summary = core.xp_system.get_xp_summary()
     unlocks = core.xp_system.get_phase_unlocks()
@@ -446,8 +447,8 @@ async def get_xp(user_id: str):
     )
 
 
-@router.get("/{user_id}/diary", response_model=DiaryResponse)
-async def get_diary(user_id: str):
+@router.get("/diary", response_model=DiaryResponse)
+async def get_diary(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     phase = core.relationship_phases.current_phase
     entries = []
@@ -481,8 +482,8 @@ async def get_diary(user_id: str):
     return DiaryResponse(entries=entries, total_entries=len(entries), access_level=phase)
 
 
-@router.get("/{user_id}/postcards", response_model=PostcardsResponse)
-async def get_postcards(user_id: str):
+@router.get("/postcards", response_model=PostcardsResponse)
+async def get_postcards(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     postcards_data = core.state.get("_postcards", [])
     postcards = []
@@ -499,8 +500,8 @@ async def get_postcards(user_id: str):
     return PostcardsResponse(postcards=postcards, total_postcards=len(postcards))
 
 
-@router.get("/{user_id}/timeline", response_model=TimelineResponse)
-async def get_timeline(user_id: str):
+@router.get("/timeline", response_model=TimelineResponse)
+async def get_timeline(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     phase = core.relationship_phases.current_phase
     events = []
@@ -603,8 +604,8 @@ def _get_merged_behavioral_observations(core):
     return combined_obs
 
 
-@router.get("/{user_id}/stats", response_model=StatsResponse)
-async def get_stats(user_id: str):
+@router.get("/stats", response_model=StatsResponse)
+async def get_stats(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     xp = core.xp_system
     patterns = core.state.get("_user_patterns", {})
@@ -635,8 +636,8 @@ async def get_stats(user_id: str):
     )
 
 
-@router.get("/{user_id}/inside-jokes", response_model=InsideJokesResponse)
-async def get_inside_jokes(user_id: str):
+@router.get("/inside-jokes", response_model=InsideJokesResponse)
+async def get_inside_jokes(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     combined = _get_merged_inside_jokes(core)
     jokes = [
@@ -649,8 +650,8 @@ async def get_inside_jokes(user_id: str):
     return InsideJokesResponse(jokes=jokes, phase_required="Deepening")
 
 
-@router.get("/{user_id}/patterns", response_model=PatternsResponse)
-async def get_patterns(user_id: str):
+@router.get("/patterns", response_model=PatternsResponse)
+async def get_patterns(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     combined = _get_merged_behavioral_observations(core)
     items = [
@@ -668,8 +669,8 @@ async def get_patterns(user_id: str):
 #  CHAT — FULL COGNITIVE PIPELINE (same as Discord)
 # ═════════════════════════════════════════════════════
 
-@router.post("/{user_id}/chat", response_model=ChatResponse)
-async def chat(user_id: str, payload: ChatRequest):
+@router.post("/chat", response_model=ChatResponse)
+async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)):
     """
     Send a message through the FULL cognitive pipeline.
     Uses generate_response() from discord_bot.py — the EXACT same
@@ -1067,8 +1068,8 @@ def _clean_and_format_fact(fact: str) -> str:
     return s
 
 
-@router.get("/{user_id}/memory")
-async def get_memory(user_id: str):
+@router.get("/memory")
+async def get_memory(user_id: str = Depends(get_current_user_id)):
     """Full memory hierarchy: STM, episodic, identity."""
     core = _get_core(user_id)
     stm = core.memory.get_stm(decay=False, filter_date=False)
@@ -1097,8 +1098,8 @@ async def get_memory(user_id: str):
     }
 
 
-@router.post("/{user_id}/memories")
-async def add_explicit_memory(user_id: str, payload: RememberRequest):
+@router.post("/memories")
+async def add_explicit_memory(payload: RememberRequest, user_id: str = Depends(get_current_user_id)):
     """Add a user-bookmarked explicit memory directly to episodic memory."""
     core = _get_core(user_id)
     prefix = "[User]" if payload.role == "user" else "[Rem]"
@@ -1117,8 +1118,8 @@ async def add_explicit_memory(user_id: str, payload: RememberRequest):
 
 # ── PERSONALITY (maps to !personality) ──
 
-@router.get("/{user_id}/personality")
-async def get_personality(user_id: str):
+@router.get("/personality")
+async def get_personality(user_id: str = Depends(get_current_user_id)):
     """Rem's personality state, expression guidance, vibes, psyche layers."""
     core = _get_core(user_id)
     phase = core.relationship_phases.current_phase
@@ -1196,8 +1197,8 @@ async def get_personality(user_id: str):
 
 # ── IDENTITY (maps to !identity + !about) ──
 
-@router.get("/{user_id}/identity")
-async def get_identity(user_id: str):
+@router.get("/identity")
+async def get_identity(user_id: str = Depends(get_current_user_id)):
     """What Rem knows about the user."""
     core = _get_core(user_id)
     identity_memories = core.memory.get_identity(min_confidence=0.3)
@@ -1245,8 +1246,8 @@ def _get_fact_value(fact_entry):
     return str(fact_entry) if fact_entry is not None else ""
 
 
-@router.post("/{user_id}/profile")
-async def update_profile(user_id: str, payload: ProfileRequest):
+@router.post("/profile")
+async def update_profile(payload: ProfileRequest, user_id: str = Depends(get_current_user_id)):
     """Update preferred name, gender, and pronouns in user facts."""
     core = _get_core(user_id)
     
@@ -1291,8 +1292,8 @@ async def update_profile(user_id: str, payload: ProfileRequest):
 
 # ── STATE (maps to !state) ──
 
-@router.get("/{user_id}/state")
-async def get_state(user_id: str):
+@router.get("/state")
+async def get_state(user_id: str = Depends(get_current_user_id)):
     """Full psyche and embodiment state."""
     core = _get_core(user_id)
     return {
@@ -1309,8 +1310,8 @@ async def get_state(user_id: str):
 
 # ── SCHEDULE (maps to !sched) ──
 
-@router.get("/{user_id}/schedule")
-async def get_schedule(user_id: str):
+@router.get("/schedule")
+async def get_schedule(user_id: str = Depends(get_current_user_id)):
     """Rem's daily schedule and current activity."""
     core = _get_core(user_id)
     
@@ -1350,14 +1351,14 @@ async def get_schedule(user_id: str):
 
 # ── FUTURE PLANS ──
 
-@router.get("/{user_id}/plans")
-async def get_user_plans(user_id: str):
+@router.get("/plans")
+async def get_user_plans(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     return core.state.get("_future_plans", [])
 
 
-@router.post("/{user_id}/plans")
-async def add_user_plan(user_id: str, plan: PlanRequest):
+@router.post("/plans")
+async def add_user_plan(plan: PlanRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     try:
         from .daily_life import add_future_plan, _sync_future_plans_to_overrides, IST
@@ -1376,8 +1377,8 @@ async def add_user_plan(user_id: str, plan: PlanRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{user_id}/plans")
-async def cancel_user_plan(user_id: str, date: str, start: str, end: str):
+@router.delete("/plans")
+async def cancel_user_plan(date: str, start: str, end: str, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     try:
         from .daily_life import IST
@@ -1405,8 +1406,8 @@ async def cancel_user_plan(user_id: str, date: str, start: str, end: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{user_id}/end-date")
-async def end_active_date(user_id: str):
+@router.post("/end-date")
+async def end_active_date(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     try:
         schedule_data = core.state.get("_daily_schedule", {})
@@ -1525,8 +1526,8 @@ async def end_active_date(user_id: str):
 
 # ── COMPLEXITY (maps to !complexity) ──
 
-@router.get("/{user_id}/complexity")
-async def get_complexity(user_id: str):
+@router.get("/complexity")
+async def get_complexity(user_id: str = Depends(get_current_user_id)):
     """Cognitive routing stats, inner monologue, rumination."""
     core = _get_core(user_id)
     return {
@@ -1543,8 +1544,8 @@ async def get_complexity(user_id: str):
 
 # ── DEBUG (maps to !debug) ──
 
-@router.get("/{user_id}/debug")
-async def get_debug(user_id: str):
+@router.get("/debug")
+async def get_debug(user_id: str = Depends(get_current_user_id)):
     """Raw state keys and sizes for debugging."""
     core = _get_core(user_id)
     state_keys = {}
@@ -1569,8 +1570,8 @@ async def get_debug(user_id: str):
 
 # ── RESET (maps to !reset) ──
 
-@router.post("/{user_id}/reset")
-async def reset_user(user_id: str):
+@router.post("/reset")
+async def reset_user(user_id: str = Depends(get_current_user_id)):
     """NUCLEAR RESET — wipe ALL state for this user and generate fresh persona."""
     import sqlite3
     import os
@@ -1583,11 +1584,9 @@ async def reset_user(user_id: str):
     
     # 1. Delete state from main database
     try:
-        from .state import StateOrchestrator
-        state_orch = StateOrchestrator()
-        with sqlite3.connect(state_orch.db_path) as conn:
-            conn.execute("DELETE FROM user_state WHERE user_id = ?", (core_id,))
-            conn.commit()
+        from .state import get_state_orchestrator
+        state_orch = get_state_orchestrator()
+        state_orch.delete_state(core_id)
         print(f"[RESET] Cleared user_state for {core_id}")
     except Exception as e:
         print(f"[RESET] DB delete failed: {e}")
@@ -2170,8 +2169,8 @@ Make the details specific, opinionated, and realistic for a modern college stude
 #  DISCORD ↔ WEB LINK
 # ═════════════════════════════════════════════════════
 
-@router.post("/{user_id}/link", response_model=LinkResponse)
-async def link_discord(user_id: str, payload: LinkRequest):
+@router.post("/link", response_model=LinkResponse)
+async def link_discord(payload: LinkRequest, user_id: str = Depends(get_current_user_id)):
     """Verify a link code and connect web user to Discord state."""
     result = verify_link_code(user_id, payload.code)
     if result.get("success"):
@@ -2179,8 +2178,8 @@ async def link_discord(user_id: str, payload: LinkRequest):
     return LinkResponse(success=False, error=result.get("error", "Invalid code"))
 
 
-@router.get("/{user_id}/link", response_model=LinkStatusResponse)
-async def get_link(user_id: str):
+@router.get("/link", response_model=LinkStatusResponse)
+async def get_link(user_id: str = Depends(get_current_user_id)):
     """Check if a web user is linked to a Discord account."""
     status = get_link_status(user_id)
     return LinkStatusResponse(**status)
@@ -2283,8 +2282,8 @@ async def _trigger_check_in_if_needed(core: CognitiveCore):
         print(f"[CHECK-IN] Error: {check_err}")
 
 
-@router.get("/{user_id}/messages", response_model=MessagesResponse)
-async def get_messages(user_id: str):
+@router.get("/messages", response_model=MessagesResponse)
+async def get_messages(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     await _trigger_check_in_if_needed(core)
     
@@ -2323,15 +2322,15 @@ async def get_messages(user_id: str):
 #  MINI-GAMES ENDPOINTS
 # =====================================================
 
-@router.get("/{user_id}/games/achievements", response_model=AchievementsResponse)
-async def get_achievements(user_id: str):
+@router.get("/games/achievements", response_model=AchievementsResponse)
+async def get_achievements(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     unlocked = core.state.get("_achievements", [])
     return AchievementsResponse(unlocked=unlocked)
 
 
-@router.post("/{user_id}/games/debate/start", response_model=DebateStartResponse)
-async def start_debate(user_id: str, payload: DebateStartRequest):
+@router.post("/games/debate/start", response_model=DebateStartResponse)
+async def start_debate(payload: DebateStartRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .games_logic import DEBATE_TOPICS, generate_debate_response
     
@@ -2384,8 +2383,8 @@ async def start_debate(user_id: str, payload: DebateStartRequest):
     )
 
 
-@router.post("/{user_id}/games/debate/chat", response_model=DebateChatResponse)
-async def chat_debate(user_id: str, payload: DebateChatRequest):
+@router.post("/games/debate/chat", response_model=DebateChatResponse)
+async def chat_debate(payload: DebateChatRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_debate")
     if not session or session.get("finished"):
@@ -2449,8 +2448,8 @@ async def chat_debate(user_id: str, payload: DebateChatRequest):
     )
 
 
-@router.post("/{user_id}/games/win-over/start", response_model=WinOverStartResponse)
-async def start_win_over(user_id: str, payload: WinOverStartRequest):
+@router.post("/games/win-over/start", response_model=WinOverStartResponse)
+async def start_win_over(payload: WinOverStartRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .games_logic import WIN_OVER_SCENARIOS
     
@@ -2483,8 +2482,8 @@ async def start_win_over(user_id: str, payload: WinOverStartRequest):
     )
 
 
-@router.post("/{user_id}/games/win-over/chat", response_model=WinOverChatResponse)
-async def chat_win_over(user_id: str, payload: WinOverChatRequest):
+@router.post("/games/win-over/chat", response_model=WinOverChatResponse)
+async def chat_win_over(payload: WinOverChatRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_win_over")
     if not session or session.get("game_status") != "active":
@@ -2545,8 +2544,8 @@ async def chat_win_over(user_id: str, payload: WinOverChatRequest):
 #  PERSONALITY TEST ENDPOINTS
 # =====================================================
 
-@router.post("/{user_id}/games/personality/start", response_model=PersonalityStartResponse)
-async def start_personality_game(user_id: str):
+@router.post("/games/personality/start", response_model=PersonalityStartResponse)
+async def start_personality_game(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .games_logic import PERSONALITY_QUESTIONS
     
@@ -2569,8 +2568,8 @@ async def start_personality_game(user_id: str):
     )
 
 
-@router.post("/{user_id}/games/personality/answer", response_model=PersonalityAnswerResponse)
-async def answer_personality_game(user_id: str, payload: PersonalityAnswerRequest):
+@router.post("/games/personality/answer", response_model=PersonalityAnswerResponse)
+async def answer_personality_game(payload: PersonalityAnswerRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_personality_game")
     if not session or session.get("id") != payload.session_id or session.get("finished"):
@@ -2627,15 +2626,15 @@ async def answer_personality_game(user_id: str, payload: PersonalityAnswerReques
 #  COOKING WITH REM ENDPOINTS
 # =====================================================
 
-@router.get("/{user_id}/games/cook/search")
-async def search_recipes(user_id: str, query: str):
+@router.get("/games/cook/search")
+async def search_recipes(query: str, user_id: str = Depends(get_current_user_id)):
     from .games_logic import search_recipes_from_api
     results = await search_recipes_from_api(query)
     return {"results": results}
 
 
-@router.post("/{user_id}/games/cook/start", response_model=CookingStartResponse)
-async def start_cooking_game(user_id: str, payload: CookingStartRequest):
+@router.post("/games/cook/start", response_model=CookingStartResponse)
+async def start_cooking_game(payload: CookingStartRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .games_logic import fetch_recipe_from_api, fetch_recipe_by_id, generate_cooking_banter
     
@@ -2687,8 +2686,8 @@ async def start_cooking_game(user_id: str, payload: CookingStartRequest):
     )
 
 
-@router.post("/{user_id}/games/cook/step", response_model=CookingStepResponse)
-async def step_cooking_game(user_id: str, payload: CookingStepRequest):
+@router.post("/games/cook/step", response_model=CookingStepResponse)
+async def step_cooking_game(payload: CookingStepRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_cooking_game")
     if not session or session.get("finished"):
@@ -2784,8 +2783,8 @@ Write a 1-sentence sarcastic review of their final dish to print in their scrapb
     )
 
 
-@router.get("/{user_id}/games/cookbook")
-async def get_cookbook(user_id: str):
+@router.get("/games/cookbook")
+async def get_cookbook(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     return {"cookbook": core.state.get("_cookbook", [])}
 
@@ -2794,8 +2793,8 @@ async def get_cookbook(user_id: str):
 #  SPICY CHAT ENDPOINTS
 # =====================================================
 
-@router.post("/{user_id}/games/spicy/start", response_model=SpicyStartResponse)
-async def start_spicy_chat(user_id: str, payload: SpicyStartRequest):
+@router.post("/games/spicy/start", response_model=SpicyStartResponse)
+async def start_spicy_chat(payload: SpicyStartRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .games_logic import generate_spicy_chat_response
     
@@ -2837,8 +2836,8 @@ async def start_spicy_chat(user_id: str, payload: SpicyStartRequest):
     )
 
 
-@router.post("/{user_id}/games/spicy/chat", response_model=SpicyChatResponse)
-async def chat_spicy_game(user_id: str, payload: SpicyChatRequest):
+@router.post("/games/spicy/chat", response_model=SpicyChatResponse)
+async def chat_spicy_game(payload: SpicyChatRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_spicy_chat")
     if not session or session.get("finished"):
@@ -2876,8 +2875,8 @@ async def chat_spicy_game(user_id: str, payload: SpicyChatRequest):
     return SpicyChatResponse(response=response)
 
 
-@router.post("/{user_id}/games/spicy/end", response_model=SpicyEndResponse)
-async def end_spicy_game(user_id: str):
+@router.post("/games/spicy/end", response_model=SpicyEndResponse)
+async def end_spicy_game(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_spicy_chat")
     if not session or session.get("finished"):
@@ -2915,8 +2914,8 @@ async def end_spicy_game(user_id: str):
     )
 
 
-@router.get("/{user_id}/games/secrets")
-async def get_secrets(user_id: str):
+@router.get("/games/secrets")
+async def get_secrets(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     return {"secrets": core.state.get("_secrets", [])}
 
@@ -2925,8 +2924,8 @@ async def get_secrets(user_id: str):
 #  YAP MODE ENDPOINTS
 # =====================================================
 
-@router.post("/{user_id}/games/yap/start", response_model=YapStartResponse)
-async def start_yap_game(user_id: str, payload: YapStartRequest):
+@router.post("/games/yap/start", response_model=YapStartResponse)
+async def start_yap_game(payload: YapStartRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .games_logic import search_yap_topic, generate_yap_response
     
@@ -2966,8 +2965,8 @@ async def start_yap_game(user_id: str, payload: YapStartRequest):
     )
 
 
-@router.post("/{user_id}/games/yap/chat", response_model=YapChatResponse)
-async def chat_yap_game(user_id: str, payload: YapChatRequest):
+@router.post("/games/yap/chat", response_model=YapChatResponse)
+async def chat_yap_game(payload: YapChatRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_yap_chat")
     if not session or session.get("finished"):
@@ -3042,16 +3041,16 @@ async def chat_yap_game(user_id: str, payload: YapChatRequest):
 
 # ── RPG QUEST & MURDER MYSTERY ENDPOINTS ──
 
-@router.get("/{user_id}/games/rpg/scenarios")
-async def get_rpg_scenarios(user_id: str):
+@router.get("/games/rpg/scenarios")
+async def get_rpg_scenarios(user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .rpg_logic import load_scenarios
     scenarios = load_scenarios()
     return scenarios
 
 
-@router.post("/{user_id}/games/rpg/start", response_model=RpgStartResponse)
-async def start_rpg_game(user_id: str, payload: RpgStartRequest):
+@router.post("/games/rpg/start", response_model=RpgStartResponse)
+async def start_rpg_game(payload: RpgStartRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .rpg_logic import initialize_rpg_session, load_scenarios
     
@@ -3090,8 +3089,8 @@ async def start_rpg_game(user_id: str, payload: RpgStartRequest):
     )
 
 
-@router.post("/{user_id}/games/rpg/turn", response_model=RpgTurnResponse)
-async def turn_rpg_game(user_id: str, payload: RpgTurnRequest):
+@router.post("/games/rpg/turn", response_model=RpgTurnResponse)
+async def turn_rpg_game(payload: RpgTurnRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_rpg_session")
     if not session or session.get("finished"):
@@ -3128,8 +3127,8 @@ async def turn_rpg_game(user_id: str, payload: RpgTurnRequest):
     )
 
 
-@router.post("/{user_id}/games/rpg/accuse", response_model=RpgAccuseResponse)
-async def accuse_rpg_game(user_id: str, payload: RpgAccuseRequest):
+@router.post("/games/rpg/accuse", response_model=RpgAccuseResponse)
+async def accuse_rpg_game(payload: RpgAccuseRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_rpg_session")
     if not session or session.get("finished"):
@@ -3163,14 +3162,14 @@ async def accuse_rpg_game(user_id: str, payload: RpgAccuseRequest):
 
 # ── COURTROOM BATTLE ("LAW AND REM") ENDPOINTS ──
 
-@router.get("/{user_id}/games/court/scenarios")
-async def get_court_scenarios(user_id: str):
+@router.get("/games/court/scenarios")
+async def get_court_scenarios(user_id: str = Depends(get_current_user_id)):
     from .court_logic import load_court_scenarios
     return load_court_scenarios()
 
 
-@router.post("/{user_id}/games/court/start", response_model=CourtStartResponse)
-async def start_court_game(user_id: str, payload: CourtStartRequest):
+@router.post("/games/court/start", response_model=CourtStartResponse)
+async def start_court_game(payload: CourtStartRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     from .court_logic import initialize_court_session
     try:
@@ -3207,8 +3206,8 @@ async def start_court_game(user_id: str, payload: CourtStartRequest):
     )
 
 
-@router.post("/{user_id}/games/court/action", response_model=CourtStartResponse)
-async def court_action(user_id: str, payload: CourtActionRequest):
+@router.post("/games/court/action", response_model=CourtStartResponse)
+async def court_action(payload: CourtActionRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_court_session")
     if not session or session.get("finished"):
@@ -3248,8 +3247,8 @@ async def court_action(user_id: str, payload: CourtActionRequest):
     )
 
 
-@router.post("/{user_id}/games/court/recess", response_model=CourtStartResponse)
-async def court_recess_search(user_id: str, payload: CourtRecessRequest):
+@router.post("/games/court/recess", response_model=CourtStartResponse)
+async def court_recess_search(payload: CourtRecessRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_court_session")
     if not session or session.get("finished") or session.get("phase") != "recess":
@@ -3289,8 +3288,8 @@ async def court_recess_search(user_id: str, payload: CourtRecessRequest):
     )
 
 
-@router.post("/{user_id}/games/court/verdict", response_model=CourtVerdictResponse)
-async def court_submit_verdict(user_id: str, payload: CourtVerdictRequest):
+@router.post("/games/court/verdict", response_model=CourtVerdictResponse)
+async def court_submit_verdict(payload: CourtVerdictRequest, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     session = core.state.get("_active_court_session")
     if not session or session.get("finished") or session.get("phase") != "closing":

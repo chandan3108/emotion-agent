@@ -9,12 +9,17 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from .db import SessionLocal
+from .db import SessionLocal, engine, Base
+from . import models
 from .models import EmotionEvent
 from .realtime import router as realtime_router
 from .ml_model import reload_model
 from .agent import router as agent_router
 from .game_api import router as game_api_router
+from .auth import router as auth_router
+
+# Ensure all database tables exist
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -59,6 +64,7 @@ async def startup_event():
 
 
 # Routers
+app.include_router(auth_router)
 app.include_router(realtime_router)
 app.include_router(agent_router)
 app.include_router(game_api_router)

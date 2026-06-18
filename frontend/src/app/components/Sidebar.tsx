@@ -20,6 +20,10 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
 
+  if (pathname === "/login") {
+    return null;
+  }
+
   return (
     <aside
       style={{

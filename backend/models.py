@@ -1,6 +1,37 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime
+from sqlalchemy import Column, Integer, Float, String, DateTime, Text
 from sqlalchemy.sql import func
 from .db import Base
+
+class UserState(Base):
+    __tablename__ = "user_state"
+
+    user_id = Column(String, primary_key=True, index=True)
+    state_json = Column(Text, nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class UserLink(Base):
+    __tablename__ = "user_links"
+
+    web_user_id = Column(String, primary_key=True, index=True)
+    discord_id = Column(String, unique=True, nullable=False)
+    linked_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class LinkCode(Base):
+    __tablename__ = "link_codes"
+
+    code = Column(String, primary_key=True)
+    discord_id = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    used = Column(Integer, default=0)
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 class EmotionEvent(Base):
     __tablename__ = "emotion_events"

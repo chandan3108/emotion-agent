@@ -1,8 +1,9 @@
 """
 End-to-End Test — Emotion Agent API
 
-Tests all API endpoints against a running (or startable) FastAPI server.
-Covers: health, XP, diary, timeline, stats, inside-jokes, patterns, chat, link flow.
+Tests all API endpoints against a running (or startable) FastAPI server using JWT Auth.
+Covers: registration, login, health, XP, diary, timeline, stats, inside-jokes, patterns, chat, link flow,
+and all 8 game/chat modes.
 
 Usage:
     # With server already running:
@@ -15,12 +16,15 @@ Usage:
 import sys
 import json
 import time
-import sqlite3
+import secrets
 from pathlib import Path
 
 # Test config
 BASE_URL = "http://localhost:8000"
-TEST_USER = "e2e_test_user"
+TEST_EMAIL = f"e2e_test_{secrets.token_hex(4)}@test.com"
+TEST_PASSWORD = "testpassword123"
+token = None
+test_user_id = None
 
 
 def _req(method: str, path: str, body: dict = None) -> dict:
@@ -30,7 +34,12 @@ def _req(method: str, path: str, body: dict = None) -> dict:
 
     url = f"{BASE_URL}{path}"
     data = json.dumps(body).encode() if body else None
-    headers = {"Content-Type": "application/json"} if body else {}
+    
+    headers = {}
+    if body:
+        headers["Content-Type"] = "application/json"
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
 
@@ -54,6 +63,32 @@ def _fail(name: str, reason: str):
     return False
 
 
+def test_auth_flow():
+    """Verify registration and login generate valid JWT token."""
+    global token, test_user_id
+
+    # 1. Register
+    reg_payload = {"email": TEST_EMAIL, "password": TEST_PASSWORD}
+    r = _req("POST", "/api/auth/register", reg_payload)
+    if r.get("_error") or not r.get("success"):
+        return _fail("Auth Registration", f"Registration failed: {r}")
+
+    token = r.get("token")
+    test_user_id = r.get("user_id")
+    if not token or not test_user_id:
+        return _fail("Auth Registration", f"Missing token or user_id in response: {r}")
+
+    # 2. Login
+    login_payload = {"email": TEST_EMAIL, "password": TEST_PASSWORD}
+    r2 = _req("POST", "/api/auth/login", login_payload)
+    if r2.get("_error") or not r2.get("success") or not r2.get("token"):
+        return _fail("Auth Login", f"Login failed: {r2}")
+
+    # Set active token to the login token
+    token = r2.get("token")
+    return _pass("Authentication Flow (Register + Login)")
+
+
 def test_health():
     r = _req("GET", "/health")
     if r.get("status") == "healthy":
@@ -69,7 +104,7 @@ def test_root():
 
 
 def test_xp():
-    r = _req("GET", f"/api/user/{TEST_USER}/xp")
+    r = _req("GET", "/api/user/xp")
     if r.get("_error"):
         return _fail("XP endpoint", r.get("_body", ""))
     if "total_xp" in r and "phase" in r:
@@ -78,7 +113,7 @@ def test_xp():
 
 
 def test_diary():
-    r = _req("GET", f"/api/user/{TEST_USER}/diary")
+    r = _req("GET", "/api/user/diary")
     if r.get("_error"):
         return _fail("Diary endpoint", r.get("_body", ""))
     if "entries" in r:
@@ -87,7 +122,7 @@ def test_diary():
 
 
 def test_timeline():
-    r = _req("GET", f"/api/user/{TEST_USER}/timeline")
+    r = _req("GET", "/api/user/timeline")
     if r.get("_error"):
         return _fail("Timeline endpoint", r.get("_body", ""))
     if "events" in r:
@@ -96,7 +131,7 @@ def test_timeline():
 
 
 def test_stats():
-    r = _req("GET", f"/api/user/{TEST_USER}/stats")
+    r = _req("GET", "/api/user/stats")
     if r.get("_error"):
         return _fail("Stats endpoint", r.get("_body", ""))
     if "total_messages" in r or "current_phase" in r:
@@ -105,7 +140,7 @@ def test_stats():
 
 
 def test_inside_jokes():
-    r = _req("GET", f"/api/user/{TEST_USER}/inside-jokes")
+    r = _req("GET", "/api/user/inside-jokes")
     if r.get("_error"):
         return _fail("Inside jokes endpoint", r.get("_body", ""))
     if "jokes" in r:
@@ -114,7 +149,7 @@ def test_inside_jokes():
 
 
 def test_patterns():
-    r = _req("GET", f"/api/user/{TEST_USER}/patterns")
+    r = _req("GET", "/api/user/patterns")
     if r.get("_error"):
         return _fail("Patterns endpoint", r.get("_body", ""))
     if "patterns" in r:
@@ -123,7 +158,7 @@ def test_patterns():
 
 
 def test_chat():
-    r = _req("POST", f"/api/user/{TEST_USER}/chat", {"message": "Hello, this is an E2E test."})
+    r = _req("POST", "/api/user/chat", {"message": "Hello, this is an E2E test."})
     if r.get("_error"):
         return _fail("Chat endpoint", r.get("_body", ""))
     if "reply" in r and r["reply"]:
@@ -133,23 +168,23 @@ def test_chat():
 
 def test_link_flow():
     """Test the Discord link code flow end-to-end."""
-    from backend.user_sync import generate_link_code, get_link_status
+    from backend.user_sync import generate_link_code
 
     # Step 1: Generate a code for a fake Discord user
-    fake_discord_id = "999999999"
+    fake_discord_id = f"fake_{secrets.token_hex(4)}"
     code = generate_link_code(fake_discord_id)
     if not code or len(code) != 6:
         return _fail("Link flow", f"Bad code: {code}")
 
     # Step 2: Verify the code via API
-    r = _req("POST", f"/api/user/{TEST_USER}/link", {"code": code})
+    r = _req("POST", "/api/user/link", {"code": code})
     if r.get("_error"):
         return _fail("Link flow (verify)", r.get("_body", ""))
     if not r.get("success"):
         return _fail("Link flow (verify)", f"Not successful: {r}")
 
     # Step 3: Check link status
-    r2 = _req("GET", f"/api/user/{TEST_USER}/link")
+    r2 = _req("GET", "/api/user/link")
     if not r2.get("linked"):
         return _fail("Link flow (status)", f"Not linked: {r2}")
 
@@ -159,7 +194,7 @@ def test_link_flow():
 def test_yap_mode():
     # 1. Start session
     start_payload = {"topic": "Quantum Physics"}
-    r = _req("POST", f"/api/user/{TEST_USER}/games/yap/start", start_payload)
+    r = _req("POST", "/api/user/games/yap/start", start_payload)
     if r.get("_error"):
         return _fail("Yap Mode (start)", r.get("_body", ""))
     
@@ -172,7 +207,7 @@ def test_yap_mode():
         
     # 2. Chat
     chat_payload = {"message": "what is superposition?"}
-    r2 = _req("POST", f"/api/user/{TEST_USER}/games/yap/chat", chat_payload)
+    r2 = _req("POST", "/api/user/games/yap/chat", chat_payload)
     if r2.get("_error"):
         return _fail("Yap Mode (chat)", r2.get("_body", ""))
         
@@ -189,7 +224,7 @@ def test_yap_mode():
 
 def test_rpg_mode():
     # 1. Get scenarios
-    r = _req("GET", f"/api/user/{TEST_USER}/games/rpg/scenarios")
+    r = _req("GET", "/api/user/games/rpg/scenarios")
     if isinstance(r, dict) and r.get("_error"):
         return _fail("RPG Mode (scenarios)", r.get("_body", ""))
     if not isinstance(r, list) or len(r) == 0:
@@ -199,7 +234,7 @@ def test_rpg_mode():
     
     # 2. Start RPG session
     start_payload = {"scenario_id": scenario_id}
-    r2 = _req("POST", f"/api/user/{TEST_USER}/games/rpg/start", start_payload)
+    r2 = _req("POST", "/api/user/games/rpg/start", start_payload)
     if r2.get("_error"):
         return _fail("RPG Mode (start)", r2.get("_body", ""))
     
@@ -213,7 +248,7 @@ def test_rpg_mode():
         
     # 3. Take a turn
     turn_payload = {"user_action": "Search the library"}
-    r3 = _req("POST", f"/api/user/{TEST_USER}/games/rpg/turn", turn_payload)
+    r3 = _req("POST", "/api/user/games/rpg/turn", turn_payload)
     if r3.get("_error"):
         return _fail("RPG Mode (turn)", r3.get("_body", ""))
         
@@ -227,7 +262,7 @@ def test_rpg_mode():
     # 4. Start Jazz Club Betrayal (Hard scenario)
     jazz_scenario = next((s for s in r if s["quest_id"] == "jazz_club_betrayal"), None)
     if jazz_scenario:
-        r4 = _req("POST", f"/api/user/{TEST_USER}/games/rpg/start", {"scenario_id": "jazz_club_betrayal"})
+        r4 = _req("POST", "/api/user/games/rpg/start", {"scenario_id": "jazz_club_betrayal"})
         if r4.get("_error"):
             return _fail("RPG Hard Mode (start)", r4.get("_body", ""))
         
@@ -237,7 +272,7 @@ def test_rpg_mode():
             return _fail("RPG Hard Mode (start response validation)", f"Invalid response: {r4}")
             
         # Try consulting Rem
-        r5 = _req("POST", f"/api/user/{TEST_USER}/games/rpg/turn", {"user_action": "Ask Rem for help"})
+        r5 = _req("POST", "/api/user/games/rpg/turn", {"user_action": "Ask Rem for help"})
         if r5.get("_error"):
             return _fail("RPG Hard Mode (consult)", r5.get("_body", ""))
             
@@ -250,7 +285,7 @@ def test_rpg_mode():
 
 def test_court_mode():
     # 1. Fetch scenarios
-    r = _req("GET", f"/api/user/{TEST_USER}/games/court/scenarios")
+    r = _req("GET", "/api/user/games/court/scenarios")
     if isinstance(r, dict) and r.get("_error"):
         return _fail("Court Mode (scenarios)", r.get("_body", ""))
     
@@ -259,7 +294,7 @@ def test_court_mode():
         
     # 2. Start session
     payload = {"case_id": "gallery_theft"}
-    r2 = _req("POST", f"/api/user/{TEST_USER}/games/court/start", payload)
+    r2 = _req("POST", "/api/user/games/court/start", payload)
     if isinstance(r2, dict) and r2.get("_error"):
         return _fail("Court Mode (start)", r2.get("_body", ""))
         
@@ -271,7 +306,7 @@ def test_court_mode():
         return _fail("Court Mode (start response validation)", f"Invalid response: {r2}")
         
     # 3. Trigger call witness action
-    r3 = _req("POST", f"/api/user/{TEST_USER}/games/court/action", {"action_type": "call_witness"})
+    r3 = _req("POST", "/api/user/games/court/action", {"action_type": "call_witness"})
     if isinstance(r3, dict) and r3.get("_error"):
         return _fail("Court Mode (call_witness action)", r3.get("_body", ""))
         
@@ -281,31 +316,167 @@ def test_court_mode():
     return _pass("Court Mode (scenarios, start, action endpoints)")
 
 
+def test_debate_mode():
+    # 1. Start Debate
+    r = _req("POST", "/api/user/games/debate/start", {"topic_id": "ai_threat", "user_stance": "for"})
+    if r.get("_error"):
+        return _fail("Debate Mode (start)", r.get("_body", ""))
+    
+    session_id = r.get("session_id")
+    topic = r.get("topic")
+    if not session_id or not topic:
+        return _fail("Debate Mode (start validation)", f"Invalid response: {r}")
+
+    # 2. Chat Debate
+    r2 = _req("POST", "/api/user/games/debate/chat", {"message": "AI could automate too many jobs."})
+    if r2.get("_error"):
+        return _fail("Debate Mode (chat)", r2.get("_body", ""))
+
+    rem_response = r2.get("rem_response")
+    if not rem_response:
+        return _fail("Debate Mode (chat validation)", f"Invalid response: {r2}")
+
+    return _pass("Debate Mode (start, chat endpoints)")
+
+
+def test_win_over_mode():
+    # 1. Start Win Over
+    r = _req("POST", "/api/user/games/win-over/start", {"scenario_id": "strict_librarian"})
+    if r.get("_error"):
+        return _fail("Win Over Mode (start)", r.get("_body", ""))
+
+    session_id = r.get("session_id")
+    if not session_id:
+        return _fail("Win Over Mode (start validation)", f"Invalid response: {r}")
+
+    # 2. Chat Win Over
+    r2 = _req("POST", "/api/user/games/win-over/chat", {"message": "I promise to keep it quiet."})
+    if r2.get("_error"):
+        return _fail("Win Over Mode (chat)", r2.get("_body", ""))
+
+    rem_response = r2.get("rem_response")
+    if not rem_response:
+        return _fail("Win Over Mode (chat validation)", f"Invalid response: {r2}")
+
+    return _pass("Win Over Mode (start, chat endpoints)")
+
+
+def test_personality_test_mode():
+    # 1. Start Personality Test
+    r = _req("POST", "/api/user/games/personality/start")
+    if r.get("_error"):
+        return _fail("Personality Test Mode (start)", r.get("_body", ""))
+
+    session_id = r.get("session_id")
+    questions = r.get("questions")
+    if not session_id or not questions:
+        return _fail("Personality Test Mode (start validation)", f"Invalid response: {r}")
+
+    # 2. Answer Question
+    r2 = _req("POST", "/api/user/games/personality/answer", {
+        "session_id": session_id,
+        "question_id": 0,
+        "choice": "A"
+    })
+    if r2.get("_error"):
+        return _fail("Personality Test Mode (answer)", r2.get("_body", ""))
+
+    banter = r2.get("banter")
+    if banter is None:
+        return _fail("Personality Test Mode (answer validation)", f"Invalid response: {r2}")
+
+    return _pass("Personality Test Mode (start, answer endpoints)")
+
+
+def test_cooking_mode():
+    # 1. Start Cooking
+    r = _req("POST", "/api/user/games/cook/start", {"dish_name": "Ramen"})
+    if r.get("_error"):
+        return _fail("Cooking Mode (start)", r.get("_body", ""))
+
+    session_id = r.get("session_id")
+    if not session_id:
+        return _fail("Cooking Mode (start validation)", f"Invalid response: {r}")
+
+    # 2. Step Cooking
+    r2 = _req("POST", "/api/user/games/cook/step", {
+        "user_message": "Heat the soup",
+        "action": "next"
+    })
+    if r2.get("_error"):
+        return _fail("Cooking Mode (step)", r2.get("_body", ""))
+
+    banter = r2.get("banter")
+    if not banter:
+        return _fail("Cooking Mode (step validation)", f"Invalid response: {r2}")
+
+    # 3. Get Cookbook
+    r3 = _req("GET", "/api/user/games/cookbook")
+    if r3.get("_error"):
+        return _fail("Cooking Mode (cookbook)", r3.get("_body", ""))
+
+    return _pass("Cooking Mode (start, step, cookbook endpoints)")
+
+
+def test_spicy_chat_mode():
+    # 1. Start Spicy Chat
+    r = _req("POST", "/api/user/games/spicy/start", {
+        "scenario": "late_night_study",
+        "mood": "playful"
+    })
+    if r.get("_error"):
+        return _fail("Spicy Chat Mode (start)", r.get("_body", ""))
+
+    session_id = r.get("session_id")
+    if not session_id:
+        return _fail("Spicy Chat Mode (start validation)", f"Invalid response: {r}")
+
+    # 2. Chat Spicy
+    r2 = _req("POST", "/api/user/games/spicy/chat", {"message": "You look pretty tonight."})
+    if r2.get("_error"):
+        return _fail("Spicy Chat Mode (chat)", r2.get("_body", ""))
+
+    response = r2.get("response")
+    if not response:
+        return _fail("Spicy Chat Mode (chat validation)", f"Invalid response: {r2}")
+
+    # 3. End Spicy Chat
+    r3 = _req("POST", "/api/user/games/spicy/end")
+    if r3.get("_error"):
+        return _fail("Spicy Chat Mode (end)", r3.get("_body", ""))
+
+    # 4. Get Secrets
+    r4 = _req("GET", "/api/user/games/secrets")
+    if r4.get("_error"):
+        return _fail("Spicy Chat Mode (secrets)", r4.get("_body", ""))
+
+    return _pass("Spicy Chat Mode (start, chat, end, secrets endpoints)")
+
+
 def cleanup():
-    """Remove test user state and link."""
+    """Remove test user state and link from remote Postgres/DB."""
+    global test_user_id
+    if not test_user_id:
+        return
     try:
-        db_path = Path("state.db")
-        if db_path.exists():
-            conn = sqlite3.connect(db_path)
-            # Clean up the web user state
-            conn.execute("DELETE FROM user_state WHERE user_id = ?", (f"web_{TEST_USER}",))
-            # Clean up the base user state if created directly
-            conn.execute("DELETE FROM user_state WHERE user_id = ?", (TEST_USER,))
-            # Clean up the linked discord state
-            conn.execute("DELETE FROM user_state WHERE user_id = ?", ("discord_999999999",))
-            conn.execute("DELETE FROM user_links WHERE web_user_id = ?", (TEST_USER,))
-            conn.execute("DELETE FROM link_codes WHERE discord_id = ?", ("999999999",))
-            conn.commit()
-            conn.close()
-            print("  🧹 Cleaned up test data")
+        from backend.db import SessionLocal
+        from backend.models import User, UserState, UserLink
+        db = SessionLocal()
+        # Clean up database
+        db.query(User).filter(User.id == test_user_id).delete()
+        db.query(UserState).filter(UserState.user_id == test_user_id).delete()
+        db.query(UserLink).filter(UserLink.web_user_id == test_user_id).delete()
+        db.commit()
+        db.close()
+        print("  🧹 Cleaned up test data")
     except Exception as e:
         print(f"  ⚠️  Cleanup warning: {e}")
 
 
 def main():
-    print(f"\n🧪 E2E Test — Emotion Agent API")
+    print(f"\n🧪 E2E Test — Emotion Agent API (with JWT Auth & All Game Modes)")
     print(f"   Target: {BASE_URL}")
-    print(f"   User:   {TEST_USER}\n")
+    print(f"   Test Email: {TEST_EMAIL}\n")
 
     # Check server is reachable
     r = _req("GET", "/")
@@ -315,6 +486,7 @@ def main():
         sys.exit(1)
 
     tests = [
+        test_auth_flow,
         test_health,
         test_root,
         test_xp,
@@ -328,6 +500,11 @@ def main():
         test_yap_mode,
         test_rpg_mode,
         test_court_mode,
+        test_debate_mode,
+        test_win_over_mode,
+        test_personality_test_mode,
+        test_cooking_mode,
+        test_spicy_chat_mode,
     ]
 
     passed = 0

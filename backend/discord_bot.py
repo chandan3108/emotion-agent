@@ -4888,13 +4888,13 @@ async def reset_state(ctx: commands.Context):
         del active_cores[user_id]
     
     # 1. Delete state from main database
-    from backend.state import StateOrchestrator
-    import sqlite3
-    state_orch = StateOrchestrator()
-    with sqlite3.connect(state_orch.db_path) as conn:
-        conn.execute("DELETE FROM user_state WHERE user_id = ?", (db_user_id,))
-        conn.commit()
-    print(f"[RESET] Cleared user_state for {db_user_id}")
+    try:
+        from backend.state import get_state_orchestrator
+        state_orch = get_state_orchestrator()
+        state_orch.delete_state(db_user_id)
+        print(f"[RESET] Cleared user_state for {db_user_id}")
+    except Exception as e:
+        print(f"[RESET] DB delete failed: {e}")
     
     # 2. Clear semantic memory embeddings
     try:

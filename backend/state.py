@@ -5,11 +5,13 @@ Never forgets context, never needs reminders.
 """
 
 import json
-import sqlite3
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 import threading
+
+from .db import SessionLocal
+from .models import UserState
 
 # State structure matches blueprint specification
 STATE_SCHEMA = {
@@ -124,53 +126,26 @@ STATE_SCHEMA = {
 
 
 class StateOrchestrator:
-    """Central state machine that maintains persistent state per user."""
+    """Central state machine that maintains persistent state per user in DB."""
     
     def __init__(self, db_path: str = "state.db"):
-        if db_path == "state.db":
-            import os
-            db_dir = os.environ.get("DATABASE_DIR")
-            if db_dir:
-                db_path = str(Path(db_dir) / "state.db")
-            else:
-                db_path = str(Path(__file__).parent.parent / "state.db")
-        self.db_path = Path(db_path)
         self.lock = threading.RLock()
-        self._init_db()
-    
-    def _init_db(self):
-        """Initialize SQLite database with state table."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS user_state (
-                    user_id TEXT PRIMARY KEY,
-                    state_json TEXT NOT NULL,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_updated_at ON user_state(updated_at)
-            """)
-            conn.commit()
     
     def get_state(self, user_id: str) -> Dict[str, Any]:
         """Get current state for user. Returns default state if user doesn't exist."""
         with self.lock:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT state_json FROM user_state WHERE user_id = ?",
-                    (user_id,)
-                )
-                row = cursor.fetchone()
-                
+            db = SessionLocal()
+            try:
+                row = db.query(UserState).filter(UserState.user_id == user_id).first()
                 if row:
-                    state = json.loads(row[0])
+                    state = json.loads(row.state_json)
                 else:
                     # Initialize new user with default state
                     state = self._create_default_state(user_id)
-                    self._save_state(user_id, state, conn)
-                
+                    self._save_state(user_id, state, db)
                 return state
+            finally:
+                db.close()
     
     def _create_default_state(self, user_id: str) -> Dict[str, Any]:
         """Create default state for new user."""
@@ -193,7 +168,8 @@ class StateOrchestrator:
             Updated full state
         """
         with self.lock:
-            with sqlite3.connect(self.db_path) as conn:
+            db = SessionLocal()
+            try:
                 # Get current state
                 state = self.get_state(user_id)
                 
@@ -204,9 +180,11 @@ class StateOrchestrator:
                 state["metadata"]["updated_at"] = datetime.now(timezone.utc).isoformat()
                 
                 # Save
-                self._save_state(user_id, state, conn)
+                self._save_state(user_id, state, db)
                 
                 return state
+            finally:
+                db.close()
     
     def _deep_merge(self, base: Dict, updates: Dict) -> Dict:
         """Deep merge updates into base dictionary."""
@@ -220,32 +198,47 @@ class StateOrchestrator:
         
         return result
     
-    def _save_state(self, user_id: str, state: Dict[str, Any], conn: sqlite3.Connection):
+    def _save_state(self, user_id: str, state: Dict[str, Any], db: SessionLocal):
         """Save state to database."""
         state_json = json.dumps(state)
-        conn.execute(
-            "INSERT OR REPLACE INTO user_state (user_id, state_json, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-            (user_id, state_json)
-        )
-        conn.commit()
+        row = db.query(UserState).filter(UserState.user_id == user_id).first()
+        if row:
+            row.state_json = state_json
+        else:
+            row = UserState(user_id=user_id, state_json=state_json)
+            db.add(row)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
     
     def delete_state(self, user_id: str) -> bool:
         """Delete user state (for GDPR compliance)."""
         with self.lock:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "DELETE FROM user_state WHERE user_id = ?",
-                    (user_id,)
-                )
-                conn.commit()
-                return cursor.rowcount > 0
+            db = SessionLocal()
+            try:
+                row = db.query(UserState).filter(UserState.user_id == user_id).first()
+                if row:
+                    db.delete(row)
+                    db.commit()
+                    return True
+                return False
+            except Exception:
+                db.rollback()
+                return False
+            finally:
+                db.close()
     
     def list_user_ids(self) -> List[str]:
         """List all user IDs in the database."""
         with self.lock:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("SELECT user_id FROM user_state")
-                return [row[0] for row in cursor.fetchall()]
+            db = SessionLocal()
+            try:
+                rows = db.query(UserState.user_id).all()
+                return [r[0] for r in rows]
+            finally:
+                db.close()
 
 
 # Global instance
@@ -256,13 +249,7 @@ def get_state_orchestrator(db_path: str = "state.db") -> StateOrchestrator:
     """Get or create global state orchestrator instance."""
     global _state_orchestrator
     if _state_orchestrator is None:
-        if db_path == "state.db":
-            import os
-            db_dir = os.environ.get("DATABASE_DIR")
-            if db_dir:
-                db_path = str(Path(db_dir) / "state.db")
-            else:
-                db_path = str(Path(__file__).parent.parent / "state.db")
         _state_orchestrator = StateOrchestrator(db_path)
     return _state_orchestrator
+
 

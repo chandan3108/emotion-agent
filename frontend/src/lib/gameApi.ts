@@ -4,10 +4,29 @@ const DEFAULT_USER_ID = "web_user_001";
 // ── Generic fetch wrapper ──
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: {
+      ...headers,
+      ...(init?.headers || {}),
+    },
   });
+
+  if (res.status === 401) {
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`API ${res.status}: ${text}`);
@@ -200,31 +219,31 @@ export interface LinkResult {
 
 // Existing endpoints
 export function getXP(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<XPData>(`/api/user/${userId}/xp`);
+  return apiFetch<XPData>(`/api/user/xp`);
 }
 
 export function getDiary(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<DiaryData>(`/api/user/${userId}/diary`);
+  return apiFetch<DiaryData>(`/api/user/diary`);
 }
 
 export function getTimeline(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<TimelineData>(`/api/user/${userId}/timeline`);
+  return apiFetch<TimelineData>(`/api/user/timeline`);
 }
 
 export function getStats(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<StatsData>(`/api/user/${userId}/stats`);
+  return apiFetch<StatsData>(`/api/user/stats`);
 }
 
 export function getInsideJokes(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<InsideJokesData>(`/api/user/${userId}/inside-jokes`);
+  return apiFetch<InsideJokesData>(`/api/user/inside-jokes`);
 }
 
 export function getPatterns(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<PatternsData>(`/api/user/${userId}/patterns`);
+  return apiFetch<PatternsData>(`/api/user/patterns`);
 }
 
 export function sendChat(payload: ChatRequest, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<ChatResponse>(`/api/user/${userId}/chat`, {
+  return apiFetch<ChatResponse>(`/api/user/chat`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -233,48 +252,48 @@ export function sendChat(payload: ChatRequest, userId: string = DEFAULT_USER_ID)
 // ── New endpoints (previously Discord-only) ──
 
 export function getMemory(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<MemoryData>(`/api/user/${userId}/memory`);
+  return apiFetch<MemoryData>(`/api/user/memory`);
 }
 
 export function bookmarkMemory(content: string, role: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ success: boolean; message: string }>(`/api/user/${userId}/memories`, {
+  return apiFetch<{ success: boolean; message: string }>(`/api/user/memories`, {
     method: "POST",
     body: JSON.stringify({ content, role }),
   });
 }
 
 export function getPersonality(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<PersonalityData>(`/api/user/${userId}/personality`);
+  return apiFetch<PersonalityData>(`/api/user/personality`);
 }
 
 export function getIdentity(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<IdentityData>(`/api/user/${userId}/identity`);
+  return apiFetch<IdentityData>(`/api/user/identity`);
 }
 
 export function getState(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<Record<string, unknown>>(`/api/user/${userId}/state`);
+  return apiFetch<Record<string, unknown>>(`/api/user/state`);
 }
 
 export function getSchedule(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<Record<string, unknown>>(`/api/user/${userId}/schedule`);
+  return apiFetch<Record<string, unknown>>(`/api/user/schedule`);
 }
 
 export function getComplexity(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<Record<string, unknown>>(`/api/user/${userId}/complexity`);
+  return apiFetch<Record<string, unknown>>(`/api/user/complexity`);
 }
 
 export function getDebug(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<Record<string, unknown>>(`/api/user/${userId}/debug`);
+  return apiFetch<Record<string, unknown>>(`/api/user/debug`);
 }
 
 export function resetUser(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ success: boolean; message: string }>(`/api/user/${userId}/reset`, {
+  return apiFetch<{ success: boolean; message: string }>(`/api/user/reset`, {
     method: "POST",
   });
 }
 
 export function endActiveDate(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ success: boolean; message: string }>(`/api/user/${userId}/end-date`, {
+  return apiFetch<{ success: boolean; message: string }>(`/api/user/end-date`, {
     method: "POST",
   });
 }
@@ -282,22 +301,22 @@ export function endActiveDate(userId: string = DEFAULT_USER_ID) {
 // ── Discord link ──
 
 export function getLinkStatus(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<LinkStatus>(`/api/user/${userId}/link`);
+  return apiFetch<LinkStatus>(`/api/user/link`);
 }
 
 export function linkDiscord(code: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<LinkResult>(`/api/user/${userId}/link`, {
+  return apiFetch<LinkResult>(`/api/user/link`, {
     method: "POST",
     body: JSON.stringify({ code }),
   });
 }
 
 export function getPlans(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<any[]>(`/api/user/${userId}/plans`);
+  return apiFetch<any[]>(`/api/user/plans`);
 }
 
 export function addPlan(plan: { date: string; start: string; end: string; activity: string; location: string }, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ success: boolean; plans: any[] }>(`/api/user/${userId}/plans`, {
+  return apiFetch<{ success: boolean; plans: any[] }>(`/api/user/plans`, {
     method: "POST",
     body: JSON.stringify(plan),
   });
@@ -305,7 +324,7 @@ export function addPlan(plan: { date: string; start: string; end: string; activi
 
 export function deletePlan(date: string, start: string, end: string, userId: string = DEFAULT_USER_ID) {
   return apiFetch<{ success: boolean; plans: any[] }>(
-    `/api/user/${userId}/plans?date=${encodeURIComponent(date)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+    `/api/user/plans?date=${encodeURIComponent(date)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
     {
       method: "DELETE",
     }
@@ -313,11 +332,11 @@ export function deletePlan(date: string, start: string, end: string, userId: str
 }
 
 export function getPostcards(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<PostcardsData>(`/api/user/${userId}/postcards`);
+  return apiFetch<PostcardsData>(`/api/user/postcards`);
 }
 
 export function getMessages(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ messages: { role: "user" | "assistant"; content: string; timestamp: string }[] }>(`/api/user/${userId}/messages`);
+  return apiFetch<{ messages: { role: "user" | "assistant"; content: string; timestamp: string }[] }>(`/api/user/messages`);
 }
 
 // ── Mini-Games APIs ──
@@ -368,47 +387,47 @@ export interface WinOverChatResponse {
 }
 
 export function startDebate(topicId: string, userStance: string = "for", userId: string = DEFAULT_USER_ID) {
-  return apiFetch<DebateStartResponse>(`/api/user/${userId}/games/debate/start`, {
+  return apiFetch<DebateStartResponse>(`/api/user/games/debate/start`, {
     method: "POST",
     body: JSON.stringify({ topic_id: topicId, user_stance: userStance }),
   });
 }
 
 export function chatDebate(message: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<DebateChatResponse>(`/api/user/${userId}/games/debate/chat`, {
+  return apiFetch<DebateChatResponse>(`/api/user/games/debate/chat`, {
     method: "POST",
     body: JSON.stringify({ message }),
   });
 }
 
 export function startWinOver(scenarioId: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<WinOverStartResponse>(`/api/user/${userId}/games/win-over/start`, {
+  return apiFetch<WinOverStartResponse>(`/api/user/games/win-over/start`, {
     method: "POST",
     body: JSON.stringify({ scenario_id: scenarioId }),
   });
 }
 
 export function chatWinOver(message: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<WinOverChatResponse>(`/api/user/${userId}/games/win-over/chat`, {
+  return apiFetch<WinOverChatResponse>(`/api/user/games/win-over/chat`, {
     method: "POST",
     body: JSON.stringify({ message }),
   });
 }
 
 export function getAchievements(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ unlocked: string[] }>(`/api/user/${userId}/games/achievements`);
+  return apiFetch<{ unlocked: string[] }>(`/api/user/games/achievements`);
 }
 
 
 // ── Personality Test APIs ──
 export function startPersonality(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ session_id: string; total_questions: number; questions: any[] }>(`/api/user/${userId}/games/personality/start`, {
+  return apiFetch<{ session_id: string; total_questions: number; questions: any[] }>(`/api/user/games/personality/start`, {
     method: "POST"
   });
 }
 
 export function answerPersonality(sessionId: string, questionId: number, choice: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ banter: string; finished: boolean; result: any }>(`/api/user/${userId}/games/personality/answer`, {
+  return apiFetch<{ banter: string; finished: boolean; result: any }>(`/api/user/games/personality/answer`, {
     method: "POST",
     body: JSON.stringify({ session_id: sessionId, question_id: questionId, choice })
   });
@@ -416,50 +435,50 @@ export function answerPersonality(sessionId: string, questionId: number, choice:
 
 // ── Cooking APIs ──
 export function searchRecipes(query: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ results: any[] }>(`/api/user/${userId}/games/cook/search?query=${encodeURIComponent(query)}`);
+  return apiFetch<{ results: any[] }>(`/api/user/games/cook/search?query=${encodeURIComponent(query)}`);
 }
 
 export function startCooking(dishName: string = "", userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ session_id: string; dish_name: string; category: string; thumbnail: string; ingredients: string[]; steps: string[]; greeting: string }>(`/api/user/${userId}/games/cook/start`, {
+  return apiFetch<{ session_id: string; dish_name: string; category: string; thumbnail: string; ingredients: string[]; steps: string[]; greeting: string }>(`/api/user/games/cook/start`, {
     method: "POST",
     body: JSON.stringify({ dish_name: dishName })
   });
 }
 
 export function stepCooking(userMessage: string, action: "next" | "disaster" | "skip", userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ banter: string; current_step: number; chaos_meter: number; finished: boolean }>(`/api/user/${userId}/games/cook/step`, {
+  return apiFetch<{ banter: string; current_step: number; chaos_meter: number; finished: boolean }>(`/api/user/games/cook/step`, {
     method: "POST",
     body: JSON.stringify({ user_message: userMessage, action })
   });
 }
 
 export function getCookbook(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ cookbook: any[] }>(`/api/user/${userId}/games/cookbook`);
+  return apiFetch<{ cookbook: any[] }>(`/api/user/games/cookbook`);
 }
 
 // ── Spicy Chat APIs ──
 export function startSpicy(scenario: string, mood: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ session_id: string; greeting: string }>(`/api/user/${userId}/games/spicy/start`, {
+  return apiFetch<{ session_id: string; greeting: string }>(`/api/user/games/spicy/start`, {
     method: "POST",
     body: JSON.stringify({ scenario, mood })
   });
 }
 
 export function chatSpicy(message: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ response: string }>(`/api/user/${userId}/games/spicy/chat`, {
+  return apiFetch<{ response: string }>(`/api/user/games/spicy/chat`, {
     method: "POST",
     body: JSON.stringify({ message })
   });
 }
 
 export function endSpicy(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ secret_unlocked: boolean; secret: any }>(`/api/user/${userId}/games/spicy/end`, {
+  return apiFetch<{ secret_unlocked: boolean; secret: any }>(`/api/user/games/spicy/end`, {
     method: "POST"
   });
 }
 
 export function getSecrets(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ secrets: any[] }>(`/api/user/${userId}/games/secrets`);
+  return apiFetch<{ secrets: any[] }>(`/api/user/games/secrets`);
 }
 
 // ── Yap Mode APIs ──
@@ -478,14 +497,14 @@ export interface YapChatResponse {
 }
 
 export function startYap(topic: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<YapStartResponse>(`/api/user/${userId}/games/yap/start`, {
+  return apiFetch<YapStartResponse>(`/api/user/games/yap/start`, {
     method: "POST",
     body: JSON.stringify({ topic })
   });
 }
 
 export function chatYap(message: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<YapChatResponse>(`/api/user/${userId}/games/yap/chat`, {
+  return apiFetch<YapChatResponse>(`/api/user/games/yap/chat`, {
     method: "POST",
     body: JSON.stringify({ message })
   });
@@ -549,25 +568,25 @@ export interface RpgAccuseResponse {
 }
 
 export function getRpgScenarios(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<RpgScenario[]>(`/api/user/${userId}/games/rpg/scenarios`);
+  return apiFetch<RpgScenario[]>(`/api/user/games/rpg/scenarios`);
 }
 
 export function startRpgGame(scenarioId: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<RpgStartResponse>(`/api/user/${userId}/games/rpg/start`, {
+  return apiFetch<RpgStartResponse>(`/api/user/games/rpg/start`, {
     method: "POST",
     body: JSON.stringify({ scenario_id: scenarioId })
   });
 }
 
 export function turnRpgGame(userAction: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<RpgTurnResponse>(`/api/user/${userId}/games/rpg/turn`, {
+  return apiFetch<RpgTurnResponse>(`/api/user/games/rpg/turn`, {
     method: "POST",
     body: JSON.stringify({ user_action: userAction })
   });
 }
 
 export function accuseRpgGame(suspect: string, weapon: string, motive: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<RpgAccuseResponse>(`/api/user/${userId}/games/rpg/accuse`, {
+  return apiFetch<RpgAccuseResponse>(`/api/user/games/rpg/accuse`, {
     method: "POST",
     body: JSON.stringify({ suspect, weapon, motive })
   });
@@ -632,11 +651,11 @@ export interface CourtVerdictResponse {
 }
 
 export function getCourtScenarios(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<CourtScenario[]>(`/api/user/${userId}/games/court/scenarios`);
+  return apiFetch<CourtScenario[]>(`/api/user/games/court/scenarios`);
 }
 
 export function startCourtGame(caseId: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<CourtStartResponse>(`/api/user/${userId}/games/court/start`, {
+  return apiFetch<CourtStartResponse>(`/api/user/games/court/start`, {
     method: "POST",
     body: JSON.stringify({ case_id: caseId })
   });
@@ -647,7 +666,7 @@ export function submitCourtAction(
   params: { statementIdx?: number; evidenceId?: string; question?: string },
   userId: string = DEFAULT_USER_ID
 ) {
-  return apiFetch<CourtStartResponse>(`/api/user/${userId}/games/court/action`, {
+  return apiFetch<CourtStartResponse>(`/api/user/games/court/action`, {
     method: "POST",
     body: JSON.stringify({
       action_type: actionType,
@@ -659,14 +678,14 @@ export function submitCourtAction(
 }
 
 export function searchRecessRoom(roomId: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<CourtStartResponse>(`/api/user/${userId}/games/court/recess`, {
+  return apiFetch<CourtStartResponse>(`/api/user/games/court/recess`, {
     method: "POST",
     body: JSON.stringify({ room_id: roomId })
   });
 }
 
 export function submitClosingArguments(closingArgument: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<CourtVerdictResponse>(`/api/user/${userId}/games/court/verdict`, {
+  return apiFetch<CourtVerdictResponse>(`/api/user/games/court/verdict`, {
     method: "POST",
     body: JSON.stringify({ closing_argument: closingArgument })
   });
@@ -685,13 +704,32 @@ export function updateProfile(
   payload: { preferred_name?: string; gender?: string; pronouns?: string },
   userId: string = DEFAULT_USER_ID
 ) {
-  return apiFetch<ProfileUpdateResponse>(`/api/user/${userId}/profile`, {
+  return apiFetch<ProfileUpdateResponse>(`/api/user/profile`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
+// ── Authentication APIs ──
 
+export interface AuthResponse {
+  success: boolean;
+  token?: string;
+  email?: string;
+  user_id?: string;
+  error?: string;
+}
 
+export function registerUser(payload: any) {
+  return apiFetch<AuthResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
 
-
+export function loginUser(payload: any) {
+  return apiFetch<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
