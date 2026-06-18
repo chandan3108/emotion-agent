@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getLinkStatus, linkDiscord, resetUser } from "@/lib/gameApi";
+import { getLinkStatus, linkDiscord, resetUser, getIdentity, updateProfile } from "@/lib/gameApi";
 
 export default function SettingsPage() {
   const [linkCode, setLinkCode] = useState("");
@@ -11,12 +11,57 @@ export default function SettingsPage() {
   const [resetMessage, setResetMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // User Profile fields
+  const [preferredName, setPreferredName] = useState("");
+  const [gender, setGender] = useState("");
+  const [pronouns, setPronouns] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+
   useEffect(() => {
-    getLinkStatus()
-      .then(setLinkStatus)
-      .catch(() => setLinkStatus({ linked: false }))
+    Promise.all([
+      getLinkStatus().catch(() => ({ linked: false })),
+      getIdentity().catch(() => null)
+    ])
+      .then(([linkRes, identityRes]) => {
+        setLinkStatus(linkRes);
+        if (identityRes && identityRes.user_facts) {
+          const getFactVal = (key: string) => {
+            const entry = identityRes.user_facts[key];
+            if (!entry) return "";
+            if (typeof entry === "object" && entry !== null && "v" in entry) {
+              return (entry as any).v || "";
+            }
+            return String(entry);
+          };
+          setPreferredName(getFactVal("preferred_name"));
+          setGender(getFactVal("gender"));
+          setPronouns(getFactVal("pronouns"));
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleSaveProfile() {
+    setProfileSaving(true);
+    setProfileMessage("");
+    try {
+      const result = await updateProfile({
+        preferred_name: preferredName,
+        gender: gender,
+        pronouns: pronouns,
+      });
+      if (result.success) {
+        setProfileMessage("✅ Profile updated successfully!");
+      } else {
+        setProfileMessage("❌ Failed to update profile.");
+      }
+    } catch (e) {
+      setProfileMessage(`❌ Error: ${e}`);
+    } finally {
+      setProfileSaving(false);
+    }
+  }
 
   async function handleLink() {
     if (!linkCode.trim() || linkCode.length !== 6) {
@@ -71,6 +116,99 @@ export default function SettingsPage() {
         Account linking and system controls.
       </p>
 
+      {/* ── User Profile Settings ── */}
+      <section className="glass-panel" style={{ padding: 28, marginBottom: 28 }}>
+        <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ color: "var(--accent-secondary)" }}>⟡</span> User Profile
+        </h2>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginBottom: 20, lineHeight: 1.6 }}>
+          Set your preferred name, gender, and pronouns. Rem uses this information to personalize your conversations and refer to you correctly.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Preferred Name</label>
+            <input
+              type="text"
+              value={preferredName}
+              onChange={(e) => setPreferredName(e.target.value)}
+              placeholder="e.g. Alex"
+              style={{
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid var(--border-subtle)",
+                background: "rgba(255,255,255,0.03)",
+                color: "var(--text-primary)",
+                fontSize: "0.875rem",
+                outline: "none",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Gender Identity</label>
+            <input
+              type="text"
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              placeholder="e.g. Male, Female, Non-binary"
+              style={{
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid var(--border-subtle)",
+                background: "rgba(255,255,255,0.03)",
+                color: "var(--text-primary)",
+                fontSize: "0.875rem",
+                outline: "none",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Pronouns</label>
+            <input
+              type="text"
+              value={pronouns}
+              onChange={(e) => setPronouns(e.target.value)}
+              placeholder="e.g. he/him, she/her, they/them"
+              style={{
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid var(--border-subtle)",
+                background: "rgba(255,255,255,0.03)",
+                color: "var(--text-primary)",
+                fontSize: "0.875rem",
+                outline: "none",
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={handleSaveProfile}
+            disabled={profileSaving}
+            className="btn-primary"
+            style={{
+              padding: "10px 20px",
+              borderRadius: 8,
+              border: "none",
+              fontWeight: 600,
+              fontSize: "0.8125rem",
+              cursor: "pointer",
+              opacity: profileSaving ? 0.6 : 1,
+            }}
+          >
+            {profileSaving ? "Saving..." : "Save Profile"}
+          </button>
+          {profileMessage && (
+            <span style={{ fontSize: "0.8125rem", color: profileMessage.startsWith("✅") ? "var(--accent-primary)" : "var(--accent-warning)" }}>
+              {profileMessage}
+            </span>
+          )}
+        </div>
+      </section>
+
       {/* ── Discord Link ── */}
       <section className="glass-panel" style={{ padding: 28, marginBottom: 28 }}>
         <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
@@ -119,8 +257,6 @@ export default function SettingsPage() {
                   padding: "10px 20px",
                   borderRadius: 8,
                   border: "none",
-                  background: "var(--accent-primary)",
-                  color: "#000",
                   fontWeight: 600,
                   fontSize: "0.8125rem",
                   cursor: "pointer",

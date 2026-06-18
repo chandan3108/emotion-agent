@@ -1526,6 +1526,11 @@ def clean_think_tags(text: str) -> str:
 
     # Strip leftover plain-text markers like "thinking - " or "think - " at the start
     text = re.sub(r'^(?:think(?:ing)?)\s*[-—:]\s*', '', text, flags=re.IGNORECASE).strip()
+    
+    # Clean <text>...</text> tags but keep their contents
+    text = re.sub(r'<text>(.*?)</text>', r'\1', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'</?text>', '', text, flags=re.IGNORECASE)
+    
     return text.strip()
 
 
@@ -2215,6 +2220,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
             response_text = await two_stage.stage2_response_synthesis(
                 reasoning_artifact, agent_state, temporal_context, selected_memories
             )
+            response_text = clean_think_tags(response_text)
             
             # Apply message planning
             message_plan = processing_result.get("message_plan")

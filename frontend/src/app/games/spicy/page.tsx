@@ -214,12 +214,13 @@ export default function SpicyGamePage() {
                   onClick={() => setSelectedScenario(s.title)}
                   style={{
                     textAlign: "left", padding: "14px 18px", borderRadius: 8,
-                    background: selectedScenario === s.title ? "rgba(244, 63, 94, 0.08)" : "rgba(255,255,255,0.01)",
-                    border: "1px solid " + (selectedScenario === s.title ? "#f43f5e" : "var(--border-subtle)"),
-                    cursor: "pointer", transition: "all 0.2s"
+                    background: selectedScenario === s.title ? "rgba(184, 92, 75, 0.08)" : "var(--bg-surface)",
+                    border: "1px solid " + (selectedScenario === s.title ? "var(--text-accent)" : "var(--border-subtle)"),
+                    cursor: "pointer", transition: "all 0.2s",
+                    boxShadow: "0 2px 6px rgba(90, 85, 75, 0.03)"
                   }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: "0.8125rem", color: selectedScenario === s.title ? "#ffe4e6" : "var(--text-primary)" }}>{s.title}</div>
+                  <div style={{ fontWeight: 600, fontSize: "0.8125rem", color: selectedScenario === s.title ? "var(--text-accent)" : "var(--text-primary)" }}>{s.title}</div>
                   <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>{s.desc}</div>
                 </button>
               ))}
@@ -238,12 +239,13 @@ export default function SpicyGamePage() {
                   onClick={() => setSelectedMood(m.title)}
                   style={{
                     padding: "14px 12px", borderRadius: 8,
-                    background: selectedMood === m.title ? "rgba(244, 63, 94, 0.08)" : "rgba(255,255,255,0.01)",
-                    border: "1px solid " + (selectedMood === m.title ? "#f43f5e" : "var(--border-subtle)"),
-                    cursor: "pointer", transition: "all 0.2s", display: "flex", flexDirection: "column", gap: 4, alignItems: "center", textAlign: "center"
+                    background: selectedMood === m.title ? "rgba(184, 92, 75, 0.08)" : "var(--bg-surface)",
+                    border: "1px solid " + (selectedMood === m.title ? "var(--text-accent)" : "var(--border-subtle)"),
+                    cursor: "pointer", transition: "all 0.2s", display: "flex", flexDirection: "column", gap: 4, alignItems: "center", textAlign: "center",
+                    boxShadow: "0 2px 6px rgba(90, 85, 75, 0.03)"
                   }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: "0.8125rem", color: selectedMood === m.title ? "#ffe4e6" : "var(--text-primary)" }}>{m.title}</div>
+                  <div style={{ fontWeight: 600, fontSize: "0.8125rem", color: selectedMood === m.title ? "var(--text-accent)" : "var(--text-primary)" }}>{m.title}</div>
                   <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", lineHeight: 1.3 }}>{m.desc}</div>
                 </button>
               ))}
@@ -255,9 +257,9 @@ export default function SpicyGamePage() {
             onClick={handleStartSession}
             disabled={loading}
             style={{
-              padding: "12px 32px", borderRadius: 999, background: "#f43f5e",
+              padding: "12px 32px", borderRadius: 10, background: "var(--accent-primary)",
               color: "#fff", border: "none", fontSize: "0.875rem", fontWeight: 600,
-              cursor: "pointer", boxShadow: "0 0 20px rgba(244, 63, 94, 0.4)", transition: "all 0.2s",
+              cursor: "pointer", boxShadow: "0 2px 8px rgba(95, 125, 97, 0.15)", transition: "all 0.2s",
               marginTop: 10
             }}
           >
@@ -278,13 +280,13 @@ export default function SpicyGamePage() {
       {/* Right Pane: Chat Window & Session Controls */}
       <div style={{ flex: "1.5", display: "flex", flexDirection: "column", height: "100%" }}>
         {/* HUD Bar */}
-        <div className="glass-panel" style={{ padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderColor: "rgba(244, 63, 94, 0.15)", background: "rgba(30,10,20,0.2)" }}>
+        <div className="glass-panel" style={{ padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderColor: "var(--border-subtle)", background: "var(--bg-surface)", boxShadow: "0 2px 8px rgba(90, 85, 75, 0.03)" }}>
           <div>
-            <span style={{ fontSize: "0.5625rem", textTransform: "uppercase", color: "#f43f5e", fontWeight: 700, letterSpacing: "0.05em" }}>
+            <span style={{ fontSize: "0.5625rem", textTransform: "uppercase", color: "var(--text-accent)", fontWeight: 700, letterSpacing: "0.05em" }}>
               Unfiltered Sandbox
             </span>
             <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 500, marginTop: 1 }}>
-              🎭 {session.scenario} | 💗 {session.mood} | 👤 Mood: <span style={{ color: "#f43f5e", textTransform: "capitalize", fontWeight: 600 }}>{activeEmotion}</span>
+              🎭 {session.scenario} | 💗 {session.mood} | 👤 Mood: <span style={{ color: "var(--text-accent)", textTransform: "capitalize", fontWeight: 600 }}>{activeEmotion}</span>
             </div>
           </div>
           
@@ -293,8 +295,8 @@ export default function SpicyGamePage() {
             <button
               onClick={handleSelfDestruct}
               style={{
-                padding: "6px 14px", borderRadius: 6, background: "rgba(239, 68, 68, 0.15)",
-                border: "1px solid rgba(239, 68, 68, 0.3)", color: "#f87171", fontSize: "0.6875rem", fontWeight: 600,
+                padding: "6px 14px", borderRadius: 6, background: "rgba(184, 92, 75, 0.08)",
+                border: "1px solid rgba(184, 92, 75, 0.2)", color: "var(--text-accent)", fontSize: "0.6875rem", fontWeight: 600,
                 cursor: "pointer", transition: "all 0.2s"
               }}
             >
@@ -304,8 +306,8 @@ export default function SpicyGamePage() {
               onClick={handleEndSession}
               disabled={loading}
               style={{
-                padding: "6px 16px", borderRadius: 6, background: "rgba(244, 63, 94, 0.15)",
-                border: "1px solid rgba(244, 63, 94, 0.3)", color: "#ffe4e6", fontSize: "0.6875rem", fontWeight: 600,
+                padding: "6px 16px", borderRadius: 6, background: "rgba(95, 125, 97, 0.08)",
+                border: "1px solid rgba(95, 125, 97, 0.2)", color: "var(--accent-primary)", fontSize: "0.6875rem", fontWeight: 600,
                 cursor: "pointer", transition: "all 0.2s"
               }}
             >
@@ -324,8 +326,9 @@ export default function SpicyGamePage() {
             display: "flex", 
             flexDirection: "column", 
             gap: 16,
-            borderColor: "rgba(244, 63, 94, 0.1)",
-            background: "rgba(8, 8, 15, 0.7)"
+            borderColor: "var(--border-subtle)",
+            background: "var(--bg-surface)",
+            boxShadow: "0 4px 12px rgba(90, 85, 75, 0.04)"
           }}
         >
           {messages.map((m, i) => {
@@ -344,14 +347,16 @@ export default function SpicyGamePage() {
               >
                 <div 
                   style={{
-                    background: isUser ? "rgba(255,255,255,0.03)" : "rgba(244, 63, 94, 0.05)",
-                    border: isUser ? "1px solid var(--border-subtle)" : "1px solid rgba(244, 63, 94, 0.15)",
+                    background: isUser ? "#EFEBE0" : "#FFFFFF",
+                    border: isUser ? "1px solid #DFD8C4" : "1px solid var(--border-subtle)",
                     padding: "10px 16px",
-                    borderRadius: isUser ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-                    color: isUser ? "var(--text-primary)" : "#ffe4e6",
-                    fontSize: "0.8125rem",
+                    borderRadius: isUser ? "14px 14px 2px 14px" : "14px 14px 14px 2px",
+                    color: "var(--text-primary)",
+                    fontFamily: isUser ? "var(--font-sans)" : "var(--font-serif)",
+                    fontSize: isUser ? "0.8125rem" : "0.9375rem",
                     lineHeight: 1.5,
-                    whiteSpace: "pre-line"
+                    whiteSpace: "pre-line",
+                    boxShadow: "0 1px 3px rgba(90, 85, 75, 0.02)"
                   }}
                 >
                   {formatMessage(m.content)}
@@ -380,7 +385,7 @@ export default function SpicyGamePage() {
             onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
             style={{
               flex: 1, padding: "12px 18px", borderRadius: 8,
-              background: "rgba(255,255,255,0.01)", border: "1px solid rgba(244, 63, 94, 0.15)",
+              background: "var(--bg-surface)", border: "1px solid var(--border-subtle)",
               color: "var(--text-primary)", fontSize: "0.8125rem",
             }}
           />
@@ -388,7 +393,7 @@ export default function SpicyGamePage() {
             onClick={handleSendMessage}
             disabled={loading || !inputText.trim()}
             style={{
-              padding: "0 24px", borderRadius: 8, background: "#f43f5e",
+              padding: "0 24px", borderRadius: 8, background: "var(--accent-primary)",
               color: "#fff", border: "none", fontSize: "0.8125rem", fontWeight: 600,
               cursor: "pointer", transition: "all 0.2s"
             }}
@@ -402,29 +407,29 @@ export default function SpicyGamePage() {
       {showSecretModal && unlockedSecret && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center",
-          background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)"
+          background: "rgba(90, 85, 75, 0.4)", backdropFilter: "blur(4px)"
         }}>
           <div 
             className="glass-panel" 
             style={{ 
               width: "90%", maxWidth: 440, padding: 32, textAlign: "center", 
-              background: "linear-gradient(135deg, #1f0a17 0%, #0d040b 100%)",
-              border: "1px solid #f43f5e", boxShadow: "0 0 30px rgba(244, 63, 94, 0.4)",
+              background: "var(--bg-primary)",
+              border: "1px solid var(--border-glow)", boxShadow: "0 8px 32px rgba(90, 85, 75, 0.1)",
               borderRadius: 16
             }}
           >
             <div style={{ fontSize: "3.5rem", marginBottom: 16 }}>💌</div>
-            <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "1.5rem", fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+            <h2 style={{ fontFamily: "var(--font-sans)", fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
               Secret Keep Note Unlocked!
             </h2>
-            <p style={{ color: "#f43f5e", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, marginBottom: 20 }}>
+            <p style={{ color: "var(--text-accent)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, marginBottom: 20 }}>
               saved to Rem&apos;s secrets vault
             </p>
 
             <div style={{
-              padding: "20px 18px", borderRadius: 10, background: "rgba(244, 63, 94, 0.05)", border: "1px dashed rgba(244, 63, 94, 0.2)",
-              fontSize: "1.625rem", fontStyle: "italic", fontFamily: "var(--font-caveat), 'Caveat', cursive",
-              color: "#ffe4e6", margin: "16px 0", lineHeight: 1.3
+              padding: "20px 18px", borderRadius: 10, background: "var(--bg-surface)", border: "1px dashed var(--border-glow)",
+              fontSize: "1.5rem", fontStyle: "italic", fontFamily: "var(--font-serif)",
+              color: "var(--text-primary)", margin: "16px 0", lineHeight: 1.4
             }}>
               &ldquo;{unlockedSecret.quote}&rdquo;
             </div>
@@ -436,9 +441,9 @@ export default function SpicyGamePage() {
             <button
               onClick={() => { setShowSecretModal(false); setSession(null); setMessages([]); }}
               style={{
-                padding: "10px 28px", borderRadius: 8, background: "#f43f5e",
+                padding: "10px 28px", borderRadius: 8, background: "var(--accent-primary)",
                 color: "#fff", border: "none", fontSize: "0.8125rem", fontWeight: 600,
-                cursor: "pointer", transition: "all 0.2s", boxShadow: "0 0 10px rgba(244, 63, 94, 0.3)"
+                cursor: "pointer", transition: "all 0.2s", boxShadow: "0 2px 6px rgba(95, 125, 97, 0.15)"
               }}
             >
               Close Vault

@@ -200,19 +200,22 @@ Be selective - don't include everything. Focus on what matters for this specific
                     INFERENCE_URL,
                     headers={"Authorization": f"Bearer {HF_TOKEN}"},
                     json={
-                        "inputs": system_prompt,
-                        "parameters": {
-                            "max_new_tokens": 200,
-                            "temperature": 0.3,
-                            "return_full_text": False,
-                            "response_format": {"type": "json_object"}
-                        }
+                        "model": MODEL_ID or "llama-3.1-8b-instant",
+                        "messages": [{"role": "user", "content": system_prompt}],
+                        "max_tokens": 200,
+                        "temperature": 0.3,
+                        "response_format": {"type": "json_object"}
                     }
                 )
                 
                 if response.status_code == 200:
                     data = response.json()
-                    text = data[0].get("generated_text", "") if isinstance(data, list) else str(data)
+                    choices = data.get("choices")
+                    text = ""
+                    if choices:
+                        text = choices[0].get("message", {}).get("content", "")
+                    else:
+                        text = str(data)
                     
                     # Parse JSON from response
                     selected_features = self._parse_feature_selection(text)

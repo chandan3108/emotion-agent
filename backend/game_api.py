@@ -22,6 +22,14 @@ from .user_sync import resolve_core_id, verify_link_code, get_link_status
 router = APIRouter(prefix="/api/user", tags=["game-progression"])
 
 
+class ProfileRequest(BaseModel):
+    preferred_name: Optional[str] = None
+    gender: Optional[str] = None
+    pronouns: Optional[str] = None
+
+
+
+
 # ─────────────────────────────────────────────────────
 # Response Models
 # ─────────────────────────────────────────────────────
@@ -924,6 +932,10 @@ def _clean_and_format_memory_content(content: str, event_type: str) -> str:
     s = re.sub(r'\*thinks\s*>\s*', '', s, flags=re.IGNORECASE)
     s = re.sub(r'\*thinks\*\s*', '', s, flags=re.IGNORECASE)
     
+    # Strip text tag wrappers while retaining the enclosed content
+    s = re.sub(r'<text>(.*?)</text>', r'\1', s, flags=re.DOTALL | re.IGNORECASE)
+    s = re.sub(r'</?text>', '', s, flags=re.IGNORECASE)
+    
     s = re.sub(r"\bRem's\b", "my", s, flags=re.IGNORECASE)
     s = re.sub(r"\bRem'\b", "my", s, flags=re.IGNORECASE)
     s = re.sub(r"\bRem\b", "I", s, flags=re.IGNORECASE)
@@ -1224,6 +1236,56 @@ async def get_identity(user_id: str):
             "entitlement_debt": round(getattr(core.psyche, 'entitlement_debt', 0.0), 2),
             "reciprocity_balance": round(core.reciprocity_ledger.balance, 2),
         },
+    }
+
+
+def _get_fact_value(fact_entry):
+    if isinstance(fact_entry, dict):
+        return fact_entry.get("v", "")
+    return str(fact_entry) if fact_entry is not None else ""
+
+
+@router.post("/{user_id}/profile")
+async def update_profile(user_id: str, payload: ProfileRequest):
+    """Update preferred name, gender, and pronouns in user facts."""
+    core = _get_core(user_id)
+    
+    stored_user = core.state.get("_user_facts", {})
+    if not isinstance(stored_user, dict):
+        stored_user = {}
+        
+    updated = False
+    
+    if payload.preferred_name is not None:
+        name_val = payload.preferred_name.strip()
+        if name_val:
+            stored_user["preferred_name"] = {"v": name_val, "t": datetime.now(timezone.utc).isoformat()}
+            core.state["user_name"] = name_val
+            updated = True
+            
+    if payload.gender is not None:
+        gender_val = payload.gender.strip()
+        if gender_val:
+            stored_user["gender"] = {"v": gender_val, "t": datetime.now(timezone.utc).isoformat()}
+            updated = True
+            
+    if payload.pronouns is not None:
+        pronouns_val = payload.pronouns.strip()
+        if pronouns_val:
+            stored_user["pronouns"] = {"v": pronouns_val, "t": datetime.now(timezone.utc).isoformat()}
+            updated = True
+            
+    if updated:
+        core.state["_user_facts"] = stored_user
+        core._save_state()
+        
+    return {
+        "success": True,
+        "user_facts": {
+            "preferred_name": _get_fact_value(stored_user.get("preferred_name")),
+            "gender": _get_fact_value(stored_user.get("gender")),
+            "pronouns": _get_fact_value(stored_user.get("pronouns")),
+        }
     }
 
 
@@ -2745,13 +2807,16 @@ async def start_spicy_chat(user_id: str, payload: SpicyStartRequest):
     self_identity = core.state.get("personality_evolution", {}).get("self_identity", {})
     active_archetype = self_identity.get("_persona_flavor", self_identity.get("persona_flavor", "neutral"))
     
+    user_facts = core.state.get("_user_facts", {})
+    
     # Generate flirty/unhinged starting message
     greeting = await generate_spicy_chat_response(
         scenario, 
         mood, 
         active_archetype, 
         [], 
-        f"start the roleplay as Rem (the 20-year-old female psychology student) in the scenario: '{scenario}'. introduce yourself matching the starting mood '{mood}'."
+        f"start the roleplay as Rem (the 20-year-old female psychology student) in the scenario: '{scenario}'. introduce yourself matching the starting mood '{mood}'.",
+        user_facts=user_facts
     )
     
     session = {
@@ -2789,6 +2854,8 @@ async def chat_spicy_game(user_id: str, payload: SpicyChatRequest):
     self_identity = core.state.get("personality_evolution", {}).get("self_identity", {})
     active_archetype = self_identity.get("_persona_flavor", self_identity.get("persona_flavor", "neutral"))
     
+    user_facts = core.state.get("_user_facts", {})
+    
     user_msg = payload.message.strip()
     history.append({"role": "user", "content": user_msg})
     
@@ -2797,7 +2864,8 @@ async def chat_spicy_game(user_id: str, payload: SpicyChatRequest):
         mood, 
         active_archetype, 
         history[:-1], 
-        user_msg
+        user_msg,
+        user_facts=user_facts
     )
     
     history.append({"role": "assistant", "content": response})

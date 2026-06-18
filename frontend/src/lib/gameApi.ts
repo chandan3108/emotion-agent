@@ -672,6 +672,26 @@ export function submitClosingArguments(closingArgument: string, userId: string =
   });
 }
 
+export interface ProfileUpdateResponse {
+  success: boolean;
+  user_facts: {
+    preferred_name: string;
+    gender: string;
+    pronouns: string;
+  };
+}
+
+export function updateProfile(
+  payload: { preferred_name?: string; gender?: string; pronouns?: string },
+  userId: string = DEFAULT_USER_ID
+) {
+  return apiFetch<ProfileUpdateResponse>(`/api/user/${userId}/profile`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+
 
 
 

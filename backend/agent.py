@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 def _clean_think_tags(text: str) -> str:
-    """Remove <think>...</think> and <vthink>...</vthink> tags robustly."""
+    """Remove <think>...</think>, <vthink>...</vthink>, and <text>...</text> tags robustly."""
     if not text:
         return ""
     import re
@@ -30,6 +30,11 @@ def _clean_think_tags(text: str) -> str:
     text = re.sub(r'<(v?think)>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'</(v?think)>', '', text, flags=re.IGNORECASE)
     text = re.sub(r'^(?:think(?:ing)?)\s*[-—:]\s*', '', text, flags=re.IGNORECASE)
+    
+    # Clean <text>...</text> tags but keep their contents
+    text = re.sub(r'<text>(.*?)</text>', r'\1', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'</?text>', '', text, flags=re.IGNORECASE)
+    
     return text.strip()
 
 

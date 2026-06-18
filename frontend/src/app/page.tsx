@@ -23,6 +23,17 @@ function saveMessages(msgs: Message[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs)); } catch {}
 }
 
+function cleanMessageContent(text: string): string {
+  if (!text) return "";
+  let cleaned = text.replace(/<(v?think)>[\s\S]*?<\/\1>/gi, "");
+  cleaned = cleaned.replace(/<(v?think)>[\s\S]*$/gi, "");
+  cleaned = cleaned.replace(/<\/(v?think)>/gi, "");
+  cleaned = cleaned.replace(/<text>([\s\S]*?)<\/text>/gi, "$1");
+  cleaned = cleaned.replace(/<\/?text>/gi, "");
+  return cleaned.trim();
+}
+
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -533,8 +544,7 @@ export default function ChatPage() {
       return parts.map((p, idx) => (
         <span key={idx} style={{ 
           fontStyle: p.isAction ? "italic" : "normal", 
-          color: p.isAction ? "var(--text-accent)" : "#ffffff",
-          textShadow: p.isAction ? "0 0 8px rgba(201, 176, 255, 0.4)" : "none",
+          color: p.isAction ? "var(--text-accent)" : "var(--text-primary)",
           fontWeight: p.isAction ? 500 : 400
         }}>
           {p.isAction ? `*${p.text}*` : p.text}
@@ -544,20 +554,20 @@ export default function ChatPage() {
 
     // Preset mapping for background/glows
     const getPresetGradients = () => {
-      if (isGlitched) return "radial-gradient(circle at center, rgba(239, 68, 68, 0.25) 0%, rgba(5,5,8,1) 80%)";
+      if (isGlitched) return "radial-gradient(circle at center, rgba(184, 92, 75, 0.3) 0%, var(--bg-void) 80%)";
       const act = (roleplay?.activity || "").toLowerCase();
       const loc = (roleplay?.location || "").toLowerCase();
       
       if (act.includes("bbq") || loc.includes("bbq") || act.includes("barbecue") || loc.includes("barbecue")) {
-        return "radial-gradient(circle at center, rgba(239, 68, 68, 0.18) 0%, rgba(5,5,8,1) 85%)";
+        return "radial-gradient(circle at center, rgba(184, 92, 75, 0.15) 0%, var(--bg-void) 85%)";
       } else if (act.includes("cafe") || loc.includes("cafe") || act.includes("coffee") || loc.includes("coffee")) {
-        return "radial-gradient(circle at center, rgba(245, 158, 11, 0.15) 0%, rgba(5,5,8,1) 85%)";
+        return "radial-gradient(circle at center, rgba(192, 138, 62, 0.15) 0%, var(--bg-void) 85%)";
       } else if (act.includes("movie") || loc.includes("movie") || act.includes("theater") || loc.includes("theater")) {
-        return "radial-gradient(circle at center, rgba(99, 102, 241, 0.15) 0%, rgba(5,5,8,1) 85%)";
+        return "radial-gradient(circle at center, rgba(106, 133, 184, 0.15) 0%, var(--bg-void) 85%)";
       } else if (act.includes("study") || loc.includes("study") || act.includes("library") || loc.includes("library") || act.includes("class")) {
-        return "radial-gradient(circle at center, rgba(16, 185, 129, 0.15) 0%, rgba(5,5,8,1) 85%)";
+        return "radial-gradient(circle at center, rgba(95, 125, 97, 0.15) 0%, var(--bg-void) 85%)";
       }
-      return "radial-gradient(circle at center, rgba(167, 139, 250, 0.15) 0%, rgba(5,5,8,1) 85%)";
+      return "radial-gradient(circle at center, rgba(95, 125, 97, 0.1) 0%, var(--bg-void) 85%)";
     };
 
     return (
@@ -579,9 +589,8 @@ export default function ChatPage() {
         <div 
           style={{ 
             alignSelf: "flex-start",
-            background: "rgba(255,255,255,0.02)",
+            background: "var(--bg-surface)",
             border: "1px solid var(--border-subtle)",
-            backdropFilter: "blur(10px)",
             padding: "8px 16px",
             borderRadius: 12,
             fontSize: "0.8125rem",
@@ -589,7 +598,7 @@ export default function ChatPage() {
             display: "flex",
             alignItems: "center",
             gap: 8,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.5)"
+            boxShadow: "0 2px 8px rgba(90, 85, 75, 0.04)"
           }}
         >
           <span>📍</span>
@@ -605,7 +614,7 @@ export default function ChatPage() {
               height: 130, 
               borderRadius: "50%",
               background: "radial-gradient(circle, var(--accent-primary) 0%, var(--accent-secondary) 100%)",
-              boxShadow: "0 0 60px var(--accent-glow)",
+              boxShadow: "0 4px 16px rgba(95, 125, 97, 0.15)",
               position: "relative",
               display: "flex",
               alignItems: "center",
@@ -628,7 +637,7 @@ export default function ChatPage() {
                 height: 14,
                 borderRadius: "50%",
                 background: "var(--accent-primary)",
-                boxShadow: "0 0 20px var(--accent-primary)",
+                boxShadow: "0 2px 6px rgba(95, 125, 97, 0.2)",
               }}
             />
           </div>
@@ -656,15 +665,15 @@ export default function ChatPage() {
                 onClick={() => sendMessageToServer(chip)}
                 disabled={loading}
                 style={{
-                  background: "rgba(10, 10, 18, 0.8)",
-                  border: "1px solid var(--border-glow)",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-subtle)",
                   color: "var(--text-primary)",
                   padding: "10px 20px",
                   borderRadius: "20px",
                   cursor: "pointer",
                   fontSize: "0.8125rem",
                   transition: "all 0.2s var(--ease-spring)",
-                  boxShadow: "0 4px 15px rgba(0,0,0,0.3)"
+                  boxShadow: "0 2px 6px rgba(90, 85, 75, 0.04)"
                 }}
                 className="action-chip-date"
               >
@@ -676,12 +685,11 @@ export default function ChatPage() {
           {/* Dialogue Box */}
           <div
             style={{
-              background: "rgba(10, 10, 18, 0.9)",
+              background: "var(--bg-surface)",
               border: "1px solid var(--border-subtle)",
               borderRadius: "16px",
               padding: "24px 28px",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
-              backdropFilter: "blur(20px)",
+              boxShadow: "0 4px 20px rgba(90, 85, 75, 0.06)",
               position: "relative",
               minHeight: 120,
               display: "flex",
@@ -701,7 +709,7 @@ export default function ChatPage() {
                 fontSize: "0.8125rem",
                 padding: "4px 18px",
                 borderRadius: 8,
-                boxShadow: "0 4px 10px rgba(151,117,250,0.3)",
+                boxShadow: "0 2px 6px rgba(95, 125, 97, 0.15)",
                 letterSpacing: "0.05em",
                 textTransform: "uppercase"
               }}
@@ -710,13 +718,13 @@ export default function ChatPage() {
             </div>
             
             {/* Dialogue Text */}
-            <div style={{ fontSize: "1rem", lineHeight: 1.7, color: "#fff" }}>
+            <div style={{ fontSize: "1rem", lineHeight: 1.7, color: "var(--text-primary)", fontFamily: "var(--font-serif)" }}>
               {loading ? (
                 <div style={{ display: "flex", gap: 6, alignItems: "center", height: 28 }}>
                   <span style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>Rem is thinking...</span>
                 </div>
               ) : (
-                parseDialogue(lastReply)
+                parseDialogue(cleanMessageContent(lastReply))
               )}
             </div>
           </div>
@@ -745,11 +753,11 @@ export default function ChatPage() {
               autoComplete="off"
               style={{
                 flex: 1,
-                background: "rgba(10, 10, 18, 0.8)",
+                background: "var(--bg-surface)",
                 border: "1px solid var(--border-subtle)",
                 borderRadius: 12,
                 padding: "12px 20px",
-                color: "#fff"
+                color: "var(--text-primary)"
               }}
             />
             <button
@@ -794,8 +802,7 @@ export default function ChatPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          background: "rgba(8, 8, 15, 0.8)",
-          backdropFilter: "blur(20px)",
+          background: "var(--bg-primary)",
           zIndex: 5,
         }}
       >
@@ -806,12 +813,12 @@ export default function ChatPage() {
               width: 36, 
               height: 36,
               "--orb-gradient": anger > 0.4 
-                ? "conic-gradient(from 0deg, #ff4d4d, #ff0055, #ff4444, #ff4d4d)" 
+                ? "conic-gradient(from 0deg, #E55B5B, #A63434, #FFA1A1, #E55B5B)" 
                 : hurt > 0.4 
-                ? "conic-gradient(from 0deg, #4b6584, #778ca3, #a5b1c2, #4b6584)" 
+                ? "conic-gradient(from 0deg, #6A85B8, #8FA0C0, #B8C7E0, #6A85B8)" 
                 : xp && ["Steady", "Deep", "Bonded"].includes(xp.phase)
-                ? "conic-gradient(from 0deg, #ff9f43, #ff6b6b, #feca57, #ff9f43)"
-                : "conic-gradient(from 0deg, #7c5ce7, #e879f9, #74b9ff, #7c5ce7)",
+                ? "conic-gradient(from 0deg, #C08A3E, #B85C4B, #E5B26E, #C08A3E)"
+                : "conic-gradient(from 0deg, #5F7D61, #8AA38B, #B85C4B, #5F7D61)",
               "--orb-speed": anger > 0.4 ? "1.5s" : hurt > 0.4 ? "7.0s" : xp && ["Steady", "Deep", "Bonded"].includes(xp.phase) ? "3.0s" : "4.5s"
             } as React.CSSProperties} 
           />
@@ -820,20 +827,19 @@ export default function ChatPage() {
               <h2
                 style={{
                   fontSize: "0.9375rem",
-                  fontWeight: 600,
-                  letterSpacing: "-0.02em",
+                  fontWeight: 700,
+                  letterSpacing: "-0.01em",
+                  color: "var(--text-primary)"
                 }}
               >
                 Rem
               </h2>
               {roleplay?.active ? (
                 <span
-                  className="roleplay-badge-glow"
                   style={{
                     fontSize: "0.6875rem",
-                    background: "var(--accent-soft)",
-                    border: "1px solid var(--accent-primary)",
-                    boxShadow: "0 0 10px var(--accent-glow)",
+                    background: "rgba(95, 125, 97, 0.08)",
+                    border: "1px solid rgba(95, 125, 97, 0.2)",
                     padding: "3px 10px",
                     borderRadius: 12,
                     color: "var(--accent-primary)",
@@ -851,7 +857,7 @@ export default function ChatPage() {
                 <span
                   style={{
                     fontSize: "0.6875rem",
-                    background: "rgba(255, 255, 255, 0.05)",
+                    background: "rgba(0, 0, 0, 0.02)",
                     border: "1px solid var(--border-subtle)",
                     padding: "2px 8px",
                     borderRadius: 12,
@@ -892,7 +898,7 @@ export default function ChatPage() {
                 padding: "4px 10px",
                 fontSize: "0.625rem",
                 color: "var(--text-muted)",
-                background: "rgba(255,255,255,0.04)",
+                background: "rgba(0,0,0,0.02)",
                 border: "1px solid var(--border-subtle)",
                 borderRadius: 6,
                 cursor: "pointer",
@@ -901,7 +907,7 @@ export default function ChatPage() {
                 transition: "all 0.2s ease"
               }}
             >
-              Clear
+              Reset
             </button>
           )}
           {/* XP Micro */}
@@ -914,7 +920,7 @@ export default function ChatPage() {
               }}
             >
               {xp.streak_days > 0 && (
-                <span className="streak-flame">🔥 {xp.streak_days}</span>
+                <span className="streak-flame" style={{ color: "var(--text-accent)" }}>🔥 {xp.streak_days}</span>
               )}
               <span
                 className={`phase-badge phase-${xp.phase.toLowerCase()}`}
@@ -927,9 +933,9 @@ export default function ChatPage() {
                   borderRadius: "12px",
                   fontSize: "0.6875rem",
                   fontWeight: 700,
-                  background: "rgba(151, 117, 250, 0.1)",
-                  color: "var(--text-accent)",
-                  border: "1px solid rgba(151, 117, 250, 0.2)",
+                  background: "rgba(95, 125, 97, 0.08)",
+                  color: "var(--accent-primary)",
+                  border: "1px solid rgba(95, 125, 97, 0.15)",
                   letterSpacing: "0.05em",
                   textTransform: "uppercase",
                 }}
@@ -962,16 +968,15 @@ export default function ChatPage() {
 
       {roleplay?.active && (
         <div style={{
-          background: "rgba(167, 139, 250, 0.08)",
-          borderBottom: "1px solid rgba(167, 139, 250, 0.15)",
+          background: "rgba(95, 125, 97, 0.06)",
+          borderBottom: "1px solid rgba(95, 125, 97, 0.12)",
           padding: "10px 20px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           fontSize: "0.8125rem",
-          color: "var(--text-accent)",
+          color: "var(--text-primary)",
           zIndex: 4,
-          boxShadow: "0 4px 15px rgba(0,0,0,0.15)"
         }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span>🎭</span>
@@ -981,16 +986,15 @@ export default function ChatPage() {
             onClick={() => window.location.href = "/date"}
             style={{
               background: "var(--accent-primary)",
-              color: "#050508",
+              color: "#fff",
               border: "none",
-              borderRadius: "4px",
-              padding: "4px 12px",
-              fontWeight: 700,
+              borderRadius: "6px",
+              padding: "5px 14px",
+              fontWeight: 600,
               fontSize: "0.75rem",
               cursor: "pointer",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
-              boxShadow: "0 0 10px var(--accent-glow)"
             }}
           >
             Join Date View
@@ -1151,12 +1155,12 @@ export default function ChatPage() {
                         wordBreak: "break-word",
                       }}
                     >
-                      {msg.content}
+                      {cleanMessageContent(msg.content)}
                       {/* Sent Time Timestamp inside bubble */}
                       {msg.timestamp && (
                         <div style={{
                           fontSize: "0.6875rem",
-                          color: "rgba(255, 255, 255, 0.35)",
+                          color: "var(--text-secondary)",
                           textAlign: "right",
                           marginTop: 6,
                           lineHeight: 1
@@ -1482,7 +1486,7 @@ export default function ChatPage() {
             position: "fixed",
             inset: 0,
             zIndex: 90,
-            background: "rgba(0,0,0,0.5)",
+            background: "rgba(90, 85, 75, 0.4)",
             backdropFilter: "blur(4px)",
             display: "flex",
             justifyContent: "flex-end",
@@ -1495,10 +1499,9 @@ export default function ChatPage() {
               width: "100%",
               maxWidth: 450,
               height: "100%",
-              background: "rgba(10, 10, 18, 0.95)",
-              backdropFilter: "blur(30px)",
+              background: "var(--bg-primary)",
               borderLeft: "1px solid var(--border-glow)",
-              boxShadow: "-10px 0 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(255,255,255,0.02)",
+              boxShadow: "-4px 0 16px rgba(90, 85, 75, 0.06)",
               display: "flex",
               flexDirection: "column",
               padding: "30px 24px",
@@ -1509,13 +1512,13 @@ export default function ChatPage() {
           >
             {/* Drawer Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+              <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
                 {drawerTab === 'plans' ? "📅 Schedule & Plans" : "🧠 Memory Vault"}
               </h3>
               <button
                 onClick={() => setDrawerOpen(false)}
                 style={{
-                  background: "rgba(255,255,255,0.05)",
+                  background: "rgba(0,0,0,0.02)",
                   border: "1px solid var(--border-subtle)",
                   borderRadius: "50%",
                   width: 32,
@@ -1535,7 +1538,7 @@ export default function ChatPage() {
             {/* Navigation Tabs */}
             <div style={{ 
               display: "flex", 
-              background: "rgba(0, 0, 0, 0.3)", 
+              background: "rgba(0, 0, 0, 0.03)", 
               borderRadius: "8px", 
               padding: "4px", 
               marginBottom: 24, 
@@ -1546,7 +1549,7 @@ export default function ChatPage() {
                 style={{
                   flex: 1,
                   background: drawerTab === 'plans' ? "var(--accent-primary)" : "transparent",
-                  color: drawerTab === 'plans' ? "#050508" : "var(--text-secondary)",
+                  color: drawerTab === 'plans' ? "var(--bg-void)" : "var(--text-secondary)",
                   border: "none",
                   borderRadius: "6px",
                   padding: "8px 12px",
@@ -1566,7 +1569,7 @@ export default function ChatPage() {
                 style={{
                   flex: 1,
                   background: drawerTab === 'vault' ? "var(--accent-primary)" : "transparent",
-                  color: drawerTab === 'vault' ? "#050508" : "var(--text-secondary)",
+                  color: drawerTab === 'vault' ? "var(--bg-void)" : "var(--text-secondary)",
                   border: "none",
                   borderRadius: "6px",
                   padding: "8px 12px",
@@ -1601,14 +1604,14 @@ export default function ChatPage() {
                           <div
                             key={idx}
                             style={{
-                              background: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.02)",
+                              background: isActive ? "var(--accent-soft)" : "var(--bg-surface)",
                               border: isActive ? "1px solid var(--accent-primary)" : "1px solid var(--border-subtle)",
                               borderRadius: 8,
                               padding: "10px 14px",
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              boxShadow: isActive ? "0 0 10px var(--accent-glow)" : "none",
+                              boxShadow: isActive ? "0 2px 6px rgba(95, 125, 97, 0.1)" : "none",
                               transition: "all 0.3s ease"
                             }}
                           >
@@ -1640,7 +1643,7 @@ export default function ChatPage() {
                         <div
                           key={idx}
                           style={{
-                            background: "rgba(255,255,255,0.03)",
+                            background: "var(--bg-surface)",
                             border: "1px solid var(--border-subtle)",
                             borderRadius: 10,
                             padding: "12px 16px",
@@ -1651,7 +1654,7 @@ export default function ChatPage() {
                           }}
                         >
                           <div>
-                            <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#fff", marginBottom: 4 }}>
+                            <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
                               {plan.activity}
                             </div>
                             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 2 }}>
@@ -1664,10 +1667,10 @@ export default function ChatPage() {
                           <button
                             onClick={() => handleDeletePlan(plan.date, plan.start, plan.end)}
                             style={{
-                              background: "rgba(239, 68, 68, 0.1)",
-                              border: "1px solid rgba(239, 68, 68, 0.2)",
+                              background: "rgba(184, 92, 75, 0.08)",
+                              border: "1px solid rgba(184, 92, 75, 0.15)",
                               borderRadius: 6,
-                              color: "#ef4444",
+                              color: "var(--text-accent)",
                               padding: "4px 8px",
                               fontSize: "0.6875rem",
                               cursor: "pointer",
@@ -1693,7 +1696,7 @@ export default function ChatPage() {
                       display: "flex",
                       flexDirection: "column",
                       gap: 12,
-                      background: "rgba(255, 255, 255, 0.02)",
+                      background: "var(--bg-surface)",
                       border: "1px solid var(--border-subtle)",
                       borderRadius: 12,
                       padding: 16
@@ -1724,7 +1727,7 @@ export default function ChatPage() {
                           border: "1px solid var(--border-subtle)",
                           borderRadius: 6,
                           fontSize: "0.8125rem",
-                          color: "#fff"
+                          color: "var(--text-primary)"
                         }}
                       >
                         <option value="">-- Choose Preset or Write Custom --</option>
@@ -1746,7 +1749,7 @@ export default function ChatPage() {
                           border: "1px solid var(--border-subtle)",
                           borderRadius: 6,
                           fontSize: "0.8125rem",
-                          color: "#fff",
+                          color: "var(--text-primary)",
                           marginTop: 6
                         }}
                       />
@@ -1768,7 +1771,7 @@ export default function ChatPage() {
                           border: "1px solid var(--border-subtle)",
                           borderRadius: 6,
                           fontSize: "0.8125rem",
-                          color: "#fff"
+                          color: "var(--text-primary)"
                         }}
                       />
                     </div>
@@ -1789,7 +1792,7 @@ export default function ChatPage() {
                             border: "1px solid var(--border-subtle)",
                             borderRadius: 6,
                             fontSize: "0.8125rem",
-                            color: "#fff"
+                            color: "var(--text-primary)"
                           }}
                         />
                       </div>
@@ -1809,7 +1812,7 @@ export default function ChatPage() {
                               border: "1px solid var(--border-subtle)",
                               borderRadius: 6,
                               fontSize: "0.8125rem",
-                              color: "#fff"
+                              color: "var(--text-primary)"
                             }}
                           />
                         </div>
@@ -1828,7 +1831,7 @@ export default function ChatPage() {
                               border: "1px solid var(--border-subtle)",
                               borderRadius: 6,
                               fontSize: "0.8125rem",
-                              color: "#fff"
+                              color: "var(--text-primary)"
                             }}
                           />
                         </div>
@@ -1839,7 +1842,7 @@ export default function ChatPage() {
                       type="submit"
                       style={{
                         background: "var(--accent-primary)",
-                        color: "#050508",
+                        color: "#fff",
                         fontFamily: "var(--font-sans)",
                         fontWeight: 700,
                         fontSize: "0.8125rem",
@@ -1875,11 +1878,11 @@ export default function ChatPage() {
                     style={{
                       width: "100%",
                       padding: "10px 14px",
-                      background: "rgba(0, 0, 0, 0.3)",
+                      background: "var(--bg-surface)",
                       border: "1px solid var(--border-subtle)",
                       borderRadius: 10,
                       fontSize: "0.8125rem",
-                      color: "#fff",
+                      color: "var(--text-primary)",
                       outline: "none",
                       transition: "border-color 0.2s ease"
                     }}
@@ -1919,7 +1922,7 @@ export default function ChatPage() {
                             <div
                               key={idx}
                               style={{
-                                background: "rgba(255,255,255,0.02)",
+                                background: "var(--bg-surface)",
                                 border: "1px solid var(--border-subtle)",
                                 borderRadius: 10,
                                 padding: "12px 14px",
@@ -1928,15 +1931,15 @@ export default function ChatPage() {
                                 gap: 6
                               }}
                             >
-                              <div style={{ fontSize: "0.875rem", color: "#fff", lineHeight: 1.4 }}>
+                              <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", lineHeight: 1.4 }}>
                                 {fact.fact}
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ 
                                   fontSize: "0.6875rem", 
-                                  background: "rgba(16, 185, 129, 0.1)", 
-                                  border: "1px solid rgba(16, 185, 129, 0.2)",
-                                  color: "#10b981",
+                                  background: "rgba(95, 125, 97, 0.08)", 
+                                  border: "1px solid rgba(95, 125, 97, 0.12)",
+                                  color: "var(--accent-primary)",
                                   padding: "2px 6px",
                                   borderRadius: 4,
                                   fontWeight: 600
@@ -1957,7 +1960,7 @@ export default function ChatPage() {
                     <div>
                       <h4 style={{ 
                         fontSize: "0.75rem", 
-                        color: "#fbbf24", 
+                        color: "var(--phase-steady)", 
                         fontWeight: 700, 
                         textTransform: "uppercase", 
                         letterSpacing: "0.08em", 
@@ -1978,8 +1981,8 @@ export default function ChatPage() {
                             <div
                               key={idx}
                               style={{
-                                background: "rgba(251, 191, 36, 0.03)",
-                                border: "1px solid rgba(251, 191, 36, 0.15)",
+                                background: "rgba(192, 138, 62, 0.04)",
+                                border: "1px solid rgba(192, 138, 62, 0.15)",
                                 borderRadius: 10,
                                 padding: "12px 14px",
                                 display: "flex",
@@ -1987,15 +1990,15 @@ export default function ChatPage() {
                                 gap: 8
                               }}
                             >
-                              <div style={{ fontSize: "0.875rem", color: "#fff", lineHeight: 1.4 }}>
+                              <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", lineHeight: 1.4 }}>
                                 🔖 {entry.content}
                               </div>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                                 <span style={{ 
                                   fontSize: "0.6875rem", 
-                                  background: "rgba(251, 191, 36, 0.1)", 
-                                  border: "1px solid rgba(251, 191, 36, 0.2)",
-                                  color: "#fbbf24",
+                                  background: "rgba(192, 138, 62, 0.08)", 
+                                  border: "1px solid rgba(192, 138, 62, 0.15)",
+                                  color: "var(--phase-steady)",
                                   padding: "2px 6px",
                                   borderRadius: 4
                                 }}>
@@ -2003,9 +2006,9 @@ export default function ChatPage() {
                                 </span>
                                 <span style={{ 
                                   fontSize: "0.6875rem", 
-                                  background: entry.emotional_valence >= 0 ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", 
-                                  border: entry.emotional_valence >= 0 ? "1px solid rgba(16, 185, 129, 0.2)" : "1px solid rgba(239, 68, 68, 0.2)",
-                                  color: entry.emotional_valence >= 0 ? "#10b981" : "#ef4444",
+                                  background: entry.emotional_valence >= 0 ? "rgba(95, 125, 97, 0.08)" : "rgba(184, 92, 75, 0.08)", 
+                                  border: entry.emotional_valence >= 0 ? "1px solid rgba(95, 125, 97, 0.12)" : "1px solid rgba(184, 92, 75, 0.12)",
+                                  color: entry.emotional_valence >= 0 ? "var(--accent-primary)" : "var(--text-accent)",
                                   padding: "2px 6px",
                                   borderRadius: 4
                                 }}>
@@ -2043,7 +2046,7 @@ export default function ChatPage() {
                             <div
                               key={idx}
                               style={{
-                                background: "rgba(255,255,255,0.02)",
+                                background: "var(--bg-surface)",
                                 border: "1px solid var(--border-subtle)",
                                 borderRadius: 10,
                                 padding: "12px 14px",
@@ -2052,16 +2055,16 @@ export default function ChatPage() {
                                 gap: 8
                               }}
                             >
-                              <div style={{ fontSize: "0.875rem", color: "#fff", lineHeight: 1.4 }}>
+                              <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", lineHeight: 1.4 }}>
                                 {entry.event_type === "explicit_bookmark" ? "🔖 " : "💬 "}
                                 {entry.content}
                               </div>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                                 <span style={{ 
                                   fontSize: "0.6875rem", 
-                                  background: "rgba(167, 139, 250, 0.1)", 
-                                  border: "1px solid rgba(167, 139, 250, 0.2)",
-                                  color: "var(--text-accent)",
+                                  background: "rgba(95, 125, 97, 0.08)", 
+                                  border: "1px solid rgba(95, 125, 97, 0.15)",
+                                  color: "var(--accent-primary)",
                                   padding: "2px 6px",
                                   borderRadius: 4
                                 }}>
@@ -2069,9 +2072,9 @@ export default function ChatPage() {
                                 </span>
                                 <span style={{ 
                                   fontSize: "0.6875rem", 
-                                  background: entry.emotional_valence >= 0 ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", 
-                                  border: entry.emotional_valence >= 0 ? "1px solid rgba(16, 185, 129, 0.2)" : "1px solid rgba(239, 68, 68, 0.2)",
-                                  color: entry.emotional_valence >= 0 ? "#10b981" : "#ef4444",
+                                  background: entry.emotional_valence >= 0 ? "rgba(95, 125, 97, 0.08)" : "rgba(184, 92, 75, 0.08)", 
+                                  border: entry.emotional_valence >= 0 ? "1px solid rgba(95, 125, 97, 0.12)" : "1px solid rgba(184, 92, 75, 0.12)",
+                                  color: entry.emotional_valence >= 0 ? "var(--accent-primary)" : "var(--text-accent)",
                                   padding: "2px 6px",
                                   borderRadius: 4
                                 }}>

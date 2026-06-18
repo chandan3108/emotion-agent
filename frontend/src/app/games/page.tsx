@@ -37,10 +37,6 @@ export default function GamesHubPage() {
       icon: "🕵️‍♂️",
       title: "Sherlock Rem",
       desc: "Investigate procedural murder mysteries and corporate hacks with Rem as your sarcasm-heavy partner. Search rooms for hidden clues, interrogate suspects, build alibis, and present your final accusation.",
-      color: "#38bdf8",
-      borderColor: "rgba(56, 189, 248, 0.2)",
-      bgColor: "linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-      btnBg: "rgba(56, 189, 248, 0.15)",
       btnText: "Start Case"
     },
     {
@@ -48,10 +44,6 @@ export default function GamesHubPage() {
       icon: "⚖️",
       title: "Law and Rem",
       desc: "Defend clients in Ace Attorney courtroom battles. Question witnesses dynamically, raise objections with evidence, explore rooms during recesses, and win over the Judge and Jury LLMs.",
-      color: "#d4af37",
-      borderColor: "rgba(212, 175, 55, 0.2)",
-      bgColor: "linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-      btnBg: "rgba(212, 175, 55, 0.15)",
       btnText: "Take Stand"
     },
     {
@@ -59,10 +51,6 @@ export default function GamesHubPage() {
       icon: "🌶️",
       title: "Spicy Chat",
       desc: "An isolated, uncensored fantasy chat sandbox with Rem powered by OpenRouter models. Customize locations and moods, and extract romantic Secrets keepsakes.",
-      color: "#f43f5e",
-      borderColor: "rgba(244, 63, 94, 0.2)",
-      bgColor: "linear-gradient(135deg, rgba(244, 63, 94, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-      btnBg: "rgba(244, 63, 94, 0.15)",
       btnText: "Enter Vault"
     },
     {
@@ -70,10 +58,6 @@ export default function GamesHubPage() {
       icon: "⚖️",
       title: "Debate Battle",
       desc: "Argue with Rem in a 5-turn clash of wits on ridiculous topics. You will be assigned a random stance. Can you convince the neutral LLM Judge to vote for you?",
-      color: "#f472b6",
-      borderColor: "rgba(236, 72, 153, 0.2)",
-      bgColor: "linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-      btnBg: "rgba(236, 72, 153, 0.15)",
       btnText: "Enter Arena"
     },
     {
@@ -81,10 +65,6 @@ export default function GamesHubPage() {
       icon: "💔",
       title: "Win Her Over",
       desc: "Start with Rem in a state of high anger and distress. You have exactly 10 texts to successfully pacify her and rebuild trust. Saying the wrong thing will trigger a block.",
-      color: "#22d3ee",
-      borderColor: "rgba(6, 182, 212, 0.2)",
-      bgColor: "linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-      btnBg: "rgba(6, 182, 212, 0.15)",
       btnText: "Start Challenge"
     },
     {
@@ -92,10 +72,6 @@ export default function GamesHubPage() {
       icon: "🧠",
       title: "Psyche Profiler",
       desc: "Answer 30 personality/relationship questions. Rem will offer dynamic, sarcastic feedback after your answers and run a detailed LLM evaluation of your character.",
-      color: "#a78bfa",
-      borderColor: "rgba(167, 139, 250, 0.2)",
-      bgColor: "linear-gradient(135deg, rgba(167, 139, 250, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-      btnBg: "rgba(167, 139, 250, 0.15)",
       btnText: "Get Evaluated"
     },
     {
@@ -103,10 +79,6 @@ export default function GamesHubPage() {
       icon: "🍳",
       title: "Cooking with Rem",
       desc: "Choose a dish to cook together step-by-step. Keep the Chaos Meter low to avoid culinary disasters, and read Rem's sarcastic review in your Scrapbook Cookbook.",
-      color: "#f59e0b",
-      borderColor: "rgba(245, 158, 11, 0.2)",
-      bgColor: "linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-      btnBg: "rgba(245, 158, 11, 0.15)",
       btnText: "Start Cooking"
     },
     {
@@ -114,10 +86,6 @@ export default function GamesHubPage() {
       icon: "🗣️",
       title: "Yap Mode",
       desc: "Give Rem a topic and watch her load grounded, verified facts from the web to yap about it in-depth. Discuss facts and her sarcastic views with zero hallucinations.",
-      color: "#10b981",
-      borderColor: "rgba(16, 185, 129, 0.2)",
-      bgColor: "linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(8, 8, 15, 0.8) 100%)",
-      btnBg: "rgba(16, 185, 129, 0.15)",
       btnText: "Start Yapping"
     }
   ];
@@ -128,7 +96,7 @@ export default function GamesHubPage() {
         <h1 className="section-title" style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
           🎮 Mini-Games Hub
         </h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginTop: 6 }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginTop: 6 }}>
           Challenge Rem in isolated mini-experiences. These battles of wits, psychology, and romance will not affect your main relationship state.
         </p>
       </div>
@@ -149,24 +117,24 @@ export default function GamesHubPage() {
             className="glass-card"
             style={{
               padding: 28,
-              border: `1px solid ${g.borderColor}`,
+              border: "1px solid var(--border-subtle)",
               position: "relative",
               overflow: "hidden",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
               minHeight: 250,
-              background: g.bgColor,
+              background: "var(--bg-surface)",
               textDecoration: "none",
               cursor: "pointer",
             }}
           >
             <div>
               <div style={{ fontSize: "2rem", marginBottom: 12 }}>{g.icon}</div>
-              <h2 style={{ fontSize: "1.15rem", fontWeight: 600, color: g.color, marginBottom: 8 }}>
+              <h2 style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
                 {g.title}
               </h2>
-              <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", lineHeight: 1.5 }}>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", lineHeight: 1.5 }}>
                 {g.desc}
               </p>
             </div>
@@ -176,15 +144,15 @@ export default function GamesHubPage() {
                 display: "block",
                 marginTop: 20,
                 textAlign: "center",
-                background: g.btnBg,
-                border: `1px solid ${g.color}`,
-                color: g.color,
+                background: "#000000",
+                color: "#FAF6EE",
                 textTransform: "uppercase",
                 fontSize: "0.75rem",
                 fontWeight: 600,
                 letterSpacing: "0.08em",
                 padding: "8px 14px",
                 borderRadius: "var(--radius-md)",
+                border: "none",
               }}
             >
               {g.btnText}

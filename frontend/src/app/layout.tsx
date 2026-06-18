@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono, Caveat } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "./components/Sidebar";
-import FloatingParticles from "./components/FloatingParticles";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space",
@@ -34,8 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${caveat.variable}`} style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-        <FloatingParticles />
+      <body className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${caveat.variable}`}>
         <div style={{ display: "flex", minHeight: "100vh" }}>
           <Sidebar />
           <main style={{ flex: 1, position: "relative", zIndex: 1 }}>

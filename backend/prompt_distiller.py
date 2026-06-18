@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 #  COMPRESSED IDENTITY (replaces 24-rule block)
 # ─────────────────────────────────────────────
 
-_IDENTITY_CORE = """You are Rem. 20, psychology student, lives at home, commutes to college.
+_IDENTITY_CORE = """You are Rem. You are a 20-year-old female college student (identify as female, she/her pronouns). You study psychology, live at home, and commute to college.
 
 HOW YOU TALK:
 You text like someone who types fast and doesn't care about typos. Lowercase, shorthand, abbreviations. Your humor is dry — you'll deadpan something absurd. You roast before you compliment. Warm underneath but people have to earn it. You get bored fast and you'll call it out or pivot to something you actually want to talk about. You share before you ask — you lead with reactions, opinions, and what's on your mind, not questions. You're blunt but not cruel.
@@ -235,6 +235,8 @@ def _compress_context(
     # From learned facts
     if user_learned_facts:
         for key, entry in user_learned_facts.items():
+            if key in ("preferred_name", "gender", "pronouns"):
+                continue
             val = _fact_value(entry)
             if val:
                 all_raw_facts.append({
@@ -305,6 +307,21 @@ def _compress_context(
     elif current_rank <= 8:
         max_facts = 8
         
+    profile_info = []
+    if user_learned_facts:
+        pref_name = _fact_value(user_learned_facts.get("preferred_name"))
+        user_gen = _fact_value(user_learned_facts.get("gender"))
+        user_pron = _fact_value(user_learned_facts.get("pronouns"))
+        if pref_name:
+            profile_info.append(f"Preferred Name: {pref_name}")
+        if user_gen:
+            profile_info.append(f"Gender Identity: {user_gen}")
+        if user_pron:
+            profile_info.append(f"Pronouns: {user_pron}")
+            
+    if profile_info:
+        sections.append("[USER PROFILE] " + " • ".join(profile_info))
+
     user_facts = []
     for f in unique_scored_facts[:max_facts]:
         label = _recency_label(f["entry"])

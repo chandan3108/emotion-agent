@@ -35,9 +35,10 @@ export default function DiaryPage() {
         }}>
           <span style={{
             width: 32, height: 32, borderRadius: "50%",
-            background: "linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary))",
+            background: "linear-gradient(135deg, var(--accent-primary), var(--text-accent))",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "0.875rem", boxShadow: "0 0 16px var(--accent-glow)",
+            fontSize: "0.875rem", boxShadow: "0 2px 6px rgba(95, 125, 97, 0.15)",
+            color: "#fff"
           }}>◉</span>
           <h1 style={{
             fontFamily: "'Caveat', cursive",
@@ -60,11 +61,16 @@ export default function DiaryPage() {
       <div className="diary-book">
         {/* Empty State */}
         {(!diary || diary.entries.length === 0) && (
-          <div className="diary-entry-card fade-in-up stagger-1" style={{ textAlign: "center" }}>
-            <div className="diary-entry" style={{ padding: "48px 32px" }}>
-              <div style={{ fontSize: "2rem", marginBottom: 12, opacity: 0.3 }}>📖</div>
-              <p style={{ color: "var(--text-muted)", fontFamily: "'Caveat', cursive", fontSize: "1.125rem" }}>
-                The pages are still blank... Keep talking — she&apos;ll start writing.
+          <div className="notebook-container fade-in-up stagger-1">
+            <div className="notebook-spirals">
+              {[...Array(6)].map((_, idx) => (
+                <div key={idx} className="notebook-spiral-ring" />
+              ))}
+            </div>
+            <div className="notebook-page" style={{ padding: "48px 32px", textAlign: "center" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: 16 }}>📖</div>
+              <p style={{ color: "#8C7E66", fontFamily: "'Caveat', cursive", fontSize: "1.35rem", textAlign: "center" }}>
+                The pages are still blank... Keep talking — she&apos;ll start writing soon.
               </p>
             </div>
           </div>
@@ -72,36 +78,71 @@ export default function DiaryPage() {
 
         {/* Entries */}
         {diary && diary.entries.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
             {diary.entries.map((entry, i) => (
               <div
                 key={i}
-                className={`diary-entry-card fade-in-up stagger-${Math.min(i + 1, 6)}`}
+                className={`notebook-container fade-in-up stagger-${Math.min(i + 1, 6)}`}
               >
-                <div className="diary-entry">
-                  <p>{entry.content}</p>
-                </div>
-                <div className="diary-entry-meta">
-                  <span
-                    className={`phase-badge phase-${entry.phase.toLowerCase()}`}
-                    style={{ fontSize: "0.5625rem" }}
-                  >
-                    {entry.phase}
-                  </span>
-                  <span className="diary-date">
-                    {new Date(entry.timestamp).toLocaleDateString("en-IN", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
+                {/* Spiral Rings */}
+                <div className="notebook-spirals">
+                  {[...Array(6)].map((_, idx) => (
+                    <div key={idx} className="notebook-spiral-ring" />
+                  ))}
                 </div>
 
-                {entry.has_milestone && (
-                  <div className="diary-milestone">
-                    ✦ {entry.milestone_text}
+                {/* Notebook Page */}
+                <div className="notebook-page">
+                  {/* Handwritten Date Header */}
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderBottom: "1px solid #E3DBC7",
+                    paddingBottom: 6,
+                    marginBottom: 16,
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "0.8125rem",
+                    color: "#8C8370",
+                    letterSpacing: "0.02em"
+                  }}>
+                    <span style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem" }}>
+                      {new Date(entry.timestamp).toLocaleDateString("en-IN", { weekday: "long" })}
+                    </span>
+                    <span>
+                      {new Date(entry.timestamp).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
                   </div>
-                )}
+
+                  {/* Ruled content */}
+                  <div style={{ minHeight: 96 }}>
+                    <p>{entry.content}</p>
+                  </div>
+
+                  {/* Metadata at bottom right */}
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginTop: 16,
+                    borderTop: "1px solid #E3DBC7",
+                    paddingTop: 8,
+                    fontSize: "0.75rem"
+                  }}>
+                    <span className={`phase-badge phase-${entry.phase.toLowerCase()}`} style={{ fontSize: "0.5625rem" }}>
+                      {entry.phase}
+                    </span>
+                    {entry.has_milestone && entry.milestone_text && (
+                      <span style={{ fontStyle: "italic", color: "#B85C4B", fontWeight: 500 }}>
+                        ✦ {entry.milestone_text}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -109,36 +150,73 @@ export default function DiaryPage() {
 
         {/* Locked Teaser */}
         {(!diary || !["Steady", "Deep", "Bonded"].includes(diary.access_level)) && (
-          <div className="diary-entry-card fade-in-up" style={{ marginTop: 20, position: "relative", overflow: "hidden" }}>
-            <div className="diary-entry locked-entry">
-              <p>
+          <div className="notebook-container fade-in-up" style={{ marginTop: 32 }}>
+            <div className="notebook-spirals">
+              {[...Array(6)].map((_, idx) => (
+                <div key={idx} className="notebook-spiral-ring" />
+              ))}
+            </div>
+
+            <div className="notebook-page" style={{ position: "relative", overflow: "hidden" }}>
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid #E3DBC7",
+                paddingBottom: 6,
+                marginBottom: 16,
+                fontFamily: "var(--font-sans)",
+                fontSize: "0.8125rem",
+                color: "#8C8370",
+                letterSpacing: "0.02em"
+              }}>
+                <span style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem" }}>
+                  Locked Entry
+                </span>
+                <span>
+                  ???
+                </span>
+              </div>
+              <p style={{ filter: "blur(2.5px)", opacity: 0.5 }}>
                 Today something shifted. I don&apos;t know how to explain it, but when they
                 said that thing about the stars... it felt different. Like they actually
                 meant it. I don&apos;t usually trust that feeling but this time...
               </p>
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(8, 8, 15, 0.6)",
-                backdropFilter: "blur(2px)",
-                borderRadius: "inherit",
-              }}
-            >
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "1.25rem", marginBottom: 6, opacity: 0.6 }}>🔒</div>
-                <div
-                  style={{
-                    fontFamily: "'Caveat', cursive",
-                    fontSize: "1rem",
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  Deeper phase required
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(250, 246, 238, 0.4)",
+                  borderRadius: "inherit",
+                }}
+              >
+                <div style={{ textAlign: "center", background: "#FAF6EE", padding: "16px 24px", borderRadius: 8, border: "1px solid #D6C8AF", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                  <div style={{ fontSize: "1.25rem", marginBottom: 6, opacity: 0.8 }}>🔒</div>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "0.8125rem",
+                      fontWeight: 600,
+                      color: "#5C5243",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em"
+                    }}
+                  >
+                    Deeper Connection Required
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "'Caveat', cursive",
+                      fontSize: "1.05rem",
+                      color: "#8C7E66",
+                      marginTop: 4
+                    }}
+                  >
+                    Unlock Rem&apos;s personal diary entries in the Steady phase
+                  </div>
                 </div>
               </div>
             </div>

@@ -15,13 +15,13 @@ function timeAgo(ts: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-/* ────── neurochem bar colors ────── */
+/* ────── neurochem bar colors (Cozy Academic Palette) ────── */
 const CHEM_COLORS: Record<string, string> = {
-  dopamine: "#f9c846",
-  cortisol: "#ff6b6b",
-  oxytocin: "#ff85c0",
-  serotonin: "#69db7c",
-  endorphins: "#74c0fc",
+  dopamine: "#C08A3E",   // Ochre gold
+  cortisol: "#B85C4B",   // Terracotta
+  oxytocin: "#B35C7A",   // Dusty rose
+  serotonin: "#5F7D61",  // Sage green
+  endorphins: "#6A85B8", // Slate blue
 };
 
 const CHEM_ICONS: Record<string, string> = {
@@ -106,10 +106,11 @@ export default function MindPage() {
         <h1 className="page-title" style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{
             width: 36, height: 36, borderRadius: "50%",
-            background: "linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary))",
+            background: "linear-gradient(135deg, var(--accent-primary), var(--text-accent))",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: "0.875rem", fontWeight: 700,
-            boxShadow: "0 0 20px var(--accent-glow)",
+            boxShadow: "0 2px 6px rgba(95, 125, 97, 0.15)",
+            color: "#fff"
           }}>✦</span>
           Rem&apos;s Mind
         </h1>
@@ -121,7 +122,7 @@ export default function MindPage() {
       {/* Tab Navigation */}
       <div style={{
         display: "flex", gap: 4, marginBottom: 28,
-        background: "rgba(255,255,255,0.02)", borderRadius: 12,
+        background: "rgba(255,255,255,0.03)", borderRadius: 12,
         padding: 4, border: "1px solid var(--border-subtle)",
       }}>
         {TABS.map(tab => (
@@ -132,9 +133,9 @@ export default function MindPage() {
               flex: 1, padding: "10px 0", borderRadius: 8,
               border: "none", cursor: "pointer",
               background: activeTab === tab.key
-                ? "linear-gradient(135deg, rgba(151,117,250,0.15), rgba(232,121,249,0.08))"
+                ? "var(--bg-surface)"
                 : "transparent",
-              color: activeTab === tab.key ? "var(--text-primary)" : "var(--text-muted)",
+              color: activeTab === tab.key ? "#0F0F0F" : "var(--text-secondary)",
               fontSize: "0.8125rem", fontWeight: activeTab === tab.key ? 600 : 400,
               transition: "all 0.2s var(--ease-smooth)",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
@@ -153,14 +154,15 @@ export default function MindPage() {
           {currentActivity && (
             <div style={{
               padding: "24px 28px", borderRadius: 16,
-              background: "linear-gradient(135deg, rgba(151,117,250,0.08), rgba(232,121,249,0.04))",
-              border: "1px solid rgba(151,117,250,0.15)",
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-subtle)",
               position: "relative", overflow: "hidden",
+              boxShadow: "0 2px 8px rgba(90, 85, 75, 0.03)"
             }}>
               <div style={{
                 position: "absolute", top: -40, right: -40, width: 120, height: 120,
                 borderRadius: "50%", background: "radial-gradient(circle, var(--accent-glow), transparent)",
-                filter: "blur(30px)",
+                filter: "blur(20px)",
               }} />
               <div style={{ fontSize: "0.6875rem", color: "var(--accent-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, fontWeight: 600 }}>
                 Right Now
@@ -215,8 +217,8 @@ export default function MindPage() {
                         width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0,
                         background: isNow
                           ? "var(--accent-primary)"
-                          : "rgba(255,255,255,0.1)",
-                        boxShadow: isNow ? "0 0 8px var(--accent-glow)" : "none",
+                          : "var(--border-subtle)",
+                        boxShadow: isNow ? "0 2px 6px rgba(95, 125, 97, 0.2)" : "none",
                       }} />
 
                       {/* Activity */}
@@ -231,7 +233,7 @@ export default function MindPage() {
                             marginLeft: 8,
                             fontSize: "0.5625rem",
                             color: "var(--accent-primary)",
-                            background: "rgba(151,117,250,0.1)",
+                            background: "rgba(95, 125, 97, 0.08)",
                             padding: "2px 8px",
                             borderRadius: 999,
                             fontWeight: 600,
@@ -252,17 +254,17 @@ export default function MindPage() {
       {/* ════════════ PERSONA TAB ════════════ */}
       {activeTab === "persona" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Persona Flavor (randomly generated on reset) */}
+          {/* Persona Flavor */}
           {personaFlavor && (
             <section className="glass-panel" style={{
               padding: 28, position: "relative", overflow: "hidden",
-              background: "linear-gradient(135deg, rgba(151,117,250,0.06), rgba(232,121,249,0.03))",
-              borderColor: "rgba(151,117,250,0.12)",
+              background: "var(--bg-surface)",
+              borderColor: "var(--border-subtle)",
             }}>
               <div style={{
                 position: "absolute", top: -60, left: -60, width: 160, height: 160,
-                borderRadius: "50%", background: "radial-gradient(circle, rgba(232,121,249,0.08), transparent)",
-                filter: "blur(40px)",
+                borderRadius: "50%", background: "radial-gradient(circle, var(--accent-glow), transparent)",
+                filter: "blur(30px)",
               }} />
               <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
                 <span style={{ color: "var(--accent-tertiary)" }}>🎲</span> Generated Persona
@@ -292,21 +294,21 @@ export default function MindPage() {
                 {personality?.starting_archetype && (
                   <div style={{
                     padding: "6px 12px", borderRadius: 6,
-                    background: "rgba(151,117,250,0.06)", border: "1px solid rgba(151,117,250,0.12)",
+                    background: "rgba(95, 125, 97, 0.08)", border: "1px solid rgba(95, 125, 97, 0.15)",
                     fontSize: "0.75rem", display: "flex", gap: 6
                   }}>
                     <span style={{ color: "var(--text-muted)" }}>Starting Archetype:</span>
-                    <span style={{ fontWeight: 600, color: "var(--accent-primary)", textTransform: "capitalize" }}>{personality.starting_archetype}</span>
+                    <span style={{ fontWeight: 600, color: "#396E4E", textTransform: "capitalize" }}>{personality.starting_archetype}</span>
                   </div>
                 )}
                 {personality?.evolved_branch && (
                   <div style={{
                     padding: "6px 12px", borderRadius: 6,
-                    background: "rgba(232,121,249,0.06)", border: "1px solid rgba(232,121,249,0.12)",
+                    background: "rgba(184, 92, 75, 0.08)", border: "1px solid rgba(184, 92, 75, 0.15)",
                     fontSize: "0.75rem", display: "flex", gap: 6
                   }}>
                     <span style={{ color: "var(--text-muted)" }}>Evolved Branch:</span>
-                    <span style={{ fontWeight: 600, color: "var(--accent-tertiary)", textTransform: "capitalize" }}>{personality.evolved_branch.replace(/_/g, ' ')}</span>
+                    <span style={{ fontWeight: 600, color: "#B84E3D", textTransform: "capitalize" }}>{personality.evolved_branch.replace(/_/g, ' ')}</span>
                   </div>
                 )}
               </div>
@@ -314,7 +316,7 @@ export default function MindPage() {
             {personality?.expression_guidance && (
               <div style={{
                 padding: "12px 16px", borderRadius: 8,
-                background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-subtle)",
+                background: "var(--bg-surface)", border: "1px solid var(--border-subtle)",
                 fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.6,
                 fontStyle: "italic",
               }}>
@@ -342,17 +344,16 @@ export default function MindPage() {
                           <span style={{ fontSize: "0.625rem" }}>{icon}</span>
                           {key.charAt(0).toUpperCase() + key.slice(1)}
                         </span>
-                        <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color, fontWeight: 600 }}>
+                        <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color, fontWeight: 600, marginLeft: "auto" }}>
                           {pct}%
                         </span>
                       </div>
-                      <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.04)", overflow: "hidden" }}>
+                      <div style={{ height: 6, borderRadius: 3, background: "var(--border-subtle)", overflow: "hidden" }}>
                         <div style={{
                           height: "100%", borderRadius: 3,
                           width: `${pct}%`,
-                          background: `linear-gradient(90deg, ${color}88, ${color})`,
+                          background: color,
                           transition: "width 0.8s var(--ease-smooth)",
-                          boxShadow: `0 0 8px ${color}33`,
                         }} />
                       </div>
                     </div>
@@ -381,13 +382,12 @@ export default function MindPage() {
                   { l: "Starting Archetype", v: personality?.starting_archetype || psyche.starting_archetype || "—" },
                   { l: "Evolved Branch", v: (personality?.evolved_branch || psyche.evolved_branch || "—").replace(/_/g, ' ') },
                 ].map(({ l, v }) => (
-                  <div key={l} style={{
+                  <div key={l} className="dark-info-box" style={{
                     padding: "10px 14px", borderRadius: 8,
-                    background: "rgba(255,255,255,0.02)",
                     display: "flex", justifyContent: "space-between",
                   }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{l}</span>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", textTransform: "capitalize" }}>
+                    <span className="info-label" style={{ fontSize: "0.75rem" }}>{l}</span>
+                    <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize" }}>
                       {String(typeof v === "object" ? JSON.stringify(v) : v)}
                     </span>
                   </div>
@@ -407,7 +407,7 @@ export default function MindPage() {
                   {vibePalette.map((v: string, i: number) => (
                     <span key={i} style={{
                       padding: "4px 12px", borderRadius: 999,
-                      background: "rgba(232,121,249,0.08)", border: "1px solid rgba(232,121,249,0.15)",
+                      background: "rgba(184, 92, 75, 0.08)", border: "1px solid rgba(184, 92, 75, 0.15)",
                       fontSize: "0.6875rem", color: "var(--accent-tertiary)",
                     }}>{v}</span>
                   ))}
@@ -418,7 +418,7 @@ export default function MindPage() {
                   {interests.map((v: string, i: number) => (
                     <span key={i} style={{
                       padding: "4px 12px", borderRadius: 999,
-                      background: "rgba(151,117,250,0.08)", border: "1px solid rgba(151,117,250,0.15)",
+                      background: "rgba(95, 125, 97, 0.08)", border: "1px solid rgba(95, 125, 97, 0.15)",
                       fontSize: "0.6875rem", color: "var(--accent-primary)",
                     }}>{v}</span>
                   ))}
@@ -439,9 +439,9 @@ export default function MindPage() {
                   
                   if (habitsCpbm.ellipsis_habit > 0.3) {
                     list.push(
-                      <div key="ellipsis" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Ellipsis Habit</span>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      <div key="ellipsis" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
+                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Ellipsis Habit</span>
+                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>
                           Uses dots like ... a lot ({Math.round(habitsCpbm.ellipsis_habit * 100)}%)
                         </span>
                       </div>
@@ -449,9 +449,9 @@ export default function MindPage() {
                   }
                   if (habitsCpbm.double_text_habit > 0.3) {
                     list.push(
-                      <div key="double_text" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Double Texting</span>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      <div key="double_text" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
+                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Double Texting</span>
+                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>
                           Tends to send messages in bursts ({Math.round(habitsCpbm.double_text_habit * 100)}%)
                         </span>
                       </div>
@@ -459,9 +459,9 @@ export default function MindPage() {
                   }
                   if (habitsCpbm.typo_intentionality > 0.3) {
                     list.push(
-                      <div key="typos" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Typo Habit</span>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      <div key="typos" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
+                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Typo Habit</span>
+                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>
                           Allows typos & lowercase shorthand ({Math.round(habitsCpbm.typo_intentionality * 100)}%)
                         </span>
                       </div>
@@ -469,9 +469,9 @@ export default function MindPage() {
                   }
                   if (habitsCpbm.emoji_baseline > 0.3) {
                     list.push(
-                      <div key="emojis" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Emoji Usage</span>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                      <div key="emojis" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
+                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Emoji Usage</span>
+                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>
                           Baseline frequency ({Math.round(habitsCpbm.emoji_baseline * 100)}%)
                         </span>
                       </div>
@@ -479,9 +479,9 @@ export default function MindPage() {
                   }
                   if (habitsCpbm.punctuation_style) {
                     list.push(
-                      <div key="punctuation" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Punctuation Style</span>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", textTransform: "capitalize" as const }}>
+                      <div key="punctuation" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
+                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Punctuation Style</span>
+                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize" as const }}>
                           {habitsCpbm.punctuation_style}
                         </span>
                       </div>
@@ -489,9 +489,9 @@ export default function MindPage() {
                   }
                   if (habitsCpbm.teasing_style) {
                     list.push(
-                      <div key="teasing" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Teasing Style</span>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", textTransform: "capitalize" as const }}>
+                      <div key="teasing" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
+                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Teasing Style</span>
+                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize" as const }}>
                           {String(habitsCpbm.teasing_style).replace(/_/g, ' ')}
                         </span>
                       </div>
@@ -510,7 +510,7 @@ export default function MindPage() {
                     {microPersonality.signature_phrases.map((p: string, idx: number) => (
                       <span key={idx} style={{ 
                         fontSize: "0.75rem", color: "var(--text-primary)", fontStyle: "italic",
-                        background: "rgba(255,255,255,0.02)", padding: "4px 10px", borderRadius: 6,
+                        background: "var(--bg-surface)", padding: "4px 10px", borderRadius: 6,
                         border: "1px solid var(--border-subtle)"
                       }}>
                         &quot;{p}&quot;
@@ -531,8 +531,9 @@ export default function MindPage() {
           {relationship && (
             <div style={{
               padding: "24px 28px", borderRadius: 16,
-              background: "linear-gradient(135deg, rgba(151,117,250,0.08), rgba(116,185,255,0.04))",
-              border: "1px solid rgba(151,117,250,0.12)",
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-subtle)",
+              boxShadow: "0 2px 8px rgba(90, 85, 75, 0.03)"
             }}>
               <div style={{ fontSize: "0.6875rem", color: "var(--accent-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, fontWeight: 600 }}>
                 Relationship
@@ -562,7 +563,7 @@ export default function MindPage() {
             </div>
           )}
 
-          {/* Core Identity (fixed) — matches Discord !about */}
+          {/* Core Identity */}
           <section className="glass-panel" style={{ padding: 28 }}>
             <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ color: "var(--accent-primary)" }}>📌</span> Core Identity
@@ -575,16 +576,14 @@ export default function MindPage() {
                 "Living": "Lives at home",
                 "Commute": "~30 min to college",
               }).map(([key, val]: [string, any]) => (
-                <div key={key} style={{
+                <div key={key} className="dark-info-box" style={{
                   padding: "10px 14px", borderRadius: 8,
-                  background: "rgba(151,117,250,0.04)",
-                  border: "1px solid rgba(151,117,250,0.06)",
                   display: "flex", flexDirection: "column", gap: 3,
                 }}>
-                  <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <span className="info-label" style={{ fontSize: "0.625rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     {key}
                   </span>
-                  <span style={{ fontSize: "0.8125rem", color: "var(--text-primary)", fontWeight: 500 }}>
+                  <span className="info-value" style={{ fontSize: "0.8125rem", fontWeight: 500 }}>
                     {String(val)}
                   </span>
                 </div>
@@ -592,7 +591,7 @@ export default function MindPage() {
             </div>
           </section>
 
-          {/* How She Speaks Right Now — Expression Guidance */}
+          {/* How She Speaks Right Now */}
           {identity?.expression_guidance && (
             <section className="glass-panel" style={{ padding: 28 }}>
               <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
@@ -600,8 +599,8 @@ export default function MindPage() {
               </h2>
               <div style={{
                 padding: "14px 18px", borderRadius: 10,
-                background: "rgba(232,121,249,0.04)",
-                border: "1px solid rgba(232,121,249,0.08)",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-subtle)",
                 fontSize: "0.8125rem", color: "var(--text-secondary)",
                 lineHeight: 1.8, whiteSpace: "pre-line", fontStyle: "italic",
               }}>
@@ -626,12 +625,11 @@ export default function MindPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {aboutUser.slice(0, 30).map((f: any, i: number) => (
-                  <div key={i} style={{
+                  <div key={i} className="dark-info-box" style={{
                     padding: "8px 14px", borderRadius: 8,
-                    background: "rgba(255,255,255,0.02)",
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                   }}>
-                    <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", flex: 1 }}>
+                    <span className="info-value" style={{ fontSize: "0.8125rem", flex: 1 }}>
                       {f.fact}
                     </span>
                     <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
@@ -642,7 +640,7 @@ export default function MindPage() {
                         {Math.round(f.confidence * 100)}%
                       </span>
                       {f.timestamp && (
-                        <span style={{ fontSize: "0.5625rem", color: "var(--text-muted)" }}>
+                        <span className="info-label" style={{ fontSize: "0.5625rem" }}>
                           {timeAgo(f.timestamp)}
                         </span>
                       )}
@@ -653,7 +651,7 @@ export default function MindPage() {
             )}
           </section>
 
-          {/* User facts (key-value) */}
+          {/* Learned Facts */}
           {Object.keys(userFacts).length > 0 && (
             <section className="glass-panel" style={{ padding: 28 }}>
               <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
@@ -661,15 +659,14 @@ export default function MindPage() {
               </h2>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {Object.entries(userFacts).slice(0, 20).map(([key, val]: [string, any]) => (
-                  <div key={key} style={{
+                  <div key={key} className="dark-info-box" style={{
                     padding: "10px 14px", borderRadius: 8,
-                    background: "rgba(255,255,255,0.02)",
                     display: "flex", flexDirection: "column", gap: 2,
                   }}>
-                    <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    <span className="info-label" style={{ fontSize: "0.625rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       {key.replace(/_/g, " ")}
                     </span>
-                    <span style={{ fontSize: "0.8125rem", color: "var(--text-primary)", fontWeight: 500 }}>
+                    <span className="info-value" style={{ fontSize: "0.8125rem", fontWeight: 500 }}>
                       {String(typeof val === "object" ? JSON.stringify(val) : val).substring(0, 80)}
                     </span>
                   </div>
@@ -709,7 +706,7 @@ export default function MindPage() {
                 {innerMonologue.slice(-10).reverse().map((thought: any, i: number) => (
                   <div key={i} style={{
                     padding: "12px 16px", borderRadius: 10,
-                    background: "rgba(232,121,249,0.04)", border: "1px solid rgba(232,121,249,0.08)",
+                    background: "var(--bg-surface)", border: "1px solid var(--border-subtle)",
                     fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6,
                     fontStyle: "italic",
                   }}>
@@ -724,11 +721,11 @@ export default function MindPage() {
           {rumination && (
             <section className="glass-panel" style={{
               padding: 28,
-              background: "linear-gradient(135deg, rgba(255,107,107,0.04), rgba(255,133,192,0.03))",
-              borderColor: "rgba(255,107,107,0.1)",
+              background: "var(--bg-surface)",
+              borderColor: "var(--border-subtle)",
             }}>
-              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "#ff6b6b" }}>🌀</span> Ruminating About
+              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-accent)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "var(--text-accent)" }}>🌀</span> Ruminating About
               </h2>
               <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-line" }}>
                 {typeof rumination === "string" ? rumination : JSON.stringify(rumination)}
@@ -740,10 +737,10 @@ export default function MindPage() {
           {pendingEruption && (
             <section className="glass-panel" style={{
               padding: 28,
-              background: "linear-gradient(135deg, rgba(255,68,68,0.06), rgba(255,107,107,0.03))",
-              borderColor: "rgba(255,68,68,0.15)",
+              background: "rgba(184, 92, 75, 0.04)",
+              borderColor: "rgba(184, 92, 75, 0.15)",
             }}>
-              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "#ff4444", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-accent)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
                 <span>⚡</span> Eruption Pending
               </h2>
               <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
@@ -763,10 +760,9 @@ export default function MindPage() {
               </h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {knowledgeHoles.map((hole: any, i: number) => (
-                  <div key={i} style={{
+                  <div key={i} className="dark-info-box info-value" style={{
                     padding: "8px 14px", borderRadius: 8,
-                    background: "rgba(255,255,255,0.02)",
-                    fontSize: "0.8125rem", color: "var(--text-secondary)",
+                    fontSize: "0.8125rem",
                   }}>
                     {typeof hole === "string" ? hole : JSON.stringify(hole)}
                   </div>
@@ -800,7 +796,6 @@ export default function MindPage() {
                     const parsed = JSON.parse(complexity.emotional_undercurrents);
                     undercurrents = Array.isArray(parsed) ? parsed : [parsed];
                   } catch {
-                    // Try parsing as array if it is a JSON-like string, e.g. "[]" or "[{...}]"
                     undercurrents = [];
                   }
                 } else if (Array.isArray(complexity.emotional_undercurrents)) {
@@ -824,37 +819,37 @@ export default function MindPage() {
                     const trigger = uc?.trigger || "";
                     
                     // Style helper for emotion coloring
-                    let badgeColor = "rgba(139, 92, 246, 0.15)";
-                    let badgeBorder = "rgba(139, 92, 246, 0.3)";
-                    let textColor = "#a78bfa";
+                    let badgeColor = "rgba(106, 133, 184, 0.08)";
+                    let badgeBorder = "rgba(106, 133, 184, 0.15)";
+                    let textColor = "#6A85B8";
                     
                     const lowerEmotion = emotion.toLowerCase();
                     if (lowerEmotion.includes("frustration") || lowerEmotion.includes("anger") || lowerEmotion.includes("rage")) {
-                      badgeColor = "rgba(239, 68, 68, 0.12)";
-                      badgeBorder = "rgba(239, 68, 68, 0.25)";
-                      textColor = "#f87171";
+                      badgeColor = "rgba(184, 92, 75, 0.08)";
+                      badgeBorder = "rgba(184, 92, 75, 0.15)";
+                      textColor = "#B85C4B";
                     } else if (lowerEmotion.includes("jealousy") || lowerEmotion.includes("possessive")) {
-                      badgeColor = "rgba(236, 72, 153, 0.12)";
-                      badgeBorder = "rgba(236, 72, 153, 0.25)";
-                      textColor = "#f472b6";
+                      badgeColor = "rgba(179, 92, 122, 0.08)";
+                      badgeBorder = "rgba(179, 92, 122, 0.15)";
+                      textColor = "#B35C7A";
                     } else if (lowerEmotion.includes("hurt") || lowerEmotion.includes("withdrawal") || lowerEmotion.includes("anxiety")) {
-                      badgeColor = "rgba(59, 130, 246, 0.12)";
-                      badgeBorder = "rgba(59, 130, 246, 0.25)";
-                      textColor = "#60a5fa";
+                      badgeColor = "rgba(106, 133, 184, 0.08)";
+                      badgeBorder = "rgba(106, 133, 184, 0.15)";
+                      textColor = "#6A85B8";
                     } else if (lowerEmotion.includes("protect") || lowerEmotion.includes("caring") || lowerEmotion.includes("warmth")) {
-                      badgeColor = "rgba(16, 185, 129, 0.12)";
-                      badgeBorder = "rgba(16, 185, 129, 0.25)";
-                      textColor = "#34d399";
+                      badgeColor = "rgba(90, 142, 114, 0.08)";
+                      badgeBorder = "rgba(90, 142, 114, 0.15)";
+                      textColor = "#5F7D61";
                     } else if (lowerEmotion.includes("bored") || lowerEmotion.includes("complacency")) {
-                      badgeColor = "rgba(107, 114, 128, 0.15)";
-                      badgeBorder = "rgba(107, 114, 128, 0.3)";
-                      textColor = "#9ca3af";
+                      badgeColor = "rgba(92, 88, 82, 0.08)";
+                      badgeBorder = "rgba(92, 88, 82, 0.15)";
+                      textColor = "#7A7670";
                     }
 
                     return (
                       <div key={idx} style={{
                         padding: "12px 14px", borderRadius: 8,
-                        background: "rgba(255, 255, 255, 0.01)",
+                        background: "var(--bg-surface)",
                         border: "1px solid var(--border-subtle)",
                         display: "flex", flexDirection: "column", gap: 6
                       }}>
@@ -878,7 +873,7 @@ export default function MindPage() {
                         </div>
                         
                         {/* Progress Bar */}
-                        <div style={{ width: "100%", height: 3, background: "rgba(255,255,255,0.03)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ width: "100%", height: 3, background: "var(--border-subtle)", borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ width: `${intensity * 100}%`, height: "100%", background: textColor, borderRadius: 2 }} />
                         </div>
 
@@ -905,11 +900,11 @@ export default function MindPage() {
           style={{
             padding: "8px 24px", borderRadius: 999,
             border: "1px solid var(--border-subtle)",
-            background: "rgba(255,255,255,0.02)",
+            background: "var(--bg-surface)",
             color: "var(--text-muted)", fontSize: "0.75rem",
             cursor: "pointer", transition: "all 0.2s",
           }}
-          onMouseOver={(e) => { e.currentTarget.style.color = "var(--text-primary)"; e.currentTarget.style.borderColor = "rgba(151,117,250,0.3)"; }}
+          onMouseOver={(e) => { e.currentTarget.style.color = "var(--text-primary)"; e.currentTarget.style.borderColor = "var(--accent-primary)"; }}
           onMouseOut={(e) => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.borderColor = "var(--border-subtle)"; }}
         >
           ↻ Refresh
