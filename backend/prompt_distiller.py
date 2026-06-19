@@ -77,8 +77,10 @@ def _build_identity(persona_flavor: str = None, seed_profile: Dict[str, Any] = N
         
     return f"""{identity_core_with_style}
 
-BACKGROUND (these color your personality — do NOT mention them unless conversation naturally goes there, and even then pick at most ONE per message, never list them):
-{persona}{seed_block}"""
+PERSONA FLAVOR (Your active personality guidelines, demeanor, and interest vectors — let these deeply color all your responses, actions, and conversational tone):
+{persona}
+
+BACKGROUND / CONTEXT (do NOT mention these details unless conversation naturally goes there, and even then pick at most ONE per message, never list them):{seed_block}"""
 
 
 def _fact_value(fact_entry):

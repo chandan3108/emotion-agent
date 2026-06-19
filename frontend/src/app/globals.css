@@ -785,3 +785,56 @@ input[style*="background:var(--bg-surface)"],
   color: #0F0F0F !important;
 }
 
+/* 4. Ensure inputs inside light containers have light backgrounds and dark text */
+.theme-light input,
+.theme-light select,
+.theme-light textarea,
+.glass-card input,
+.glass-card select,
+.glass-card textarea,
+.glass-panel input,
+.glass-panel select,
+.glass-panel textarea,
+[style*="var(--bg-surface)"] input,
+[style*="var(--bg-surface)"] select,
+[style*="var(--bg-surface)"] textarea,
+[style*="background: var(--bg-surface)"] input,
+[style*="background: var(--bg-surface)"] select,
+[style*="background: var(--bg-surface)"] textarea {
+  background: #FAF6EE !important;
+  border: 1px solid #D1C9BC !important;
+  color: #0F0F0F !important;
+  --text-primary: #0F0F0F !important;
+  --text-secondary: #4A4640 !important;
+  --border-subtle: #D1C9BC !important;
+}
+
+/* 5. Stat Cards Layout Styling */
+.stat-card {
+  padding: 16px 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  min-height: 85px !important;
+}
+
+.stat-value {
+  font-family: var(--font-sans) !important;
+  font-size: 1.625rem !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  color: #0F0F0F !important;
+  margin-bottom: 4px !important;
+}
+
+.stat-label {
+  font-family: var(--font-sans) !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #4A4640 !important;
+}
+
+

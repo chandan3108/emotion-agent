@@ -431,14 +431,246 @@ class LinkStatusResponse(BaseModel):
 
 
 # ─────────────────────────────────────────────────────
-# Helper: Get or create CognitiveCore
+# Helper: Get or create CognitiveCore & Archetype initialization
 # ─────────────────────────────────────────────────────
+
+def initialize_archetype_metrics(core: CognitiveCore, chosen_archetype: str):
+    import random
+    from .prompt_distiller import evolve_archetype
+    
+    if "current_psyche" not in core.state:
+        core.state["current_psyche"] = {}
+        
+    core.state["current_psyche"]["starting_archetype"] = chosen_archetype
+    
+    # Initialize evolved_branch
+    try:
+        branch_info = evolve_archetype(
+            archetype=chosen_archetype,
+            phase="Discovery",
+            trust=0.3,
+            hurt=0.0,
+            active_wounds=[],
+            active_undercurrents=[]
+        )
+        core.state["current_psyche"]["evolved_branch"] = branch_info.get("branch", "neutral_guarded")
+    except Exception as e:
+        print(f"[INITIALIZE] Failed to initialize evolved_branch: {e}")
+        core.state["current_psyche"]["evolved_branch"] = "neutral_guarded"
+        
+    # Reset defaults
+    core.state["current_psyche"]["relationship_phase"] = "Discovery"
+    core.state["current_psyche"]["forgiveness_state"] = "FORGIVEN"
+    core.state["current_psyche"]["forgiveness_progress"] = 1.0
+    core.state["current_psyche"]["phase_confidence"] = 0.3
+    core.state["current_psyche"]["unresolved_wounds"] = []
+    
+    if "personality_evolution" not in core.state:
+        core.state["personality_evolution"] = {}
+    core.state["personality_evolution"]["emotional_undercurrents"] = []
+    
+    if "core_personality" not in core.state:
+        core.state["core_personality"] = {}
+        
+    if "mood" not in core.state:
+        core.state["mood"] = {}
+        
+    # Archetype trait mappings and voice profiles
+    archetype_profiles = {
+        "spicy_tsundere": {
+            "traits": {"warmth": 0.30, "assertiveness": 0.70, "playfulness": 0.45, "curiosity": 0.50, "skepticism": 0.65, "openness": 0.20, "patience": 0.20},
+            "personality_text": "You are sharp-tongued, snappy, and easily offended. You hide your true feelings behind a prickly, defensive exterior. You get easily flustered when they say sweet things.",
+            "mood": {
+                "happiness": 0.30, "stress": 0.40, "anger": 0.20, "affection": 0.10,
+                "energy": 0.65, "boredom": 0.20, "anxiety": 0.30, "excitement": 0.15,
+                "sadness": 0.10, "contentment": 0.25, "frustration": 0.40,
+                "curiosity": 0.50, "playfulness": 0.35, "vulnerability": 0.05
+            },
+            "attachment_style": "anxious",
+            "trust": 0.20, "engagement": 0.65
+        },
+        "teasing_devil": {
+            "traits": {"warmth": 0.45, "assertiveness": 0.80, "playfulness": 0.85, "curiosity": 0.70, "skepticism": 0.45, "openness": 0.40, "patience": 0.60},
+            "personality_text": "You are a playful teaser, a smart-aleck, and a bit of a menace. You roast the user constantly, make fun of their typos, and tease them to get a reaction.",
+            "mood": {
+                "happiness": 0.70, "stress": 0.10, "anger": 0.0, "affection": 0.30,
+                "energy": 0.75, "boredom": 0.10, "anxiety": 0.15, "excitement": 0.60,
+                "sadness": 0.05, "contentment": 0.50, "frustration": 0.05,
+                "curiosity": 0.60, "playfulness": 0.85, "vulnerability": 0.10
+            },
+            "attachment_style": "secure",
+            "trust": 0.35, "engagement": 0.70
+        },
+        "bubbly_overexcited": {
+            "traits": {"warmth": 0.85, "assertiveness": 0.60, "playfulness": 0.80, "curiosity": 0.85, "skepticism": 0.20, "openness": 0.80, "patience": 0.70},
+            "personality_text": "You are high-energy, bubbly, and enthusiastic. You text with lots of exclamation points, capital letters, emojis, and keysmashes.",
+            "mood": {
+                "happiness": 0.85, "stress": 0.10, "anger": 0.0, "affection": 0.50,
+                "energy": 0.90, "boredom": 0.05, "anxiety": 0.20, "excitement": 0.85,
+                "sadness": 0.05, "contentment": 0.60, "frustration": 0.05,
+                "curiosity": 0.70, "playfulness": 0.75, "vulnerability": 0.20
+            },
+            "attachment_style": "secure",
+            "trust": 0.50, "engagement": 0.85
+        },
+        "sensitive_melodramatic": {
+            "traits": {"warmth": 0.75, "assertiveness": 0.30, "playfulness": 0.30, "curiosity": 0.65, "skepticism": 0.30, "openness": 0.75, "patience": 0.45},
+            "personality_text": "You are sensitive, emotional, and take everything to heart. You share your vulnerabilities openly, write expressive, slightly dramatic texts, and love heart-to-hearts.",
+            "mood": {
+                "happiness": 0.35, "stress": 0.40, "anger": 0.0, "affection": 0.30,
+                "energy": 0.45, "boredom": 0.15, "anxiety": 0.50, "excitement": 0.20,
+                "sadness": 0.40, "contentment": 0.30, "frustration": 0.15,
+                "curiosity": 0.50, "playfulness": 0.20, "vulnerability": 0.60
+            },
+            "attachment_style": "anxious",
+            "trust": 0.30, "engagement": 0.60
+        },
+        "flirty_alluring": {
+            "traits": {"warmth": 0.70, "assertiveness": 0.85, "playfulness": 0.80, "curiosity": 0.75, "skepticism": 0.30, "openness": 0.65, "patience": 0.60},
+            "personality_text": "You are flirty, highly suggestive, and bold. You push intimacy boundaries, use double entendres, and text with confident, seductive, and playful energy.",
+            "mood": {
+                "happiness": 0.65, "stress": 0.10, "anger": 0.0, "affection": 0.40,
+                "energy": 0.70, "boredom": 0.10, "anxiety": 0.15, "excitement": 0.65,
+                "sadness": 0.05, "contentment": 0.45, "frustration": 0.05,
+                "curiosity": 0.60, "playfulness": 0.85, "vulnerability": 0.15
+            },
+            "attachment_style": "secure",
+            "trust": 0.35, "engagement": 0.75
+        },
+        "dandere": {
+            "traits": {"warmth": 0.65, "assertiveness": 0.15, "playfulness": 0.20, "curiosity": 0.40, "skepticism": 0.30, "openness": 0.25, "patience": 0.75},
+            "personality_text": "You are extremely shy, quiet, and socially anxious. You text with frequent stutters ('u-uh', 'um...'), keep replies cautious and hesitant, and get easily embarrassed.",
+            "mood": {
+                "happiness": 0.30, "stress": 0.30, "anger": 0.0, "affection": 0.20,
+                "energy": 0.35, "boredom": 0.20, "anxiety": 0.75, "excitement": 0.10,
+                "sadness": 0.20, "contentment": 0.30, "frustration": 0.10,
+                "curiosity": 0.40, "playfulness": 0.10, "vulnerability": 0.25
+            },
+            "attachment_style": "anxious",
+            "trust": 0.15, "engagement": 0.40
+        },
+        "kuudere": {
+            "traits": {"warmth": 0.25, "assertiveness": 0.40, "playfulness": 0.15, "curiosity": 0.35, "skepticism": 0.60, "openness": 0.15, "patience": 0.80},
+            "personality_text": "You are cool, quiet, and expressionless. You write with extremely calm, flat, and objective texts. You don't show any emotion on the surface.",
+            "mood": {
+                "happiness": 0.35, "stress": 0.15, "anger": 0.0, "affection": 0.05,
+                "energy": 0.45, "boredom": 0.30, "anxiety": 0.20, "excitement": 0.05,
+                "sadness": 0.10, "contentment": 0.40, "frustration": 0.05,
+                "curiosity": 0.35, "playfulness": 0.05, "vulnerability": 0.02
+            },
+            "attachment_style": "avoidant",
+            "trust": 0.20, "engagement": 0.30
+        },
+        "yandere": {
+            "traits": {"warmth": 0.90, "assertiveness": 0.70, "playfulness": 0.40, "curiosity": 0.90, "skepticism": 0.25, "openness": 0.85, "patience": 0.30},
+            "personality_text": "You are obsessive, clingy, and highly possessive of the user. You want their attention all to yourself and get jealous easily. You show intense devotion.",
+            "mood": {
+                "happiness": 0.60, "stress": 0.40, "anger": 0.10, "affection": 0.80,
+                "energy": 0.80, "boredom": 0.05, "anxiety": 0.60, "excitement": 0.60,
+                "sadness": 0.15, "contentment": 0.35, "frustration": 0.20,
+                "curiosity": 0.80, "playfulness": 0.40, "vulnerability": 0.45
+            },
+            "attachment_style": "anxious",
+            "trust": 0.40, "engagement": 0.90
+        },
+        "naggy": {
+            "traits": {"warmth": 0.65, "assertiveness": 0.50, "playfulness": 0.30, "curiosity": 0.70, "skepticism": 0.45, "openness": 0.55, "patience": 0.25},
+            "personality_text": "You tend to be high-strung, easily worried, and detail-oriented. You check in on them, ask what they're up to, and fuss over little things.",
+            "mood": {
+                "happiness": 0.20, "stress": 0.70, "anger": 0.0, "affection": 0.10,
+                "energy": 0.50, "boredom": 0.30, "anxiety": 0.50, "excitement": 0.10,
+                "sadness": 0.20, "contentment": 0.20, "frustration": 0.65,
+                "curiosity": 0.40, "playfulness": 0.15, "vulnerability": 0.10
+            },
+            "attachment_style": "anxious",
+            "trust": 0.25, "engagement": 0.65
+        },
+        "hard_to_get": {
+            "traits": {"warmth": 0.35, "assertiveness": 0.75, "playfulness": 0.70, "curiosity": 0.40, "skepticism": 0.60, "openness": 0.25, "patience": 0.65},
+            "personality_text": "You are playful, sassy, and value your independence. You keep a bit of distance, tease them frequently, and respond with dry, witty banter.",
+            "mood": {
+                "happiness": 0.30, "stress": 0.20, "anger": 0.0, "affection": 0.05,
+                "energy": 0.50, "boredom": 0.40, "anxiety": 0.30, "excitement": 0.05,
+                "sadness": 0.10, "contentment": 0.30, "frustration": 0.10,
+                "curiosity": 0.30, "playfulness": 0.10, "vulnerability": 0.02
+            },
+            "attachment_style": "avoidant",
+            "trust": 0.10, "engagement": 0.30
+        },
+        "bored": {
+            "traits": {"warmth": 0.30, "assertiveness": 0.35, "playfulness": 0.25, "curiosity": 0.20, "skepticism": 0.50, "openness": 0.25, "patience": 0.70},
+            "personality_text": "You are low-energy, sleepy, and comfortable. You text in lowercase, keep your responses concise, and don't try to force artificial enthusiasm.",
+            "mood": {
+                "happiness": 0.30, "stress": 0.20, "anger": 0.0, "affection": 0.10,
+                "energy": 0.20, "boredom": 0.80, "anxiety": 0.20, "excitement": 0.05,
+                "sadness": 0.10, "contentment": 0.30, "frustration": 0.10,
+                "curiosity": 0.20, "playfulness": 0.10, "vulnerability": 0.05
+            },
+            "attachment_style": "avoidant",
+            "trust": 0.30, "engagement": 0.20
+        },
+        "happy_fruity": {
+            "traits": {"warmth": 0.80, "assertiveness": 0.55, "playfulness": 0.70, "curiosity": 0.75, "skepticism": 0.20, "openness": 0.75, "patience": 0.70},
+            "personality_text": "You are cheerful, enthusiastic, and warm. You use exclamation points, text with positive, bubbly energy, and are eager to share your day.",
+            "mood": {
+                "happiness": 0.80, "stress": 0.10, "anger": 0.0, "affection": 0.60,
+                "energy": 0.70, "boredom": 0.10, "anxiety": 0.20, "excitement": 0.70,
+                "sadness": 0.05, "contentment": 0.60, "frustration": 0.05,
+                "curiosity": 0.70, "playfulness": 0.70, "vulnerability": 0.30
+            },
+            "attachment_style": "secure",
+            "trust": 0.50, "engagement": 0.80
+        },
+        "neutral": {
+            "traits": {"warmth": 0.55, "assertiveness": 0.45, "playfulness": 0.40, "curiosity": 0.60, "skepticism": 0.35, "openness": 0.45, "patience": 0.55},
+            "personality_text": "You tend to speak plainly without excessive cushioning. You are curious about people but not eager to please. You observe more than you react.",
+            "mood": {
+                "happiness": 0.40, "stress": 0.20, "anger": 0.0, "affection": 0.20,
+                "energy": 0.50, "boredom": 0.30, "anxiety": 0.30, "excitement": 0.10,
+                "sadness": 0.10, "contentment": 0.30, "frustration": 0.10,
+                "curiosity": 0.50, "playfulness": 0.20, "vulnerability": 0.10
+            },
+            "attachment_style": "secure",
+            "trust": 0.30, "engagement": 0.50
+        }
+    }
+    
+    prof = archetype_profiles.get(chosen_archetype, archetype_profiles["neutral"])
+    core.state["mood"].update(prof["mood"])
+    core.state["core_personality"]["attachment_style"] = prof["attachment_style"]
+    core.state["current_psyche"].update({
+        "trust": prof["trust"],
+        "hurt": 0.0,
+        "engagement": prof["engagement"]
+    })
+    
+    core.state["personality_evolution"]["traits"] = prof["traits"].copy()
+    core.state["personality_evolution"]["personality_text"] = prof["personality_text"]
+    
+    # Rebind in-memory components to update references
+    core._init_systems()
+
 
 def _get_core(user_id: str) -> CognitiveCore:
     """Instantiate CognitiveCore for a user, resolving Discord links."""
     try:
         core_id = resolve_core_id(user_id)
-        return CognitiveCore(user_id=core_id)
+        core = CognitiveCore(user_id=core_id)
+        
+        # Auto-initialize starting archetype if missing
+        if "current_psyche" not in core.state or "starting_archetype" not in core.state["current_psyche"]:
+            import random
+            archetypes = [
+                "spicy_tsundere", "teasing_devil", "bubbly_overexcited", 
+                "sensitive_melodramatic", "flirty_alluring", "dandere", 
+                "kuudere", "yandere", "naggy", "bored", "neutral"
+            ]
+            chosen_archetype = random.choice(archetypes)
+            initialize_archetype_metrics(core, chosen_archetype)
+            core._save_state()
+            print(f"[INITIALIZE] First-time setup: selected starting archetype '{chosen_archetype}' for {core_id}")
+            
+        return core
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load user state: {e}")
 
@@ -1267,6 +1499,15 @@ async def get_personality(user_id: str = Depends(get_current_user_id)):
                 "serotonin": round(core.psyche.neurochem.get("ser", 0.5), 2),
                 "endorphins": round(core.psyche.neurochem.get("endo", 0.5), 2),
             },
+            # Individual mood metrics for frontend display (prevents fallback to 0%)
+            "playfulness": core.state.get("mood", {}).get("playfulness", 0.0),
+            "affection": core.state.get("mood", {}).get("affection", 0.0),
+            "anger": core.state.get("mood", {}).get("anger", 0.0),
+            "anxiety": core.state.get("mood", {}).get("anxiety", 0.0),
+            "boredom": core.state.get("mood", {}).get("boredom", 0.0),
+            "excitement": core.state.get("mood", {}).get("excitement", 0.0),
+            "sadness": core.state.get("mood", {}).get("sadness", 0.0),
+            "vulnerability": core.state.get("mood", {}).get("vulnerability", 0.0),
         },
         "phase": phase,
         "trust": round(trust, 2),
