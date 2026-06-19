@@ -38,6 +38,9 @@ class CreateSessionRequest(BaseModel):
 class SwitchSessionRequest(BaseModel):
     session_id: str
 
+class RenameSessionRequest(BaseModel):
+    title: str
+
 router = APIRouter(prefix="/api/user", tags=["game-progression"])
 
 
@@ -3840,6 +3843,27 @@ async def delete_session(session_id: str, user_id: str = Depends(get_current_use
             core._save_state()
             
         return {"success": True}
+    finally:
+        db.close()
+
+
+@router.put("/sessions/{session_id}")
+async def rename_session(session_id: str, payload: RenameSessionRequest, user_id: str = Depends(get_current_user_id)):
+    db = SessionLocal()
+    try:
+        sess = db.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user_id).first()
+        if not sess:
+            raise HTTPException(status_code=404, detail="Chat session not found")
+        
+        title = payload.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Title cannot be empty")
+            
+        sess.title = title
+        db.commit()
+        db.refresh(sess)
+        
+        return {"success": True, "id": sess.id, "title": sess.title}
     finally:
         db.close()
 

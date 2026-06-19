@@ -37,56 +37,56 @@ export default function GamesHubPage() {
       icon: "🕵️‍♂️",
       title: "Sherlock Rem",
       desc: "Investigate procedural murder mysteries and corporate hacks with Rem as your sarcasm-heavy partner. Search rooms for hidden clues, interrogate suspects, build alibis, and present your final accusation.",
-      btnText: "Start Case"
+      btnText: "ENTER"
     },
     {
       href: "/games/court",
       icon: "⚖️",
       title: "Law and Rem",
       desc: "Defend clients in Ace Attorney courtroom battles. Question witnesses dynamically, raise objections with evidence, explore rooms during recesses, and win over the Judge and Jury LLMs.",
-      btnText: "Take Stand"
+      btnText: "ENTER"
     },
     {
       href: "/games/spicy",
       icon: "🌶️",
       title: "Spicy Chat",
       desc: "An isolated, uncensored fantasy chat sandbox with Rem powered by OpenRouter models. Customize locations and moods, and extract romantic Secrets keepsakes.",
-      btnText: "Enter Vault"
+      btnText: "ENTER"
     },
     {
       href: "/games/debate",
       icon: "⚖️",
       title: "Debate Battle",
       desc: "Argue with Rem in a 5-turn clash of wits on ridiculous topics. You will be assigned a random stance. Can you convince the neutral LLM Judge to vote for you?",
-      btnText: "Enter Arena"
+      btnText: "ENTER"
     },
     {
       href: "/games/win-over",
       icon: "💔",
       title: "Win Her Over",
       desc: "Start with Rem in a state of high anger and distress. You have exactly 10 texts to successfully pacify her and rebuild trust. Saying the wrong thing will trigger a block.",
-      btnText: "Start Challenge"
+      btnText: "ENTER"
     },
     {
       href: "/games/personality",
       icon: "🧠",
       title: "Psyche Profiler",
       desc: "Answer 30 personality/relationship questions. Rem will offer dynamic, sarcastic feedback after your answers and run a detailed LLM evaluation of your character.",
-      btnText: "Get Evaluated"
+      btnText: "ENTER"
     },
     {
       href: "/games/cook",
       icon: "🍳",
       title: "Cooking with Rem",
       desc: "Choose a dish to cook together step-by-step. Keep the Chaos Meter low to avoid culinary disasters, and read Rem's sarcastic review in your Scrapbook Cookbook.",
-      btnText: "Start Cooking"
+      btnText: "ENTER"
     },
     {
       href: "/games/yap",
       icon: "🗣️",
       title: "Yap Mode",
       desc: "Give Rem a topic and watch her load grounded, verified facts from the web to yap about it in-depth. Discuss facts and her sarcastic views with zero hallucinations.",
-      btnText: "Start Yapping"
+      btnText: "ENTER"
     }
   ];
 

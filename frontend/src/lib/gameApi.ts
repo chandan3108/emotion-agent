@@ -784,3 +784,10 @@ export function deleteSession(sessionId: string) {
     method: "DELETE",
   });
 }
+
+export function renameSession(sessionId: string, title: string) {
+  return apiFetch<{ success: boolean; id: string; title: string }>(`/api/user/sessions/${sessionId}`, {
+    method: "PUT",
+    body: JSON.stringify({ title }),
+  });
+}

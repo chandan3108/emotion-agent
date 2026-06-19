@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { sendChat, getXP, getSchedule, getIdentity, getPlans, addPlan, deletePlan, getMemory, bookmarkMemory, resetUser, getMessages, getSessions, startNewSession, switchSession, deleteSession, type ChatResponse, type XPData } from "@/lib/gameApi";
+import { sendChat, getXP, getSchedule, getIdentity, getPlans, addPlan, deletePlan, getMemory, bookmarkMemory, resetUser, getMessages, getSessions, startNewSession, switchSession, deleteSession, renameSession, type ChatResponse, type XPData } from "@/lib/gameApi";
 
 interface Message {
   role: "user" | "assistant";
@@ -80,6 +80,8 @@ export default function ChatPage() {
   const [sessionsSidebarOpen, setSessionsSidebarOpen] = useState(true);
   const [sessionCreating, setSessionCreating] = useState(false);
   const [showDateOverlay, setShowDateOverlay] = useState(true);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   const fetchMemoryData = useCallback(() => {
     setMemoryLoading(true);
@@ -327,6 +329,23 @@ export default function ChatPage() {
     } catch (err) {
       console.error("Failed to delete session:", err);
       setToast("Failed to delete session");
+    }
+  };
+
+  const handleRenameSession = async (sessionId: string, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    try {
+      const res = await renameSession(sessionId, newTitle.trim());
+      if (res && res.success) {
+        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: newTitle.trim() } : s));
+        setToast("Session renamed");
+      }
+    } catch (err) {
+      console.error("Failed to rename session:", err);
+      setToast("Failed to rename session");
+    } finally {
+      setEditingSessionId(null);
+      setEditingTitle("");
     }
   };
 
@@ -1241,6 +1260,8 @@ export default function ChatPage() {
                       }
                       const delBtn = e.currentTarget.querySelector(".delete-session-btn") as HTMLElement;
                       if (delBtn) delBtn.style.opacity = "1";
+                      const renBtn = e.currentTarget.querySelector(".rename-session-btn") as HTMLElement;
+                      if (renBtn) renBtn.style.opacity = "1";
                     }}
                     onMouseOut={(e) => {
                       if (!isActive) {
@@ -1249,43 +1270,117 @@ export default function ChatPage() {
                       }
                       const delBtn = e.currentTarget.querySelector(".delete-session-btn") as HTMLElement;
                       if (delBtn) delBtn.style.opacity = "0";
+                      const renBtn = e.currentTarget.querySelector(".rename-session-btn") as HTMLElement;
+                      if (renBtn) renBtn.style.opacity = "0";
                     }}
                   >
-                    <span style={{ 
-                      overflow: "hidden", 
-                      textOverflow: "ellipsis", 
-                      whiteSpace: "nowrap",
-                      marginRight: 8,
-                      flex: 1
-                    }}>
-                      {sess.title || "Chat Session"}
-                    </span>
-                    <button
-                      className="delete-session-btn"
-                      onClick={(e) => handleDeleteSession(sess.id, e)}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: "0.95rem",
-                        padding: "0 4px",
-                        opacity: 0,
-                        transition: "opacity 0.2s ease",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                      title="Delete Session"
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.color = "var(--text-primary)";
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.color = "var(--text-muted)";
-                      }}
-                    >
-                      ×
-                    </button>
+                    {editingSessionId === sess.id ? (
+                      <input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onBlur={() => handleRenameSession(sess.id, editingTitle)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleRenameSession(sess.id, editingTitle);
+                          } else if (e.key === "Escape") {
+                            setEditingSessionId(null);
+                          }
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          background: "var(--bg-surface)",
+                          border: "1px solid var(--accent-primary)",
+                          borderRadius: 4,
+                          padding: "2px 6px",
+                          fontSize: "0.8125rem",
+                          color: "var(--text-primary)",
+                          width: "100%",
+                          outline: "none"
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <span
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingSessionId(sess.id);
+                            setEditingTitle(sess.title || "Chat Session");
+                          }}
+                          style={{ 
+                            overflow: "hidden", 
+                            textOverflow: "ellipsis", 
+                            whiteSpace: "nowrap",
+                            marginRight: 8,
+                            flex: 1
+                          }}
+                          title="Double click to rename"
+                        >
+                          {sess.title || "Chat Session"}
+                        </span>
+                        
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <button
+                            className="rename-session-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingSessionId(sess.id);
+                              setEditingTitle(sess.title || "Chat Session");
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              color: "var(--text-muted)",
+                              cursor: "pointer",
+                              fontSize: "0.8rem",
+                              padding: "0 4px",
+                              opacity: 0,
+                              transition: "opacity 0.2s ease",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            title="Rename Session"
+                            onMouseOver={(e) => {
+                              e.currentTarget.style.color = "var(--text-primary)";
+                            }}
+                            onMouseOut={(e) => {
+                              e.currentTarget.style.color = "var(--text-muted)";
+                            }}
+                          >
+                            ✏️
+                          </button>
+                          
+                          <button
+                            className="delete-session-btn"
+                            onClick={(e) => handleDeleteSession(sess.id, e)}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              color: "var(--text-muted)",
+                              cursor: "pointer",
+                              fontSize: "0.95rem",
+                              padding: "0 4px",
+                              opacity: 0,
+                              transition: "opacity 0.2s ease",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            title="Delete Session"
+                            onMouseOver={(e) => {
+                              e.currentTarget.style.color = "var(--text-primary)";
+                            }}
+                            onMouseOut={(e) => {
+                              e.currentTarget.style.color = "var(--text-muted)";
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}

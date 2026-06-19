@@ -860,6 +860,10 @@ input[style*="background:var(--bg-surface)"],
 }
 
 /* 2. BUT if the card has a light cream background variable, keep it using dark text! */
+.games-layout .glass-card,
+.games-layout .glass-card *,
+.games-layout .glass-panel,
+.games-layout .glass-panel *,
 .games-layout [style*="var(--bg-surface)"],
 .games-layout [style*="var(--bg-surface)"] *,
 .games-layout [style*="background: var(--bg-surface)"],
@@ -900,6 +904,18 @@ input[style*="background:var(--bg-surface)"],
 .games-layout textarea::placeholder {
   color: #6C6863 !important;
   opacity: 1 !important;
+}
+
+/* 5. Force action buttons inside games layout cards to display white text on a black background */
+.games-layout .glass-card .action-button,
+.games-layout .action-button {
+  background: #000000 !important;
+  color: #FAF6EE !important;
+}
+.games-layout .glass-card .action-button:hover,
+.games-layout .action-button:hover {
+  background: #222222 !important;
+  color: #FAF6EE !important;
 }
 
 
