@@ -837,4 +837,70 @@ input[style*="background:var(--bg-surface)"],
   color: #4A4640 !important;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   MINI-GAMES CONTRAST AND VISIBILITY OVERRIDES
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* 1. Reset text variables to light colors inside games layout for card and panel elements */
+.games-layout .glass-card,
+.games-layout .glass-card *,
+.games-layout .glass-panel,
+.games-layout .glass-panel *,
+.games-layout .notebook-page,
+.games-layout .notebook-page * {
+  --text-primary: #FAF6EE !important;
+  --text-secondary: #C8C3BC !important;
+  --text-muted: #6C6863 !important;
+  --text-accent: #FAF6EE !important;
+  --border-subtle: #242424 !important;
+  --accent-primary: #FAF6EE !important;
+  --accent-secondary: #EAE3D5 !important;
+  --accent-tertiary: #FAF6EE !important;
+  color: #FAF6EE !important;
+}
+
+/* 2. BUT if the card has a light cream background variable, keep it using dark text! */
+.games-layout [style*="var(--bg-surface)"],
+.games-layout [style*="var(--bg-surface)"] *,
+.games-layout [style*="background: var(--bg-surface)"],
+.games-layout [style*="background: var(--bg-surface)"] *,
+.games-layout [style*="background:var(--bg-surface)"],
+.games-layout [style*="background:var(--bg-surface)"] * {
+  --text-primary: #0F0F0F !important;
+  --text-secondary: #4A4640 !important;
+  --text-muted: #7A7670 !important;
+  --text-accent: #0F0F0F !important;
+  --border-subtle: #E3DCD0 !important;
+  --accent-primary: #0F0F0F !important;
+  --accent-secondary: #2A2A2A !important;
+  --accent-tertiary: #4A4640 !important;
+  color: #0F0F0F !important;
+}
+
+/* 3. Ensure buttons in games layout with accent-primary (cream) backgrounds have dark text for contrast */
+.games-layout button[style*="var(--accent-primary)"],
+.games-layout button[style*="background:var(--accent-primary)"],
+.games-layout button[style*="background: var(--accent-primary)"],
+.games-layout .btn-primary {
+  color: #0F0F0F !important;
+  background: #FAF6EE !important;
+  border-color: #FAF6EE !important;
+}
+
+.games-layout button[style*="var(--accent-primary)"]:hover,
+.games-layout button[style*="background:var(--accent-primary)"]:hover,
+.games-layout button[style*="background: var(--accent-primary)"]:hover,
+.games-layout .btn-primary:hover {
+  background: #EAE3D5 !important;
+  border-color: #EAE3D5 !important;
+}
+
+/* 4. Ensure placeholders inside dark game inputs are properly visible */
+.games-layout input::placeholder,
+.games-layout textarea::placeholder {
+  color: #6C6863 !important;
+  opacity: 1 !important;
+}
+
+
 
