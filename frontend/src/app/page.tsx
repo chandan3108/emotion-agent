@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { sendChat, getXP, getSchedule, getIdentity, getPlans, addPlan, deletePlan, getMemory, bookmarkMemory, resetUser, getMessages, type ChatResponse, type XPData } from "@/lib/gameApi";
+import { sendChat, getXP, getSchedule, getIdentity, getPlans, addPlan, deletePlan, getMemory, bookmarkMemory, resetUser, getMessages, getSessions, startNewSession, switchSession, deleteSession, type ChatResponse, type XPData } from "@/lib/gameApi";
 
 interface Message {
   role: "user" | "assistant";
@@ -73,6 +73,12 @@ export default function ChatPage() {
   const [memoryData, setMemoryData] = useState<any>(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
   const [memoryQuery, setMemoryQuery] = useState("");
+
+  // Chat Session states
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [sessionsSidebarOpen, setSessionsSidebarOpen] = useState(true);
+  const [sessionCreating, setSessionCreating] = useState(false);
   const [showDateOverlay, setShowDateOverlay] = useState(true);
 
   const fetchMemoryData = useCallback(() => {
@@ -199,21 +205,16 @@ export default function ChatPage() {
 
   /* Hydrate messages from localStorage AFTER mount (prevents SSR mismatch) */
   useEffect(() => {
-    const saved = loadMessages();
-    setMessages(saved);
     setMounted(true);
-
-    getMessages()
-      .then((res) => {
-        if (res && res.messages && res.messages.length > 0) {
-          setMessages(res.messages);
-          saveMessages(res.messages);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to sync chat messages on mount:", err);
-      });
     
+    // Load sessions sidebar state
+    const storedSidebar = localStorage.getItem("sessions_sidebar_open");
+    if (storedSidebar === "false") {
+      setSessionsSidebarOpen(false);
+    }
+    
+    fetchSessions();
+
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const initialDrawer = params.get("drawer");
@@ -226,15 +227,108 @@ export default function ChatPage() {
     }
   }, []);
 
-  /* Save to localStorage whenever messages change (skip initial mount) */
-  const saveRef = useRef(false);
-  useEffect(() => {
-    if (saveRef.current) {
-      saveMessages(messages);
-    } else {
-      saveRef.current = true;
+  const fetchSessions = async () => {
+    try {
+      const res = await getSessions();
+      if (res && res.sessions) {
+        setSessions(res.sessions);
+        if (res.active_session_id) {
+          setActiveSessionId(res.active_session_id);
+          const msgRes = await getMessages(res.active_session_id);
+          if (msgRes && msgRes.messages) {
+            setMessages(msgRes.messages);
+          }
+        } else if (res.sessions.length > 0) {
+          handleSwitchSession(res.sessions[0].id);
+        } else {
+          handleStartNewSession();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch chat sessions:", err);
     }
-  }, [messages]);
+  };
+
+  const handleStartNewSession = async () => {
+    if (sessionCreating) return;
+    setSessionCreating(true);
+    setLoading(true);
+    try {
+      const newSess = await startNewSession();
+      if (newSess && newSess.id) {
+        setSessions(prev => [newSess, ...prev]);
+        setActiveSessionId(newSess.id);
+        setMessages([]);
+        setToast("Started new chat session");
+        getXP().then(setXp).catch(() => {});
+        fetchPlansAndSchedule();
+        fetchEmotions();
+      }
+    } catch (err) {
+      console.error("Failed to start new session:", err);
+      setToast("Failed to start new session");
+    } finally {
+      setSessionCreating(false);
+      setLoading(false);
+    }
+  };
+
+  const handleSwitchSession = async (sessionId: string) => {
+    if (sessionId === activeSessionId) return;
+    setLoading(true);
+    try {
+      const res = await switchSession(sessionId);
+      if (res && res.success) {
+        setActiveSessionId(sessionId);
+        const msgRes = await getMessages(sessionId);
+        if (msgRes && msgRes.messages) {
+          setMessages(msgRes.messages);
+        } else {
+          setMessages([]);
+        }
+        getXP().then(setXp).catch(() => {});
+        fetchPlansAndSchedule();
+        fetchEmotions();
+      }
+    } catch (err) {
+      console.error("Failed to switch session:", err);
+      setToast("Failed to switch session");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this chat session? This will permanently delete all messages in this session.")) {
+      return;
+    }
+    try {
+      const res = await deleteSession(sessionId);
+      if (res && res.success) {
+        setSessions(prev => prev.filter(s => s.id !== sessionId));
+        setToast("Deleted session");
+        if (sessionId === activeSessionId) {
+          const listRes = await getSessions();
+          if (listRes && listRes.sessions && listRes.sessions.length > 0) {
+            setSessions(listRes.sessions);
+            if (listRes.active_session_id) {
+              setActiveSessionId(listRes.active_session_id);
+              const msgRes = await getMessages(listRes.active_session_id);
+              setMessages(msgRes?.messages || []);
+            } else {
+              handleSwitchSession(listRes.sessions[0].id);
+            }
+          } else {
+            handleStartNewSession();
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+      setToast("Failed to delete session");
+    }
+  };
 
   useEffect(() => {
     const handleOpenDrawer = (e: any) => {
@@ -347,7 +441,10 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      const res: ChatResponse = await sendChat({ message: text });
+      const res: ChatResponse = await sendChat({
+        message: text,
+        session_id: activeSessionId || undefined
+      });
 
       if (res.reply_parts && res.reply_parts.length > 1) {
         for (let i = 0; i < res.reply_parts.length; i++) {
@@ -784,7 +881,7 @@ export default function ChatPage() {
 
   return (
     <div 
-      className={isGlitched ? "crimson-glitch" : ""}
+      className={`theme-dark ${isGlitched ? "crimson-glitch" : ""}`}
       style={{ 
         display: "flex", 
         flexDirection: "column", 
@@ -806,7 +903,69 @@ export default function ChatPage() {
           zIndex: 5,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Modes Sidebar Toggle */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("toggle-modes-sidebar"))}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              fontSize: "1.1rem",
+              padding: "4px 8px",
+              borderRadius: "6px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s ease"
+            }}
+            title="Toggle Modes Sidebar"
+            onMouseOver={(e) => {
+              e.currentTarget.style.color = "var(--text-primary)";
+              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.color = "var(--text-muted)";
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            ☰
+          </button>
+
+          {/* Sessions Sidebar Toggle */}
+          <button
+            onClick={() => setSessionsSidebarOpen(prev => {
+              const next = !prev;
+              localStorage.setItem("sessions_sidebar_open", next ? "true" : "false");
+              return next;
+            })}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              fontSize: "1.1rem",
+              padding: "4px 8px",
+              borderRadius: "6px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s ease"
+            }}
+            title="Toggle Chat Sessions"
+            onMouseOver={(e) => {
+              e.currentTarget.style.color = "var(--text-primary)";
+              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.color = "var(--text-muted)";
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            💬
+          </button>
+
           <div 
             className={`rem-orb ${loading ? "typing" : ""}`} 
             style={{ 
@@ -1002,7 +1161,140 @@ export default function ChatPage() {
         </div>
       )}
 
-      <>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative", width: "100%" }}>
+        {/* Chat Sessions Sidebar */}
+        <div
+          className="theme-dark"
+          style={{
+            width: sessionsSidebarOpen ? 240 : 0,
+            borderRight: sessionsSidebarOpen ? "1px solid var(--border-subtle)" : "none",
+            background: "var(--bg-primary)",
+            display: "flex",
+            flexDirection: "column",
+            transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-right 0.25s ease",
+            overflow: "hidden",
+            flexShrink: 0,
+            height: "100%",
+          }}
+        >
+          <div style={{ opacity: sessionsSidebarOpen ? 1 : 0, transition: "opacity 0.15s ease", display: "flex", flexDirection: "column", height: "100%", width: 240, padding: "20px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ fontSize: "0.8125rem", color: "var(--accent-primary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Conversations
+              </h3>
+              <button
+                onClick={handleStartNewSession}
+                disabled={sessionCreating}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-accent)",
+                  cursor: "pointer",
+                  fontSize: "1.1rem",
+                  fontWeight: "bold",
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease"
+                }}
+                title="Start New Session"
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = "rgba(0,0,0,0.04)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                +
+              </button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, paddingRight: 4 }} className="sessions-list">
+              {sessions.map((sess) => {
+                const isActive = sess.id === activeSessionId;
+                return (
+                  <div
+                    key={sess.id}
+                    onClick={() => handleSwitchSession(sess.id)}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: isActive ? "var(--accent-soft)" : "transparent",
+                      border: isActive ? "1px solid var(--accent-primary)" : "1px solid transparent",
+                      color: isActive ? "var(--accent-primary)" : "var(--text-secondary)",
+                      cursor: "pointer",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "0.8125rem",
+                      fontWeight: isActive ? 600 : 400,
+                      transition: "all 0.2s ease",
+                      position: "relative",
+                    }}
+                    className="session-item"
+                    onMouseOver={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = "rgba(0, 0, 0, 0.02)";
+                        e.currentTarget.style.borderColor = "var(--border-subtle)";
+                      }
+                      const delBtn = e.currentTarget.querySelector(".delete-session-btn") as HTMLElement;
+                      if (delBtn) delBtn.style.opacity = "1";
+                    }}
+                    onMouseOut={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.borderColor = "transparent";
+                      }
+                      const delBtn = e.currentTarget.querySelector(".delete-session-btn") as HTMLElement;
+                      if (delBtn) delBtn.style.opacity = "0";
+                    }}
+                  >
+                    <span style={{ 
+                      overflow: "hidden", 
+                      textOverflow: "ellipsis", 
+                      whiteSpace: "nowrap",
+                      marginRight: 8,
+                      flex: 1
+                    }}>
+                      {sess.title || "Chat Session"}
+                    </span>
+                    <button
+                      className="delete-session-btn"
+                      onClick={(e) => handleDeleteSession(sess.id, e)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        fontSize: "0.95rem",
+                        padding: "0 4px",
+                        opacity: 0,
+                        transition: "opacity 0.2s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      title="Delete Session"
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.color = "var(--text-primary)";
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.color = "var(--text-muted)";
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Chat Area */}
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, height: "100%", overflow: "hidden" }}>
           {/* Messages */}
           <div
             style={{
@@ -1094,105 +1386,109 @@ export default function ChatPage() {
                   );
                 }
 
-                const formatTime = (isoString: string) => {
-                  try {
-                    const date = new Date(isoString);
-                    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                  } catch {
-                    return "";
-                  }
-                };
+                const cleaned = cleanMessageContent(msg.content);
+                if (cleaned) {
+                  const formatTime = (isoString: string) => {
+                    try {
+                      const date = new Date(isoString);
+                      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    } catch {
+                      return "";
+                    }
+                  };
 
-                elements.push(
-                  <div
-                    key={`${msg.timestamp}-${i}`}
-                    className="group"
-                    style={{
-                      display: "flex",
-                      justifyContent:
-                        msg.role === "user" ? "flex-end" : "flex-start",
-                      maxWidth: "75%",
-                      alignSelf:
-                        msg.role === "user" ? "flex-end" : "flex-start",
-                      animation: "msgSlideIn 0.3s var(--ease-smooth) forwards",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    {/* For user message: bookmark on left */}
-                    {msg.role === "user" && (
-                      <button
-                        onClick={() => handleBookmarkMessage(msg.content, msg.role)}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: "0.875rem",
-                          padding: 4,
-                          opacity: 0.2,
-                          transition: "opacity 0.2s ease, transform 0.2s ease",
-                          color: "var(--text-muted)",
-                        }}
-                        className="bookmark-btn"
-                        title="Remember this message"
-                      >
-                        🔖
-                      </button>
-                    )}
-
+                  elements.push(
                     <div
-                      className={
-                        msg.role === "user"
-                          ? "chat-bubble-user"
-                          : "chat-bubble-rem"
-                      }
+                      key={`${msg.timestamp}-${i}`}
+                      className="group"
                       style={{
-                        padding: "13px 18px",
-                        fontSize: "0.9375rem",
-                        lineHeight: 1.65,
-                        maxWidth: 480,
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
+                        display: "flex",
+                        justifyContent:
+                          msg.role === "user" ? "flex-end" : "flex-start",
+                        maxWidth: "75%",
+                        alignSelf:
+                          msg.role === "user" ? "flex-end" : "flex-start",
+                        animation: "msgSlideIn 0.3s var(--ease-smooth) forwards",
+                        alignItems: "center",
+                        gap: 8,
                       }}
                     >
-                      {cleanMessageContent(msg.content)}
-                      {/* Sent Time Timestamp inside bubble */}
-                      {msg.timestamp && (
-                        <div style={{
-                          fontSize: "0.6875rem",
-                          color: "var(--text-secondary)",
-                          textAlign: "right",
-                          marginTop: 6,
-                          lineHeight: 1
-                        }}>
-                          {formatTime(msg.timestamp)}
-                        </div>
+                      {/* For user message: bookmark on left */}
+                      {msg.role === "user" && (
+                        <button
+                          onClick={() => handleBookmarkMessage(msg.content, msg.role)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "0.875rem",
+                            padding: 4,
+                            opacity: 0.2,
+                            transition: "opacity 0.2s ease, transform 0.2s ease",
+                            color: "var(--text-muted)",
+                          }}
+                          className="bookmark-btn"
+                          title="Remember this message"
+                        >
+                          🔖
+                        </button>
+                      )}
+
+                      <div
+                        className={
+                          msg.role === "user"
+                            ? "chat-bubble-user"
+                            : "chat-bubble-rem"
+                        }
+                        style={{
+                          padding: "13px 18px",
+                          fontSize: "0.9375rem",
+                          lineHeight: 1.65,
+                          maxWidth: 480,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {cleaned}
+                        {/* Sent Time Timestamp inside bubble */}
+                        {msg.timestamp && (
+                          <div style={{
+                            fontSize: "0.6875rem",
+                            color: "var(--text-secondary)",
+                            textAlign: "right",
+                            marginTop: 6,
+                            lineHeight: 1
+                          }}>
+                            {formatTime(msg.timestamp)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* For assistant message: bookmark on right */}
+                      {msg.role === "assistant" && (
+                        <button
+                          onClick={() => handleBookmarkMessage(msg.content, msg.role)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "0.875rem",
+                            padding: 4,
+                            opacity: 0.2,
+                            transition: "opacity 0.2s ease, transform 0.2s ease",
+                            color: "var(--text-muted)",
+                          }}
+                          className="bookmark-btn"
+                          title="Remember this message"
+                        >
+                          🔖
+                        </button>
                       )}
                     </div>
-
-                    {/* For assistant message: bookmark on right */}
-                    {msg.role === "assistant" && (
-                      <button
-                        onClick={() => handleBookmarkMessage(msg.content, msg.role)}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: "0.875rem",
-                          padding: 4,
-                          opacity: 0.2,
-                          transition: "opacity 0.2s ease, transform 0.2s ease",
-                          color: "var(--text-muted)",
-                        }}
-                        className="bookmark-btn"
-                        title="Remember this message"
-                      >
-                        🔖
-                      </button>
-                    )}
-                  </div>
-                );
+                  );
+                }
               });
+
               return elements;
             })()}
 
@@ -1299,7 +1595,8 @@ export default function ChatPage() {
               </form>
             )}
           </div>
-        </>
+        </div>
+      </div>
 
       {/* Toast */}
       {toast && <div className="xp-toast">{toast}</div>}
@@ -1495,6 +1792,7 @@ export default function ChatPage() {
           onClick={() => setDrawerOpen(false)}
         >
           <div
+            className="theme-dark"
             style={{
               width: "100%",
               maxWidth: 450,
@@ -2021,74 +2319,6 @@ export default function ChatPage() {
                       )}
                     </div>
 
-                    {/* Episodic memories */}
-                    <div>
-                      <h4 style={{ 
-                        fontSize: "0.75rem", 
-                        color: "var(--text-accent)", 
-                        fontWeight: 700, 
-                        textTransform: "uppercase", 
-                        letterSpacing: "0.08em", 
-                        marginBottom: 10,
-                        display: "flex",
-                        justifyContent: "space-between"
-                      }}>
-                        <span>Episodic Memories</span>
-                        <span style={{ opacity: 0.6 }}>{getFilteredEpisodic().length} entries</span>
-                      </h4>
-                      {getFilteredEpisodic().length === 0 ? (
-                        <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", padding: "12px", border: "1px dashed var(--border-subtle)", borderRadius: 8, textAlign: "center" }}>
-                          No matching episodic memories.
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {getFilteredEpisodic().map((entry: any, idx: number) => (
-                            <div
-                              key={idx}
-                              style={{
-                                background: "var(--bg-surface)",
-                                border: "1px solid var(--border-subtle)",
-                                borderRadius: 10,
-                                padding: "12px 14px",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 8
-                              }}
-                            >
-                              <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", lineHeight: 1.4 }}>
-                                {entry.event_type === "explicit_bookmark" ? "🔖 " : "💬 "}
-                                {entry.content}
-                              </div>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                                <span style={{ 
-                                  fontSize: "0.6875rem", 
-                                  background: "rgba(95, 125, 97, 0.08)", 
-                                  border: "1px solid rgba(95, 125, 97, 0.15)",
-                                  color: "var(--accent-primary)",
-                                  padding: "2px 6px",
-                                  borderRadius: 4
-                                }}>
-                                  Salience: {entry.salience}
-                                </span>
-                                <span style={{ 
-                                  fontSize: "0.6875rem", 
-                                  background: entry.emotional_valence >= 0 ? "rgba(95, 125, 97, 0.08)" : "rgba(184, 92, 75, 0.08)", 
-                                  border: entry.emotional_valence >= 0 ? "1px solid rgba(95, 125, 97, 0.12)" : "1px solid rgba(184, 92, 75, 0.12)",
-                                  color: entry.emotional_valence >= 0 ? "var(--accent-primary)" : "var(--text-accent)",
-                                  padding: "2px 6px",
-                                  borderRadius: 4
-                                }}>
-                                  Valence: {entry.emotional_valence}
-                                </span>
-                                <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "auto" }}>
-                                  {entry.event_type}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
 
                     {/* Short-Term Memory */}
                     {(() => {

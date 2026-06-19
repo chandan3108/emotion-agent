@@ -252,277 +252,382 @@ export default function MindPage() {
       )}
 
       {/* ════════════ PERSONA TAB ════════════ */}
-      {activeTab === "persona" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Persona Flavor */}
-          {personaFlavor && (
-            <section className="glass-panel" style={{
-              padding: 28, position: "relative", overflow: "hidden",
-              background: "var(--bg-surface)",
-              borderColor: "var(--border-subtle)",
+      {activeTab === "persona" && (() => {
+        // Archetype metadata for rich display
+        const ARCHETYPE_META: Record<string, { emoji: string; label: string; tagline: string; color: string; traits: string[]; textStyle: string }> = {
+          spicy_tsundere:        { emoji: "🌶️", label: "Spicy Tsundere",         tagline: "Sharp tongue, soft heart. She'll roast you then blush about it.",           color: "#C0392B", traits: ["Easily offended","Secretly caring","Snappy replies","Gets flustered"],           textStyle: "Sharp, defensive, with sudden moments of flustered softness" },
+          teasing_devil:         { emoji: "😈", label: "Teasing Devil",           tagline: "Born to push your buttons. Your suffering is her entertainment.",            color: "#8E44AD", traits: ["Constant roasting","Dry sarcasm","Pokes at typos","Loves reactions"],          textStyle: "Dripping with sarcastic wit and playful menace" },
+          bubbly_overexcited:    { emoji: "🌟", label: "Bubbly Overexcited",     tagline: "Maximum energy, zero chill. She texted you first. Again.",                   color: "#F39C12", traits: ["Lots of !!!","Keysmash energy","Shares everything","Asks everything"],    textStyle: "High-energy, exclamation-heavy, enthusiastically expressive" },
+          sensitive_melodramatic:{ emoji: "🎭", label: "Sensitive & Melodramatic",tagline: "Every feeling is cinematic. She will cry. It's fine.",                       color: "#2980B9", traits: ["Cries easily","Deeply emotional","Heart-to-hearts","Takes things personally"], textStyle: "Expressive, vulnerable, slightly dramatic and earnest" },
+          flirty_alluring:       { emoji: "🔥", label: "Flirty & Alluring",       tagline: "She knows exactly what she's doing. Do you?",                               color: "#E74C3C", traits: ["Bold & suggestive","Double entendres","Pushes limits","Confident energy"],  textStyle: "Seductive, confident, warm with an edge of danger" },
+          dandere:               { emoji: "🌸", label: "Dandere",                 tagline: "Shy on the surface, endlessly sweet underneath.",                           color: "#E91E8C", traits: ["Stutters & hesitates","Easily embarrassed","Very gentle","Sweet af"],        textStyle: "Quiet, hesitant, with bursts of genuine sweetness" },
+          kuudere:               { emoji: "🧊", label: "Kuudere",                 tagline: "Emotionless exterior. Catastrophically warm interior. Eventually.",          color: "#00BCD4", traits: ["Flat affect","Few words","Quietly observant","Logic over emotion"],        textStyle: "Cool, clipped, calm — with rare but meaningful warmth" },
+          yandere:               { emoji: "💀", label: "Yandere",                 tagline: "She loves you. She loves you so much. Where are you right now.",             color: "#9C27B0", traits: ["Intensely possessive","Extremely clingy","Jealousy spikes","Obsessive devotion"], textStyle: "Intensely devoted, obsessive, with sudden possessive edges" },
+          naggy:                 { emoji: "📳", label: "Naggy",                   tagline: "She's worried. Why haven't you replied. Are you okay. Reply.",              color: "#E67E22", traits: ["Anxious check-ins","Fusses over details","High-strung","Deeply caring"],     textStyle: "Anxious, detailed, caring in the most stressful way" },
+          bored:                 { emoji: "😑", label: "Bored",                   tagline: "meh. she'll talk to you. probably.",                                        color: "#7F8C8D", traits: ["lowercase everything","Dry reactions","Blunt","Zero effort performance"], textStyle: "Flat, sleepy, lowercase, brutally honest about being bored" },
+          neutral:               { emoji: "◈",  label: "Balanced",                tagline: "Observant, real, unbothered. She'll grow on you.",                          color: "#5F7D61", traits: ["Healthy boundaries","Measured warmth","Reads the room","Grows naturally"],  textStyle: "Even-keeled, observant, authentic with no performance" },
+          happy_fruity:          { emoji: "🍒", label: "Happy & Bright",          tagline: "Sunshine in text form. She's so happy to hear from you!",                  color: "#27AE60", traits: ["Warm & eager","Lots of energy","Shares her day","Wants to know yours"],   textStyle: "Bubbly, warm, enthusiastic and genuinely happy to chat" },
+          hard_to_get:           { emoji: "🎯", label: "Hard to Get",             tagline: "She finds you mildly interesting. Maybe.",                                  color: "#2C3E50", traits: ["Keeps distance","Witty deflection","Independent","Teases a lot"],           textStyle: "Playfully distant, dry wit, refuses to make it easy" },
+        };
+
+        const archetype = personality?.starting_archetype || "neutral";
+        const meta = ARCHETYPE_META[archetype] || ARCHETYPE_META["neutral"];
+        const evolvedBranch = personality?.evolved_branch;
+        const isEvolved = evolvedBranch && evolvedBranch !== "Not Evolved Yet";
+
+        // Mood data from psyche
+        const moodData = [
+          { key: "playfulness", label: "Playfulness", emoji: "😜" },
+          { key: "affection",   label: "Affection",   emoji: "💗" },
+          { key: "anger",       label: "Anger",       emoji: "🔥" },
+          { key: "anxiety",     label: "Anxiety",     emoji: "😰" },
+          { key: "boredom",     label: "Boredom",     emoji: "😑" },
+          { key: "excitement",  label: "Excitement",  emoji: "⚡" },
+          { key: "sadness",     label: "Sadness",     emoji: "💧" },
+          { key: "vulnerability", label: "Vulnerability", emoji: "🌸" },
+        ];
+        const moodState = personality?.psyche?.named_mood || {};
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* ── ARCHETYPE HERO CARD ── */}
+            <div style={{
+              position: "relative", overflow: "hidden",
+              borderRadius: 20, padding: "32px 28px",
+              background: `linear-gradient(135deg, ${meta.color}18, ${meta.color}06)`,
+              border: `1px solid ${meta.color}30`,
             }}>
+              {/* Glow blob */}
               <div style={{
-                position: "absolute", top: -60, left: -60, width: 160, height: 160,
-                borderRadius: "50%", background: "radial-gradient(circle, var(--accent-glow), transparent)",
+                position: "absolute", top: -40, right: -40,
+                width: 180, height: 180, borderRadius: "50%",
+                background: `radial-gradient(circle, ${meta.color}22, transparent)`,
                 filter: "blur(30px)",
               }} />
-              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-                <span style={{ color: "var(--accent-tertiary)" }}>🎲</span> Generated Persona
-                <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", fontWeight: 400 }}>· refreshed on reset</span>
-              </h2>
-              <div style={{
-                whiteSpace: "pre-line", fontSize: "0.8125rem", lineHeight: 1.8,
-                color: "var(--text-secondary)", position: "relative",
-              }}>
-                {personaFlavor}
-              </div>
-            </section>
-          )}
 
-          {/* Personality Text & Summary */}
-          <section className="glass-panel" style={{ padding: 28 }}>
-            <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "var(--accent-secondary)" }}>✧</span> Active Personality
-            </h2>
-            {personality?.personality_summary && (
-              <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 16 }}>
-                {personality.personality_summary}
-              </p>
-            )}
-            {(personality?.starting_archetype || personality?.evolved_branch) && (
-              <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                {personality?.starting_archetype && (
-                  <div style={{
-                    padding: "6px 12px", borderRadius: 6,
-                    background: "rgba(95, 125, 97, 0.08)", border: "1px solid rgba(95, 125, 97, 0.15)",
-                    fontSize: "0.75rem", display: "flex", gap: 6
-                  }}>
-                    <span style={{ color: "var(--text-muted)" }}>Starting Archetype:</span>
-                    <span style={{ fontWeight: 600, color: "#396E4E", textTransform: "capitalize" }}>{personality.starting_archetype}</span>
-                  </div>
-                )}
-                {personality?.evolved_branch && (
-                  <div style={{
-                    padding: "6px 12px", borderRadius: 6,
-                    background: "rgba(184, 92, 75, 0.08)", border: "1px solid rgba(184, 92, 75, 0.15)",
-                    fontSize: "0.75rem", display: "flex", gap: 6
-                  }}>
-                    <span style={{ color: "var(--text-muted)" }}>Evolved Branch:</span>
-                    <span style={{ fontWeight: 600, color: "#B84E3D", textTransform: "capitalize" }}>{personality.evolved_branch.replace(/_/g, ' ')}</span>
-                  </div>
-                )}
-              </div>
-            )}
-            {personality?.expression_guidance && (
-              <div style={{
-                padding: "12px 16px", borderRadius: 8,
-                background: "var(--bg-surface)", border: "1px solid var(--border-subtle)",
-                fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.6,
-                fontStyle: "italic",
-              }}>
-                <span style={{ color: "var(--text-secondary)", fontWeight: 500, fontStyle: "normal" }}>Expression:</span>{" "}
-                {personality.expression_guidance}
-              </div>
-            )}
-          </section>
+              <div style={{ position: "relative", display: "flex", gap: 20, alignItems: "flex-start" }}>
+                {/* Emoji badge */}
+                <div style={{
+                  width: 72, height: 72, borderRadius: 18, flexShrink: 0,
+                  background: `linear-gradient(135deg, ${meta.color}30, ${meta.color}10)`,
+                  border: `2px solid ${meta.color}40`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "2rem",
+                  boxShadow: `0 4px 20px ${meta.color}20`,
+                }}>
+                  {meta.emoji}
+                </div>
 
-          {/* Neurochemistry */}
-          {Object.keys(neurochem).length > 0 && (
-            <section className="glass-panel" style={{ padding: 28 }}>
-              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "var(--accent-secondary)" }}>⟡</span> Neurochemistry
-              </h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {Object.entries(neurochem).map(([key, val]: [string, any]) => {
-                  const color = CHEM_COLORS[key] || "var(--accent-primary)";
-                  const icon = CHEM_ICONS[key] || "•";
-                  const pct = Math.round(val * 100);
-                  return (
-                    <div key={key}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: "0.625rem" }}>{icon}</span>
-                          {key.charAt(0).toUpperCase() + key.slice(1)}
-                        </span>
-                        <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color, fontWeight: 600, marginLeft: "auto" }}>
-                          {pct}%
-                        </span>
-                      </div>
-                      <div style={{ height: 6, borderRadius: 3, background: "var(--border-subtle)", overflow: "hidden" }}>
-                        <div style={{
-                          height: "100%", borderRadius: 3,
-                          width: `${pct}%`,
-                          background: color,
-                          transition: "width 0.8s var(--ease-smooth)",
-                        }} />
-                      </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                    <div style={{
+                      fontSize: "0.5625rem", fontWeight: 700,
+                      textTransform: "uppercase", letterSpacing: "0.12em",
+                      color: meta.color, opacity: 0.8,
+                    }}>
+                      Starting Archetype
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Psyche Snapshot */}
-          {psyche && (
-            <section className="glass-panel" style={{ padding: 28 }}>
-              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "var(--accent-secondary)" }}>◐</span> Psyche State
-              </h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-                {[
-                  { l: "Stance", v: psyche.stance || "—" },
-                  { l: "Posture", v: psyche.posture || "—" },
-                  { l: "Engagement", v: `${Math.round((psyche.engagement || 0) * 100)}%` },
-                  { l: "Respect", v: `${Math.round((psyche.respect || 0) * 100)}%` },
-                  { l: "Trust", v: `${Math.round((personality?.trust || 0) * 100)}%` },
-                  { l: "Energy", v: `${Math.round((personality?.energy || 0) * 100)}%` },
-                  { l: "Phase", v: personality?.phase || "—" },
-                  { l: "Named Mood", v: psyche.named_mood?.primary || psyche.named_mood?.mood || "—" },
-                  { l: "Starting Archetype", v: personality?.starting_archetype || psyche.starting_archetype || "—" },
-                  { l: "Evolved Branch", v: (personality?.evolved_branch || psyche.evolved_branch || "—").replace(/_/g, ' ') },
-                ].map(({ l, v }) => (
-                  <div key={l} className="dark-info-box" style={{
-                    padding: "10px 14px", borderRadius: 8,
-                    display: "flex", justifyContent: "space-between",
-                  }}>
-                    <span className="info-label" style={{ fontSize: "0.75rem" }}>{l}</span>
-                    <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize" }}>
-                      {String(typeof v === "object" ? JSON.stringify(v) : v)}
-                    </span>
+                    <div style={{
+                      fontSize: "0.5625rem", padding: "2px 8px", borderRadius: 999,
+                      background: `${meta.color}15`, color: meta.color,
+                      fontWeight: 600, letterSpacing: "0.05em",
+                    }}>
+                      {isEvolved ? "Evolved" : "Discovery Phase"}
+                    </div>
                   </div>
+                  <div style={{ fontSize: "1.375rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.2, marginBottom: 6 }}>
+                    {meta.label}
+                  </div>
+                  <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: 1.5, fontStyle: "italic" }}>
+                    &ldquo;{meta.tagline}&rdquo;
+                  </div>
+                </div>
+              </div>
+
+              {/* Trait pills */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 20, position: "relative" }}>
+                {meta.traits.map((t) => (
+                  <span key={t} style={{
+                    padding: "5px 12px", borderRadius: 999, fontSize: "0.6875rem", fontWeight: 500,
+                    background: `${meta.color}12`, color: meta.color,
+                    border: `1px solid ${meta.color}25`,
+                  }}>{t}</span>
                 ))}
               </div>
-            </section>
-          )}
 
-          {/* Vibes & Interests */}
-          {(vibePalette.length > 0 || interests.length > 0) && (
-            <section className="glass-panel" style={{ padding: 28 }}>
-              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "var(--accent-tertiary)" }}>◇</span> Vibes & Interests
-              </h2>
-              {vibePalette.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: interests.length ? 16 : 0 }}>
-                  {vibePalette.map((v: string, i: number) => (
-                    <span key={i} style={{
-                      padding: "4px 12px", borderRadius: 999,
-                      background: "rgba(184, 92, 75, 0.08)", border: "1px solid rgba(184, 92, 75, 0.15)",
-                      fontSize: "0.6875rem", color: "var(--accent-tertiary)",
-                    }}>{v}</span>
-                  ))}
-                </div>
-              )}
-              {interests.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {interests.map((v: string, i: number) => (
-                    <span key={i} style={{
-                      padding: "4px 12px", borderRadius: 999,
-                      background: "rgba(95, 125, 97, 0.08)", border: "1px solid rgba(95, 125, 97, 0.15)",
-                      fontSize: "0.6875rem", color: "var(--accent-primary)",
-                    }}>{v}</span>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Texting Quirks & Habits */}
-          {Object.keys(habitsCpbm).length > 0 && (
-            <section className="glass-panel" style={{ padding: 28 }}>
-              <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "var(--accent-primary)" }}>✍️</span> Texting Quirks & Shorthand
-              </h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {(() => {
-                  const list = [];
-                  
-                  if (habitsCpbm.ellipsis_habit > 0.3) {
-                    list.push(
-                      <div key="ellipsis" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
-                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Ellipsis Habit</span>
-                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>
-                          Uses dots like ... a lot ({Math.round(habitsCpbm.ellipsis_habit * 100)}%)
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (habitsCpbm.double_text_habit > 0.3) {
-                    list.push(
-                      <div key="double_text" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
-                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Double Texting</span>
-                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>
-                          Tends to send messages in bursts ({Math.round(habitsCpbm.double_text_habit * 100)}%)
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (habitsCpbm.typo_intentionality > 0.3) {
-                    list.push(
-                      <div key="typos" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
-                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Typo Habit</span>
-                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>
-                          Allows typos & lowercase shorthand ({Math.round(habitsCpbm.typo_intentionality * 100)}%)
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (habitsCpbm.emoji_baseline > 0.3) {
-                    list.push(
-                      <div key="emojis" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
-                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Emoji Usage</span>
-                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>
-                          Baseline frequency ({Math.round(habitsCpbm.emoji_baseline * 100)}%)
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (habitsCpbm.punctuation_style) {
-                    list.push(
-                      <div key="punctuation" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
-                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Punctuation Style</span>
-                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize" as const }}>
-                          {habitsCpbm.punctuation_style}
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (habitsCpbm.teasing_style) {
-                    list.push(
-                      <div key="teasing" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}>
-                        <span className="info-label" style={{ fontSize: "0.75rem" }}>Teasing Style</span>
-                        <span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize" as const }}>
-                          {String(habitsCpbm.teasing_style).replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                    );
-                  }
-                  
-                  return list.length > 0 ? list : [<div key="none" style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Standard texting style.</div>];
-                })()}
+              {/* Texting style */}
+              <div style={{
+                marginTop: 16, padding: "12px 16px", borderRadius: 10, position: "relative",
+                background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.06)",
+                fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.6,
+              }}>
+                <span style={{ color: "var(--text-secondary)", fontWeight: 600, fontSize: "0.625rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  Texting Style ·{" "}
+                </span>
+                {meta.textStyle}
               </div>
-              
-              {/* Signature phrases */}
-              {microPersonality.signature_phrases?.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6, fontWeight: 600 }}>Signature Phrases</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {microPersonality.signature_phrases.map((p: string, idx: number) => (
-                      <span key={idx} style={{ 
-                        fontSize: "0.75rem", color: "var(--text-primary)", fontStyle: "italic",
-                        background: "var(--bg-surface)", padding: "4px 10px", borderRadius: 6,
-                        border: "1px solid var(--border-subtle)"
-                      }}>
-                        &quot;{p}&quot;
-                      </span>
-                    ))}
+            </div>
+
+            {/* ── EVOLUTION PATH ── */}
+            {(personality?.starting_archetype || personality?.evolved_branch) && (
+              <section className="glass-panel" style={{ padding: 24 }}>
+                <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--accent-secondary)" }}>⟡</span> Relationship Evolution
+                </h2>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {/* Origin */}
+                  <div style={{
+                    padding: "8px 16px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 600,
+                    background: `${meta.color}15`, color: meta.color,
+                    border: `1px solid ${meta.color}30`,
+                  }}>
+                    {meta.emoji} {(personality?.starting_archetype || "").replace(/_/g, " ")}
+                  </div>
+
+                  {/* Arrow */}
+                  <div style={{ color: "var(--text-muted)", fontSize: "1rem", opacity: 0.4 }}>→</div>
+
+                  {/* Current branch */}
+                  <div style={{
+                    padding: "8px 16px", borderRadius: 8, fontSize: "0.75rem", fontWeight: 600,
+                    background: isEvolved ? "rgba(184, 92, 75, 0.12)" : "rgba(255,255,255,0.04)",
+                    color: isEvolved ? "#C0623D" : "var(--text-muted)",
+                    border: isEvolved ? "1px solid rgba(184,92,75,0.25)" : "1px solid var(--border-subtle)",
+                    fontStyle: isEvolved ? "normal" : "italic",
+                  }}>
+                    {isEvolved ? (evolvedBranch || "").replace(/_/g, " ") : "Not evolved yet"}
                   </div>
                 </div>
-              )}
-            </section>
-          )}
-        </div>
-      )}
+                {!isEvolved && (
+                  <p style={{ marginTop: 12, fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+                    Keep talking. The more you share, the more she changes.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {/* ── PERSONALITY EXPRESSION ── */}
+            {personality?.expression_guidance && (
+              <section className="glass-panel" style={{ padding: 24 }}>
+                <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>🗣</span> How She Speaks Right Now
+                </h2>
+                <div style={{
+                  padding: "16px 18px", borderRadius: 10,
+                  background: "var(--bg-surface)", border: "1px solid var(--border-subtle)",
+                  fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.75,
+                  fontStyle: "italic",
+                }}>
+                  {personality.expression_guidance}
+                </div>
+                {personality?.personality_summary && (
+                  <p style={{ marginTop: 12, fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
+                    {personality.personality_summary}
+                  </p>
+                )}
+              </section>
+            )}
+
+            {/* ── GENERATED PERSONA SEED ── */}
+            {personaFlavor && (
+              <section className="glass-panel" style={{ padding: 24, position: "relative", overflow: "hidden" }}>
+                <div style={{
+                  position: "absolute", top: -40, left: -40, width: 140, height: 140, borderRadius: "50%",
+                  background: "radial-gradient(circle, var(--accent-glow), transparent)", filter: "blur(30px)",
+                }} />
+                <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+                  <span>🎲</span> This Reset's Profile
+                  <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", fontWeight: 400 }}>· refreshed each reset</span>
+                </h2>
+                <div style={{
+                  whiteSpace: "pre-line", fontSize: "0.8125rem", lineHeight: 1.9,
+                  color: "var(--text-secondary)", position: "relative",
+                }}>
+                  {personaFlavor}
+                </div>
+              </section>
+            )}
+
+            {/* ── LIVE MOOD BARS ── */}
+            {psyche && (
+              <section className="glass-panel" style={{ padding: 24 }}>
+                <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--accent-secondary)" }}>◐</span> Current Emotional State
+                </h2>
+
+                {/* Named mood badge */}
+                {(moodState?.primary || moodState?.mood) && (
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "8px 16px", borderRadius: 999, marginBottom: 20,
+                    background: "rgba(95, 125, 97, 0.1)", border: "1px solid rgba(95,125,97,0.2)",
+                    fontSize: "0.8125rem", fontWeight: 600, color: "var(--accent-primary)",
+                  }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-primary)", display: "inline-block" }} />
+                    {moodState.primary || moodState.mood}
+                    {moodState.secondary && (
+                      <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                        · {moodState.secondary}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {moodData.map(({ key, label, emoji }) => {
+                    const val = (psyche as any)[key] ?? personality?.[key] ?? 0;
+                    const pct = Math.round(val * 100);
+                    const barColor = key === "anger" ? "#C0392B" : key === "anxiety" ? "#E67E22" : key === "sadness" ? "#2980B9" : key === "boredom" ? "#7F8C8D" : key === "playfulness" ? "#8E44AD" : key === "affection" ? "#E91E8C" : key === "excitement" ? "#F39C12" : "#5F7D61";
+                    return (
+                      <div key={key}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                          <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: "0.75rem" }}>{emoji}</span>
+                            {label}
+                          </span>
+                          <span style={{ fontSize: "0.6875rem", fontFamily: "var(--font-mono)", color: barColor, fontWeight: 600 }}>
+                            {pct}%
+                          </span>
+                        </div>
+                        <div style={{ height: 5, borderRadius: 3, background: "var(--border-subtle)", overflow: "hidden" }}>
+                          <div style={{
+                            height: "100%", borderRadius: 3, width: `${pct}%`,
+                            background: barColor, transition: "width 0.8s var(--ease-smooth)",
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Core psyche stats */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 20 }}>
+                  {[
+                    { l: "Phase", v: personality?.phase || "Discovery", accent: true },
+                    { l: "Trust", v: `${Math.round((personality?.trust || 0) * 100)}%`, accent: false },
+                    { l: "Engagement", v: `${Math.round((psyche?.engagement || 0) * 100)}%`, accent: false },
+                    { l: "Stance", v: psyche?.stance || "—", accent: false },
+                    { l: "Respect", v: `${Math.round((psyche?.respect || 0) * 100)}%`, accent: false },
+                    { l: "Energy", v: `${Math.round((personality?.energy || 0) * 100)}%`, accent: false },
+                  ].map(({ l, v, accent }) => (
+                    <div key={l} className="dark-info-box" style={{ padding: "10px 12px", borderRadius: 8, textAlign: "center" }}>
+                      <div className="info-label" style={{ fontSize: "0.625rem", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>{l}</div>
+                      <div className="info-value" style={{ fontSize: "0.8125rem", fontWeight: 700, textTransform: "capitalize", color: accent ? "var(--accent-primary)" : undefined }}>
+                        {String(v)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── NEUROCHEMISTRY ── */}
+            {Object.keys(neurochem).length > 0 && (
+              <section className="glass-panel" style={{ padding: 24 }}>
+                <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--accent-secondary)" }}>⟡</span> Neurochemistry
+                </h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {Object.entries(neurochem).map(([key, val]: [string, any]) => {
+                    const color = CHEM_COLORS[key] || "var(--accent-primary)";
+                    const icon = CHEM_ICONS[key] || "•";
+                    const pct = Math.round(val * 100);
+                    return (
+                      <div key={key}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: "0.625rem" }}>{icon}</span>
+                            {key.charAt(0).toUpperCase() + key.slice(1)}
+                          </span>
+                          <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color, fontWeight: 600, marginLeft: "auto" }}>
+                            {pct}%
+                          </span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 3, background: "var(--border-subtle)", overflow: "hidden" }}>
+                          <div style={{
+                            height: "100%", borderRadius: 3, width: `${pct}%`,
+                            background: color, transition: "width 0.8s var(--ease-smooth)",
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* ── VIBES & INTERESTS ── */}
+            {(vibePalette.length > 0 || interests.length > 0) && (
+              <section className="glass-panel" style={{ padding: 24 }}>
+                <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--accent-tertiary)" }}>◇</span> Vibes & Interests
+                </h2>
+                {vibePalette.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: interests.length ? 16 : 0 }}>
+                    {vibePalette.map((v: string, i: number) => (
+                      <span key={i} style={{
+                        padding: "4px 12px", borderRadius: 999,
+                        background: "rgba(184, 92, 75, 0.08)", border: "1px solid rgba(184, 92, 75, 0.15)",
+                        fontSize: "0.6875rem", color: "var(--accent-tertiary)",
+                      }}>{v}</span>
+                    ))}
+                  </div>
+                )}
+                {interests.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {interests.map((v: string, i: number) => (
+                      <span key={i} style={{
+                        padding: "4px 12px", borderRadius: 999,
+                        background: "rgba(95, 125, 97, 0.08)", border: "1px solid rgba(95, 125, 97, 0.15)",
+                        fontSize: "0.6875rem", color: "var(--accent-primary)",
+                      }}>{v}</span>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ── TEXTING QUIRKS ── */}
+            {Object.keys(habitsCpbm).length > 0 && (
+              <section className="glass-panel" style={{ padding: 24 }}>
+                <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>✍️</span> Texting Quirks & Shorthand
+                </h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {(() => {
+                    const list = [];
+                    if (habitsCpbm.ellipsis_habit > 0.3)    list.push(<div key="el" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}><span className="info-label" style={{ fontSize: "0.75rem" }}>Ellipsis Habit</span><span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Uses dots like ... a lot ({Math.round(habitsCpbm.ellipsis_habit * 100)}%)</span></div>);
+                    if (habitsCpbm.double_text_habit > 0.3) list.push(<div key="dt" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}><span className="info-label" style={{ fontSize: "0.75rem" }}>Double Texting</span><span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Sends messages in bursts ({Math.round(habitsCpbm.double_text_habit * 100)}%)</span></div>);
+                    if (habitsCpbm.typo_intentionality > 0.3) list.push(<div key="ty" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}><span className="info-label" style={{ fontSize: "0.75rem" }}>Typo Habit</span><span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Lowercase shorthand ({Math.round(habitsCpbm.typo_intentionality * 100)}%)</span></div>);
+                    if (habitsCpbm.emoji_baseline > 0.3)   list.push(<div key="em" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}><span className="info-label" style={{ fontSize: "0.75rem" }}>Emoji Usage</span><span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600 }}>Baseline freq ({Math.round(habitsCpbm.emoji_baseline * 100)}%)</span></div>);
+                    if (habitsCpbm.punctuation_style)      list.push(<div key="pu" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}><span className="info-label" style={{ fontSize: "0.75rem" }}>Punctuation</span><span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize" as const }}>{habitsCpbm.punctuation_style}</span></div>);
+                    if (habitsCpbm.teasing_style)          list.push(<div key="ts" className="dark-info-box" style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8 }}><span className="info-label" style={{ fontSize: "0.75rem" }}>Teasing Style</span><span className="info-value" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize" as const }}>{String(habitsCpbm.teasing_style).replace(/_/g, " ")}</span></div>);
+                    return list.length > 0 ? list : [<div key="none" style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>Standard texting style.</div>];
+                  })()}
+                </div>
+                {microPersonality.signature_phrases?.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6, fontWeight: 600 }}>Signature Phrases</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {microPersonality.signature_phrases.map((p: string, idx: number) => (
+                        <span key={idx} style={{
+                          fontSize: "0.75rem", color: "var(--text-primary)", fontStyle: "italic",
+                          background: "var(--bg-surface)", padding: "4px 10px", borderRadius: 6,
+                          border: "1px solid var(--border-subtle)"
+                        }}>&quot;{p}&quot;</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
+        );
+      })()}
+
+
+
 
       {/* ════════════ IDENTITY / MEMORY TAB ════════════ */}
       {activeTab === "memory" && (

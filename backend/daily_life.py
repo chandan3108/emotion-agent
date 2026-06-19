@@ -155,9 +155,31 @@ async def generate_daily_schedule(state: Dict[str, Any]) -> List[Dict[str, str]]
             
             schedule = json.loads(content)
             
-            if not isinstance(schedule, list) or len(schedule) < 3:
-                print(f"[DAILY LIFE] Invalid schedule format, using fallback")
+            if not isinstance(schedule, list):
+                print(f"[DAILY LIFE] Invalid schedule format (not a list), using fallback")
                 return _fallback_schedule(is_weekend)
+                
+            # Normalize keys to guarantee start, end, activity
+            normalized_schedule = []
+            for item in schedule:
+                if not isinstance(item, dict):
+                    continue
+                start = item.get("start") or item.get("start_time") or item.get("startTime") or ""
+                end = item.get("end") or item.get("end_time") or item.get("endTime") or ""
+                activity = item.get("activity") or item.get("activity_description") or item.get("description") or item.get("title") or ""
+                
+                if start and end and activity:
+                    normalized_schedule.append({
+                        "start": str(start).strip(),
+                        "end": str(end).strip(),
+                        "activity": str(activity).strip()
+                    })
+            
+            if len(normalized_schedule) < 3:
+                print(f"[DAILY LIFE] Schedule had too few valid items ({len(normalized_schedule)}) after normalization, using fallback")
+                return _fallback_schedule(is_weekend)
+                
+            schedule = normalized_schedule
             
             # Log the generated schedule
             print(f"[DAILY LIFE] Generated {len(schedule)}-block schedule for {day_of_week}:")

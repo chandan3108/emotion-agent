@@ -119,6 +119,8 @@ class MemorySystem:
         decayed_all = []
         for entry in all_stm:
             entry_time = datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
+            if entry_time.tzinfo is None:
+                entry_time = entry_time.replace(tzinfo=timezone.utc)
             delta_hours = (now - entry_time).total_seconds() / 3600
             if delta_hours < 8.0:
                 decayed_all.append(entry)
@@ -148,6 +150,8 @@ class MemorySystem:
         for thread_dict in threads:
             thread = ACTThread(**thread_dict)
             thread_time = datetime.fromisoformat(thread.creation_time.replace("Z", "+00:00"))
+            if thread_time.tzinfo is None:
+                thread_time = thread_time.replace(tzinfo=timezone.utc)
             delta_hours = (now - thread_time).total_seconds() / 3600
             
             # Decay salience
@@ -214,6 +218,8 @@ class MemorySystem:
         for thread_dict in threads:
             thread = ACTThread(**thread_dict)
             thread_time = datetime.fromisoformat(thread.creation_time.replace("Z", "+00:00"))
+            if thread_time.tzinfo is None:
+                thread_time = thread_time.replace(tzinfo=timezone.utc)
             delta_hours = (now - thread_time).total_seconds() / 3600
             
             # Decay salience
@@ -314,6 +320,8 @@ class MemorySystem:
             
             # Apply forgetting curve
             entry_time = datetime.fromisoformat(entry.timestamp.replace("Z", "+00:00"))
+            if entry_time.tzinfo is None:
+                entry_time = entry_time.replace(tzinfo=timezone.utc)
             delta_hours = (now - entry_time).total_seconds() / 3600
             entry.salience = entry.salience * math.exp(-delta_hours / entry.half_life_hours)
             
@@ -424,6 +432,8 @@ class MemorySystem:
                 accessed = fact.get("last_accessed", fact.get("stored_at", ""))
                 try:
                     fact_time = datetime.fromisoformat(accessed.replace("Z", "+00:00"))
+                    if fact_time.tzinfo is None:
+                        fact_time = fact_time.replace(tzinfo=timezone.utc)
                     hours_since = (now - fact_time).total_seconds() / 3600
                     # 72-hour half-life — prune facts not accessed in 2 weeks
                     if hours_since < 336:  # 14 days max
@@ -543,6 +553,8 @@ class MemorySystem:
             memories = self.memory.get(memory_type, [])
             for memory in memories:
                 memory_time = datetime.fromisoformat(memory["timestamp"].replace("Z", "+00:00"))
+                if memory_time.tzinfo is None:
+                    memory_time = memory_time.replace(tzinfo=timezone.utc)
                 if memory_time > cutoff:
                     recent_memories.append(memory)
         
@@ -566,6 +578,8 @@ class MemorySystem:
         # Recency (30%)
         try:
             memory_time = datetime.fromisoformat(memory["timestamp"].replace("Z", "+00:00"))
+            if memory_time.tzinfo is None:
+                memory_time = memory_time.replace(tzinfo=timezone.utc)
             hours_old = (datetime.now(timezone.utc) - memory_time).total_seconds() / 3600
             if hours_old < 24:
                 score += 0.3
@@ -614,6 +628,8 @@ class MemorySystem:
         for entry in self.memory.get("episodic", []):
             try:
                 mem_time = datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
+                if mem_time.tzinfo is None:
+                    mem_time = mem_time.replace(tzinfo=timezone.utc)
             except (KeyError, ValueError):
                 continue
             
@@ -733,7 +749,25 @@ Be selective. Only include memories that genuinely add value to the current conv
                 if resp.status_code == 200:
                     result = resp.json()["choices"][0]["message"]["content"]
                     import json
-                    llm_response = json.loads(result)
+                    import re
+                    
+                    # Clean think tags
+                    cleaned_result = re.sub(r'<(v?think)>[\s\S]*?<\/v?think>', '', result, flags=re.IGNORECASE)
+                    cleaned_result = re.sub(r'<(v?think)>[\s\S]*$', '', cleaned_result, flags=re.IGNORECASE)
+                    cleaned_result = cleaned_result.strip()
+                    
+                    # Extract markdown json block if exists
+                    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', cleaned_result, re.IGNORECASE)
+                    if json_match:
+                        cleaned_result = json_match.group(1).strip()
+                        
+                    # Find brackets bounds
+                    first_brace = cleaned_result.find('{')
+                    last_brace = cleaned_result.rfind('}')
+                    if first_brace != -1 and last_brace != -1:
+                        cleaned_result = cleaned_result[first_brace:last_brace+1]
+                        
+                    llm_response = json.loads(cleaned_result)
                     
                     # Map LLM responses back to actual memories
                     relevant_memories = []

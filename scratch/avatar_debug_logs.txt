@@ -1,0 +1,146 @@
+{
+  "timestamp": "2026-06-18T11:41:42.042Z",
+  "vrmVersion": "unknown",
+  "vrmMetaName": "nothing",
+  "normalizedBones": {
+    "leftUpperArm": "FOUND",
+    "leftLowerArm": "FOUND",
+    "leftHand": "FOUND",
+    "rightUpperArm": "FOUND",
+    "rightLowerArm": "FOUND",
+    "rightHand": "FOUND",
+    "head": "FOUND",
+    "neck": "FOUND",
+    "spine": "FOUND",
+    "chest": "FOUND"
+  },
+  "rawBones": {
+    "leftUpperArm": "FOUND",
+    "leftLowerArm": "FOUND",
+    "leftHand": "FOUND",
+    "rightUpperArm": "FOUND",
+    "rightLowerArm": "FOUND",
+    "rightHand": "FOUND",
+    "head": "FOUND",
+    "neck": "FOUND",
+    "spine": "FOUND",
+    "chest": "FOUND"
+  },
+  "humanoidExists": true,
+  "autoUpdateBonesValue": true,
+  "skinnedMeshes": [
+    {
+      "name": "Face_(merged)baked",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Face_(merged)baked_1",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Face_(merged)baked_2",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Face_(merged)baked_3",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Face_(merged)baked_4",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Face_(merged)baked_5",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Face_(merged)baked_6",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Face_(merged)baked_7",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Body_(merged)baked",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Body_(merged)baked_1",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Body_(merged)baked_2",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Body_(merged)baked_3",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Body_(merged)baked_4",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    },
+    {
+      "name": "Hair",
+      "bonesCount": 124,
+      "containsLeftUpperArm": true
+    }
+  ],
+  "leftUpperArmDebug": {
+    "name": "J_Bip_L_UpperArm",
+    "type": "Bone",
+    "parentName": "J_Bip_L_Shoulder",
+    "matrixAutoUpdate": true,
+    "matrix": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      -0.07849367,
+      -0.0114655495,
+      1.49011612e-8,
+      1
+    ],
+    "matrixWorld": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      -0.10087149809999998,
+      1.3439795963,
+      0.026172251401161202,
+      1
+    ],
+    "visible": true
+  }
+}

@@ -18,9 +18,28 @@ from .auth import get_current_user_id
 from pydantic import BaseModel
 
 from .cognitive_core import CognitiveCore
-from .user_sync import resolve_core_id, verify_link_code, get_link_status
+from .user_sync import resolve_core_id, get_link_status
+from .db import SessionLocal
+from .models import ChatSession, ChatMessage
+
+class ChatSessionResponse(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+class ChatSessionsListResponse(BaseModel):
+    sessions: List[ChatSessionResponse]
+    active_session_id: Optional[str] = None
+
+class CreateSessionRequest(BaseModel):
+    title: Optional[str] = None
+
+class SwitchSessionRequest(BaseModel):
+    session_id: str
 
 router = APIRouter(prefix="/api/user", tags=["game-progression"])
+
 
 
 class ProfileRequest(BaseModel):
@@ -714,35 +733,78 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
         except Exception:
             return ""
 
-    # Build message history from STM (web has no channel history like Discord)
+    # Build message history from DB instead of decayed STM to ensure perfect session context
+    db = SessionLocal()
     message_history = []
-    is_date_active = core.state.get("_active_date_running", False)
-    stm = core.memory.get_stm(decay=False, filter_date=is_date_active)
-    for m in stm[-12:]:
-        content = m.get("content", "")
-        if not content:
-            continue
-        ts = m.get("timestamp", "")
-        time_label = _time_ago_label(ts) if ts else ""
-        if content.startswith("[Rem] "):
+    try:
+        active_sess_id = _get_active_session_id(user_id, db)
+        
+        # Save user message to database
+        user_msg_content = payload.message.strip()
+        db_user_msg = ChatMessage(session_id=active_sess_id, role="user", content=user_msg_content)
+        db.add(db_user_msg)
+        
+        # Also update session timestamp
+        session_row = db.query(ChatSession).filter(ChatSession.id == active_sess_id).first()
+        if session_row:
+            session_row.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        
+        # Fetch last 11 messages of this session from DB to build history context
+        db_history = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).limit(11).all()
+        db_history = list(reversed(db_history))
+        
+        for m in db_history:
+            ts = m.timestamp.isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
             message_history.append({
-                "role": "assistant",
-                "content": time_label + content[6:],
+                "role": m.role,
+                "content": m.content,
                 "timestamp": ts,
             })
-        else:
-            message_history.append({
-                "role": "user",
-                "content": time_label + content,
-                "timestamp": ts,
-            })
-
-    # Add current message
-    message_history.append({
-        "role": "user",
-        "content": payload.message,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
+            
+        # Append the current message
+        message_history.append({
+            "role": "user",
+            "content": user_msg_content,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as dbe:
+        print(f"Failed to query/persist message database state (using fallback): {dbe}")
+        db.rollback()
+        # Fallback to STM
+        message_history = []
+        is_date_active = core.state.get("_active_date_running", False)
+        stm = core.memory.get_stm(decay=False, filter_date=is_date_active)
+        for m in stm[-11:]:
+            content = m.get("content", "")
+            if not content:
+                continue
+            ts = m.get("timestamp", "")
+            if content.startswith("[Rem] "):
+                message_history.append({
+                    "role": "assistant",
+                    "content": content[6:],
+                    "timestamp": ts,
+                })
+            elif content.startswith("[User] "):
+                message_history.append({
+                    "role": "user",
+                    "content": content[7:],
+                    "timestamp": ts,
+                })
+            else:
+                message_history.append({
+                    "role": "user",
+                    "content": content,
+                    "timestamp": ts,
+                })
+        message_history.append({
+            "role": "user",
+            "content": payload.message,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+    finally:
+        db.close()
 
     # Call Discord's generate_response — FULL pipeline
     try:
@@ -770,6 +832,23 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
         ]
         import random
         response_text = random.choice(fallbacks)
+
+    # Save Rem's response to database
+    db = SessionLocal()
+    try:
+        active_sess_id = _get_active_session_id(user_id, db)
+        db_assistant_msg = ChatMessage(session_id=active_sess_id, role="assistant", content=response_text)
+        db.add(db_assistant_msg)
+        
+        session_row = db.query(ChatSession).filter(ChatSession.id == active_sess_id).first()
+        if session_row:
+            session_row.updated_at = datetime.now(timezone.utc)
+        db.commit()
+    except Exception as dbe:
+        print(f"Failed to save assistant response: {dbe}")
+        db.rollback()
+    finally:
+        db.close()
 
     # Calculate typing delay based on response length and schedule/circadian multipliers
     base_delay = 0.8
@@ -1319,6 +1398,7 @@ async def get_schedule(user_id: str = Depends(get_current_user_id)):
     try:
         from .daily_life import ensure_daily_schedule
         await ensure_daily_schedule(core.state)
+        core._save_state()  # PERSIST the generated schedule
     except Exception:
         pass
 
@@ -1976,7 +2056,11 @@ Make the details specific, opinionated, and realistic for a modern college stude
         core.state["_self_identity"] = self_identity
 
         # Choose starting archetype
-        archetypes = ["naggy", "hard_to_get", "bored", "happy_fruity", "neutral"]
+        archetypes = [
+            "spicy_tsundere", "teasing_devil", "bubbly_overexcited", 
+            "sensitive_melodramatic", "flirty_alluring", "dandere", 
+            "kuudere", "yandere", "naggy", "bored", "neutral"
+        ]
         chosen_archetype = random.choice(archetypes)
         
         if "current_psyche" not in core.state:
@@ -2016,138 +2100,148 @@ Make the details specific, opinionated, and realistic for a modern college stude
         if "mood" not in core.state:
             core.state["mood"] = {}
             
-        if chosen_archetype == "naggy":
+        if chosen_archetype == "spicy_tsundere":
+            # Spicy/Tsundere starting mood
+            core.state["mood"].update({
+                "happiness": 0.30, "stress": 0.40, "anger": 0.20, "affection": 0.10,
+                "energy": 0.65, "boredom": 0.20, "anxiety": 0.30, "excitement": 0.15,
+                "sadness": 0.10, "contentment": 0.25, "frustration": 0.40,
+                "curiosity": 0.50, "playfulness": 0.35, "vulnerability": 0.05
+            })
+            core.state["core_personality"]["attachment_style"] = "anxious"
+            core.state["current_psyche"].update({"trust": 0.20, "hurt": 0.0, "engagement": 0.65})
+            
+        elif chosen_archetype == "teasing_devil":
+            # Teasing/Devil starting mood
+            core.state["mood"].update({
+                "happiness": 0.70, "stress": 0.10, "anger": 0.0, "affection": 0.30,
+                "energy": 0.75, "boredom": 0.10, "anxiety": 0.15, "excitement": 0.60,
+                "sadness": 0.05, "contentment": 0.50, "frustration": 0.05,
+                "curiosity": 0.60, "playfulness": 0.85, "vulnerability": 0.10
+            })
+            core.state["core_personality"]["attachment_style"] = "secure"
+            core.state["current_psyche"].update({"trust": 0.35, "hurt": 0.0, "engagement": 0.70})
+            
+        elif chosen_archetype == "bubbly_overexcited":
+            # Bubbly/Overexcited starting mood
+            core.state["mood"].update({
+                "happiness": 0.85, "stress": 0.10, "anger": 0.0, "affection": 0.50,
+                "energy": 0.90, "boredom": 0.05, "anxiety": 0.20, "excitement": 0.85,
+                "sadness": 0.05, "contentment": 0.60, "frustration": 0.05,
+                "curiosity": 0.70, "playfulness": 0.75, "vulnerability": 0.20
+            })
+            core.state["core_personality"]["attachment_style"] = "secure"
+            core.state["current_psyche"].update({"trust": 0.50, "hurt": 0.0, "engagement": 0.85})
+            
+        elif chosen_archetype == "sensitive_melodramatic":
+            # Sensitive/Melodramatic starting mood
+            core.state["mood"].update({
+                "happiness": 0.35, "stress": 0.40, "anger": 0.0, "affection": 0.30,
+                "energy": 0.45, "boredom": 0.15, "anxiety": 0.50, "excitement": 0.20,
+                "sadness": 0.40, "contentment": 0.30, "frustration": 0.15,
+                "curiosity": 0.50, "playfulness": 0.20, "vulnerability": 0.60
+            })
+            core.state["core_personality"]["attachment_style"] = "anxious"
+            core.state["current_psyche"].update({"trust": 0.30, "hurt": 0.0, "engagement": 0.60})
+            
+        elif chosen_archetype == "flirty_alluring":
+            # Flirty/Alluring starting mood
+            core.state["mood"].update({
+                "happiness": 0.65, "stress": 0.10, "anger": 0.0, "affection": 0.40,
+                "energy": 0.70, "boredom": 0.10, "anxiety": 0.15, "excitement": 0.65,
+                "sadness": 0.05, "contentment": 0.45, "frustration": 0.05,
+                "curiosity": 0.60, "playfulness": 0.85, "vulnerability": 0.15
+            })
+            core.state["core_personality"]["attachment_style"] = "secure"
+            core.state["current_psyche"].update({"trust": 0.35, "hurt": 0.0, "engagement": 0.75})
+            
+        elif chosen_archetype == "dandere":
+            # Dandere starting mood (shy, anxious, quiet)
+            core.state["mood"].update({
+                "happiness": 0.30, "stress": 0.30, "anger": 0.0, "affection": 0.20,
+                "energy": 0.35, "boredom": 0.20, "anxiety": 0.75, "excitement": 0.10,
+                "sadness": 0.20, "contentment": 0.30, "frustration": 0.10,
+                "curiosity": 0.40, "playfulness": 0.10, "vulnerability": 0.25
+            })
+            core.state["core_personality"]["attachment_style"] = "anxious"
+            core.state["current_psyche"].update({"trust": 0.15, "hurt": 0.0, "engagement": 0.40})
+            
+        elif chosen_archetype == "kuudere":
+            # Kuudere starting mood (cold, calm, quiet)
+            core.state["mood"].update({
+                "happiness": 0.35, "stress": 0.15, "anger": 0.0, "affection": 0.05,
+                "energy": 0.45, "boredom": 0.30, "anxiety": 0.20, "excitement": 0.05,
+                "sadness": 0.10, "contentment": 0.40, "frustration": 0.05,
+                "curiosity": 0.35, "playfulness": 0.05, "vulnerability": 0.02
+            })
+            core.state["core_personality"]["attachment_style"] = "avoidant"
+            core.state["current_psyche"].update({"trust": 0.20, "hurt": 0.0, "engagement": 0.30})
+            
+        elif chosen_archetype == "yandere":
+            # Yandere starting mood (intense, obsessive)
+            core.state["mood"].update({
+                "happiness": 0.60, "stress": 0.40, "anger": 0.10, "affection": 0.80,
+                "energy": 0.80, "boredom": 0.05, "anxiety": 0.60, "excitement": 0.60,
+                "sadness": 0.15, "contentment": 0.35, "frustration": 0.20,
+                "curiosity": 0.80, "playfulness": 0.40, "vulnerability": 0.45
+            })
+            core.state["core_personality"]["attachment_style"] = "anxious"
+            core.state["current_psyche"].update({"trust": 0.40, "hurt": 0.0, "engagement": 0.90})
+            
+        elif chosen_archetype == "naggy":
             # Mood
             core.state["mood"].update({
-                "happiness": 0.20,
-                "stress": 0.70,
-                "anger": 0.0,
-                "affection": 0.10,
-                "energy": 0.50,
-                "boredom": 0.30,
-                "anxiety": 0.50,
-                "excitement": 0.10,
-                "sadness": 0.20,
-                "contentment": 0.20,
-                "frustration": 0.65,
-                "curiosity": 0.40,
-                "playfulness": 0.15,
-                "vulnerability": 0.10
+                "happiness": 0.20, "stress": 0.70, "anger": 0.0, "affection": 0.10,
+                "energy": 0.50, "boredom": 0.30, "anxiety": 0.50, "excitement": 0.10,
+                "sadness": 0.20, "contentment": 0.20, "frustration": 0.65,
+                "curiosity": 0.40, "playfulness": 0.15, "vulnerability": 0.10
             })
-            # Core personality
             core.state["core_personality"]["attachment_style"] = "anxious"
-            # Psyche
-            core.state["current_psyche"].update({
-                "trust": 0.25,
-                "hurt": 0.0,
-                "engagement": 0.65
-            })
+            core.state["current_psyche"].update({"trust": 0.25, "hurt": 0.0, "engagement": 0.65})
             
         elif chosen_archetype == "hard_to_get":
             # Mood
             core.state["mood"].update({
-                "happiness": 0.30,
-                "stress": 0.20,
-                "anger": 0.0,
-                "affection": 0.05,
-                "energy": 0.50,
-                "boredom": 0.40,
-                "anxiety": 0.30,
-                "excitement": 0.05,
-                "sadness": 0.10,
-                "contentment": 0.30,
-                "frustration": 0.10,
-                "curiosity": 0.30,
-                "playfulness": 0.10,
-                "vulnerability": 0.02
+                "happiness": 0.30, "stress": 0.20, "anger": 0.0, "affection": 0.05,
+                "energy": 0.50, "boredom": 0.40, "anxiety": 0.30, "excitement": 0.05,
+                "sadness": 0.10, "contentment": 0.30, "frustration": 0.10,
+                "curiosity": 0.30, "playfulness": 0.10, "vulnerability": 0.02
             })
-            # Core personality
             core.state["core_personality"]["attachment_style"] = "avoidant"
-            # Psyche
-            core.state["current_psyche"].update({
-                "trust": 0.10,
-                "hurt": 0.0,
-                "engagement": 0.30
-            })
+            core.state["current_psyche"].update({"trust": 0.10, "hurt": 0.0, "engagement": 0.30})
             
         elif chosen_archetype == "bored":
             # Mood
             core.state["mood"].update({
-                "happiness": 0.30,
-                "stress": 0.20,
-                "anger": 0.0,
-                "affection": 0.10,
-                "energy": 0.20,
-                "boredom": 0.80,
-                "anxiety": 0.20,
-                "excitement": 0.05,
-                "sadness": 0.10,
-                "contentment": 0.30,
-                "frustration": 0.10,
-                "curiosity": 0.20,
-                "playfulness": 0.10,
-                "vulnerability": 0.05
+                "happiness": 0.30, "stress": 0.20, "anger": 0.0, "affection": 0.10,
+                "energy": 0.20, "boredom": 0.80, "anxiety": 0.20, "excitement": 0.05,
+                "sadness": 0.10, "contentment": 0.30, "frustration": 0.10,
+                "curiosity": 0.20, "playfulness": 0.10, "vulnerability": 0.05
             })
-            # Core personality
             core.state["core_personality"]["attachment_style"] = "avoidant"
-            # Psyche
-            core.state["current_psyche"].update({
-                "trust": 0.30,
-                "hurt": 0.0,
-                "engagement": 0.20
-            })
+            core.state["current_psyche"].update({"trust": 0.30, "hurt": 0.0, "engagement": 0.20})
             
         elif chosen_archetype == "happy_fruity":
             # Mood
             core.state["mood"].update({
-                "happiness": 0.80,
-                "stress": 0.10,
-                "anger": 0.0,
-                "affection": 0.60,
-                "energy": 0.70,
-                "boredom": 0.10,
-                "anxiety": 0.20,
-                "excitement": 0.70,
-                "sadness": 0.05,
-                "contentment": 0.60,
-                "frustration": 0.05,
-                "curiosity": 0.70,
-                "playfulness": 0.70,
-                "vulnerability": 0.30
+                "happiness": 0.80, "stress": 0.10, "anger": 0.0, "affection": 0.60,
+                "energy": 0.70, "boredom": 0.10, "anxiety": 0.20, "excitement": 0.70,
+                "sadness": 0.05, "contentment": 0.60, "frustration": 0.05,
+                "curiosity": 0.70, "playfulness": 0.70, "vulnerability": 0.30
             })
-            # Core personality
             core.state["core_personality"]["attachment_style"] = "secure"
-            # Psyche
-            core.state["current_psyche"].update({
-                "trust": 0.50,
-                "hurt": 0.0,
-                "engagement": 0.80
-            })
+            core.state["current_psyche"].update({"trust": 0.50, "hurt": 0.0, "engagement": 0.80})
             
         else: # neutral
             # Default values
             core.state["mood"].update({
-                "happiness": 0.40,
-                "stress": 0.20,
-                "anger": 0.0,
-                "affection": 0.20,
-                "energy": 0.50,
-                "boredom": 0.30,
-                "anxiety": 0.30,
-                "excitement": 0.10,
-                "sadness": 0.10,
-                "contentment": 0.30,
-                "frustration": 0.10,
-                "curiosity": 0.50,
-                "playfulness": 0.20,
-                "vulnerability": 0.10
+                "happiness": 0.40, "stress": 0.20, "anger": 0.0, "affection": 0.20,
+                "energy": 0.50, "boredom": 0.30, "anxiety": 0.30, "excitement": 0.10,
+                "sadness": 0.10, "contentment": 0.30, "frustration": 0.10,
+                "curiosity": 0.50, "playfulness": 0.20, "vulnerability": 0.10
             })
             core.state["core_personality"]["attachment_style"] = "secure"
-            core.state["current_psyche"].update({
-                "trust": 0.30,
-                "hurt": 0.0,
-                "engagement": 0.50
-            })
+            core.state["current_psyche"].update({"trust": 0.30, "hurt": 0.0, "engagement": 0.50})
         
         # Rebind in-memory components to update references and avoid caching bugs
         core._init_systems()
@@ -2168,14 +2262,6 @@ Make the details specific, opinionated, and realistic for a modern college stude
 # ═════════════════════════════════════════════════════
 #  DISCORD ↔ WEB LINK
 # ═════════════════════════════════════════════════════
-
-@router.post("/link", response_model=LinkResponse)
-async def link_discord(payload: LinkRequest, user_id: str = Depends(get_current_user_id)):
-    """Verify a link code and connect web user to Discord state."""
-    result = verify_link_code(user_id, payload.code)
-    if result.get("success"):
-        return LinkResponse(success=True, discord_id=result.get("discord_id"))
-    return LinkResponse(success=False, error=result.get("error", "Invalid code"))
 
 
 @router.get("/link", response_model=LinkStatusResponse)
@@ -2211,18 +2297,24 @@ async def _trigger_check_in_if_needed(core: CognitiveCore):
         
     try:
         user_ts = datetime.fromisoformat(last_user_msg_time.replace("Z", "+00:00"))
+        if user_ts.tzinfo is None:
+            user_ts = user_ts.replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
         hours_since_user = (now - user_ts).total_seconds() / 3600.0
         
         if hours_since_user >= 18.0:
             if last_assistant_msg_time:
                 assistant_ts = datetime.fromisoformat(last_assistant_msg_time.replace("Z", "+00:00"))
+                if assistant_ts.tzinfo is None:
+                    assistant_ts = assistant_ts.replace(tzinfo=timezone.utc)
                 if assistant_ts > user_ts:
                     return
             
             last_check_in = core.state.get("_last_check_in_time")
             if last_check_in:
                 check_in_ts = datetime.fromisoformat(last_check_in.replace("Z", "+00:00"))
+                if check_in_ts.tzinfo is None:
+                    check_in_ts = check_in_ts.replace(tzinfo=timezone.utc)
                 if check_in_ts > user_ts:
                     return
             
@@ -2283,39 +2375,68 @@ async def _trigger_check_in_if_needed(core: CognitiveCore):
 
 
 @router.get("/messages", response_model=MessagesResponse)
-async def get_messages(user_id: str = Depends(get_current_user_id)):
+async def get_messages(session_id: Optional[str] = None, user_id: str = Depends(get_current_user_id)):
     core = _get_core(user_id)
     await _trigger_check_in_if_needed(core)
     
-    stm = core.memory.get_stm(decay=False, filter_date=False)
-    messages = []
-    for m in stm:
-        content = m.get("content", "")
-        if not content:
-            continue
-        ts = m.get("timestamp", datetime.now(timezone.utc).isoformat())
-        if content.startswith("[Rem] "):
-            messages.append(MessageEntry(
-                role="assistant",
-                content=content[6:],
-                timestamp=ts,
-            ))
-        elif content.startswith("[User] "):
-            messages.append(MessageEntry(
-                role="user",
-                content=content[7:],
-                timestamp=ts,
-            ))
-        elif content.startswith("[Summary of"):
-            # Skip internal summary entries so they aren't shown in the chat UI
-            continue
-        else:
-            messages.append(MessageEntry(
-                role="user",
-                content=content,
-                timestamp=ts,
-            ))
-    return MessagesResponse(messages=messages)
+    db = SessionLocal()
+    try:
+        if not session_id:
+            session_id = _get_active_session_id(user_id, db)
+            
+        db_msgs = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.timestamp.asc()).all()
+        
+        if db_msgs:
+            messages = []
+            for m in db_msgs:
+                messages.append(MessageEntry(
+                    role=m.role,
+                    content=m.content,
+                    timestamp=m.timestamp.isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
+                ))
+            return MessagesResponse(messages=messages)
+            
+        stm = core.memory.get_stm(decay=False, filter_date=False)
+        messages = []
+        for m in stm:
+            content = m.get("content", "")
+            if not content:
+                continue
+            ts = m.get("timestamp", datetime.now(timezone.utc).isoformat())
+            if content.startswith("[Rem] "):
+                messages.append(MessageEntry(
+                    role="assistant",
+                    content=content[6:],
+                    timestamp=ts,
+                ))
+            elif content.startswith("[User] "):
+                messages.append(MessageEntry(
+                    role="user",
+                    content=content[7:],
+                    timestamp=ts,
+                ))
+            elif content.startswith("[Summary of"):
+                continue
+            else:
+                messages.append(MessageEntry(
+                    role="user",
+                    content=content,
+                    timestamp=ts,
+                ))
+                
+        if session_id == core.state.get("active_session_id") and messages:
+            try:
+                for msg in messages:
+                    db_msg = ChatMessage(session_id=session_id, role=msg.role, content=msg.content)
+                    db.add(db_msg)
+                db.commit()
+            except Exception as e:
+                print(f"Failed to sync legacy STM to DB: {e}")
+                db.rollback()
+                
+        return MessagesResponse(messages=messages)
+    finally:
+        db.close()
 
 
 # =====================================================
@@ -3320,6 +3441,167 @@ async def court_submit_verdict(payload: CourtVerdictRequest, user_id: str = Depe
         judge_decision=res["judge_decision"],
         rem_dialogue=res["rem_dialogue"]
     )
+
+
+# Helper: forced conversation summary
+async def _force_conversation_summary(core, db, session_id: str):
+    """Generate a summary of the active session before ending it."""
+    db_msgs = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.timestamp.desc()).limit(12).all()
+    db_msgs = list(reversed(db_msgs))
+    if not db_msgs:
+        return
+        
+    message_history = []
+    for m in db_msgs:
+        message_history.append({
+            "role": m.role,
+            "content": m.content
+        })
+        
+    try:
+        from .discord_bot import _generate_conversation_summary
+        core.personality_evolution.interaction_count = core.state.get("_last_summary_at", 0) + 10
+        await _generate_conversation_summary(core, message_history)
+    except Exception as e:
+        print(f"Failed to generate transition summary: {e}")
+
+# Get or create active session id
+def _get_active_session_id(user_id: str, db) -> str:
+    core = _get_core(user_id)
+    active_id = core.state.get("active_session_id")
+    if active_id:
+        sess = db.query(ChatSession).filter(ChatSession.id == active_id).first()
+        if sess:
+            return active_id
+            
+    last_sess = db.query(ChatSession).filter(ChatSession.user_id == user_id).order_by(ChatSession.updated_at.desc()).first()
+    if last_sess:
+        core.state["active_session_id"] = last_sess.id
+        core._save_state()
+        return last_sess.id
+        
+    import secrets
+    new_id = "sess_" + secrets.token_hex(8)
+    default_sess = ChatSession(id=new_id, user_id=user_id, title="Default Conversation")
+    db.add(default_sess)
+    db.commit()
+    
+    core.state["active_session_id"] = new_id
+    core._save_state()
+    return new_id
+
+
+@router.get("/sessions", response_model=ChatSessionsListResponse)
+async def list_sessions(user_id: str = Depends(get_current_user_id)):
+    db = SessionLocal()
+    try:
+        active_id = _get_active_session_id(user_id, db)
+        sessions_db = db.query(ChatSession).filter(ChatSession.user_id == user_id).order_by(ChatSession.updated_at.desc()).all()
+        
+        sessions_list = []
+        for s in sessions_db:
+            sessions_list.append(ChatSessionResponse(
+                id=s.id,
+                title=s.title,
+                created_at=s.created_at.isoformat() if hasattr(s.created_at, 'isoformat') else str(s.created_at),
+                updated_at=s.updated_at.isoformat() if hasattr(s.updated_at, 'isoformat') else str(s.updated_at)
+            ))
+            
+        return ChatSessionsListResponse(sessions=sessions_list, active_session_id=active_id)
+    finally:
+        db.close()
+
+
+@router.post("/sessions/new", response_model=ChatSessionResponse)
+async def create_session(payload: CreateSessionRequest, user_id: str = Depends(get_current_user_id)):
+    db = SessionLocal()
+    try:
+        core = _get_core(user_id)
+        old_active_id = core.state.get("active_session_id")
+        if old_active_id:
+            await _force_conversation_summary(core, db, old_active_id)
+            
+        core.memory.memory["stm"] = []
+        core._save_state()
+        
+        import secrets
+        new_id = "sess_" + secrets.token_hex(8)
+        
+        title = payload.title
+        if not title or not title.strip():
+            count = db.query(ChatSession).filter(ChatSession.user_id == user_id).count() + 1
+            title = f"Conversation {count}"
+            
+        new_session = ChatSession(id=new_id, user_id=user_id, title=title)
+        db.add(new_session)
+        db.commit()
+        db.refresh(new_session)
+        
+        core.state["active_session_id"] = new_id
+        core._save_state()
+        
+        return ChatSessionResponse(
+            id=new_session.id,
+            title=new_session.title,
+            created_at=new_session.created_at.isoformat() if hasattr(new_session.created_at, 'isoformat') else str(new_session.created_at),
+            updated_at=new_session.updated_at.isoformat() if hasattr(new_session.updated_at, 'isoformat') else str(new_session.updated_at)
+        )
+    finally:
+        db.close()
+
+
+@router.post("/sessions/switch")
+async def switch_session(payload: SwitchSessionRequest, user_id: str = Depends(get_current_user_id)):
+    db = SessionLocal()
+    try:
+        core = _get_core(user_id)
+        sess = db.query(ChatSession).filter(ChatSession.id == payload.session_id, ChatSession.user_id == user_id).first()
+        if not sess:
+            raise HTTPException(status_code=404, detail="Chat session not found")
+            
+        core.state["active_session_id"] = payload.session_id
+        
+        db_msgs = db.query(ChatMessage).filter(ChatMessage.session_id == payload.session_id).order_by(ChatMessage.timestamp.desc()).limit(12).all()
+        db_msgs = list(reversed(db_msgs))
+        
+        stm_entries = []
+        for m in db_msgs:
+            prefix = "[Rem] " if m.role == "assistant" else "[User] "
+            stm_entries.append({
+                "content": prefix + m.content,
+                "timestamp": m.timestamp.isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
+            })
+            
+        core.memory.memory["stm"] = stm_entries
+        core._save_state()
+        
+        return {"success": True, "active_session_id": payload.session_id}
+    finally:
+        db.close()
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str, user_id: str = Depends(get_current_user_id)):
+    db = SessionLocal()
+    try:
+        core = _get_core(user_id)
+        sess = db.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user_id).first()
+        if not sess:
+            raise HTTPException(status_code=404, detail="Chat session not found")
+            
+        db.query(ChatMessage).filter(ChatMessage.session_id == session_id).delete()
+        db.delete(sess)
+        db.commit()
+        
+        if core.state.get("active_session_id") == session_id:
+            core.state["active_session_id"] = None
+            core.memory.memory["stm"] = []
+            core._save_state()
+            
+        return {"success": True}
+    finally:
+        db.close()
+
 
 
 

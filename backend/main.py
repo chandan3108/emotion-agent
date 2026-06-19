@@ -18,6 +18,9 @@ from .agent import router as agent_router
 from .game_api import router as game_api_router
 from .auth import router as auth_router
 
+from .migrate import migrate_db
+migrate_db()
+
 # Ensure all database tables exist
 Base.metadata.create_all(bind=engine)
 

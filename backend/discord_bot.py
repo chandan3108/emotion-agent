@@ -2063,14 +2063,19 @@ async def _generate_conversation_summary(core, message_history: list):
         content = m.get("content", "")[:80]
         lines.append(f"{role}: {content}")
     
-    prompt = f"""Summarize this conversation in 2-3 lines from Rem's point of view.
-Focus on: (1) what topics you've ALREADY discussed (2) what the current vibe is (3) any bits, jokes, or arguments that happened (4) what questions you already asked them.
-Be SPECIFIC about what was covered so you don't repeat yourself.
+    prompt = f"""Generate a structured summary of this conversation in 2-3 sentences from Rem's point of view.
+Focus on being highly specific and outlining exactly who said what, what topics are covered, any running jokes, and the emotional vibe.
+
+Guidelines:
+1. Clearly specify what the user shared or asked, and how Rem responded.
+2. Mention any key facts learned about the user.
+3. Keep it to 2-3 sentences.
+4. Always refer to the user in the third person by their name (e.g., 'Chandan') or as 'the user' if name is unknown. Do NOT use first-person 'we' or generic pronouns like 'they' without clear reference.
 
 Recent messages:
 {chr(10).join(lines)}
 
-Reply with ONLY the summary (2-3 lines). Example: "Already talked about their exam prep and how they keep procrastinating. Teased them about watching YouTube instead. Vibe is playful but they seem stressed. Asked about their study plan already."
+Reply with ONLY the summary (2-3 sentences). Example: "Chandan shared that they are procrastinating on exam prep. Rem playfully teased Chandan about watching YouTube instead, and asked about their study schedule. Vibe is relaxed but Chandan is stressed."
 """
     
     try:
@@ -2343,10 +2348,16 @@ async def generate_response(core: CognitiveCore, user_message: str,
     cached_episodic = core.state.get("_relevant_episodic_facts")
     if cached_episodic:
         relevant_ep_set = set(cached_episodic)
-        enhanced_episodic = [m for m in llm_selected_memories if "salience" in m and m.get("content", "") in relevant_ep_set]
+        enhanced_episodic = []
+        for m in llm_selected_memories:
+            content = m.get("content", m.get("fact", ""))
+            if not content:
+                continue
+            if content in relevant_ep_set or any(content in fact for fact in relevant_ep_set):
+                enhanced_episodic.append(m)
         print(f"[DEBUG] Using {len(enhanced_episodic)} relevant episodic facts")
     else:
-        enhanced_episodic = [m for m in llm_selected_memories if "salience" in m]  # Fallback to LLM selection
+        enhanced_episodic = list(llm_selected_memories)  # Fallback to LLM selection
     
     has_no_history = len(enhanced_episodic) == 0 and len(enhanced_identity) == 0
     
@@ -5820,33 +5831,15 @@ async def check_initiatives():
 
 @bot.command(name='link')
 async def link_web_account(ctx: commands.Context):
-    """Generate a link code to connect your Discord account to the web app."""
-    user_id = str(ctx.author.id)
-
-    try:
-        from .user_sync import generate_link_code
-    except ImportError:
-        from backend.user_sync import generate_link_code
-
-    code = generate_link_code(user_id)
-
-    # DM the code to the user (not in public channel)
-    try:
-        dm = await ctx.author.create_dm()
-        await dm.send(
-            f"🔗 **Web Link Code:** `{code}`\n\n"
-            f"Enter this code on the Rem web app to sync your account.\n"
-            f"Your Discord progress, memories, and relationship will carry over.\n\n"
-            f"⏰ This code expires when you generate a new one."
-        )
-        await ctx.send("📩 Check your DMs — I sent you a link code.")
-    except discord.Forbidden:
-        # DMs disabled — send in channel with warning
-        await ctx.send(
-            f"🔗 Your link code is: `{code}`\n"
-            f"⚠️ I couldn't DM you. Enter this on the web app quickly, "
-            f"then delete this message for security."
-        )
+    """Instructions on how to connect your Discord account to the web app."""
+    await ctx.send(
+        "🔗 **Account Linking Notice**\n\n"
+        "Account linking is now done securely using Discord OAuth directly on the web app!\n"
+        "1. Log in to the web app.\n"
+        "2. Navigate to **Settings**.\n"
+        "3. Click **Link Discord** and authorize the connection.\n\n"
+        "No manual codes are needed anymore!"
+    )
 
 
 def run_bot():

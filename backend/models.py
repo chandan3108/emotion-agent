@@ -16,20 +16,14 @@ class UserLink(Base):
     discord_id = Column(String, unique=True, nullable=False)
     linked_at = Column(DateTime(timezone=True), server_default=func.now())
 
-class LinkCode(Base):
-    __tablename__ = "link_codes"
-
-    code = Column(String, primary_key=True)
-    discord_id = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    used = Column(Integer, default=0)
-
 class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)
+    google_id = Column(String, unique=True, index=True, nullable=True)
+    discord_id = Column(String, unique=True, index=True, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -92,4 +86,25 @@ class EmotionEvent(Base):
 
     # Timestamp
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id = Column(String, primary_key=True, index=True)
+    user_id = Column(String, index=True, nullable=False)
+    title = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, index=True, nullable=False)
+    role = Column(String, nullable=False)  # "user" or "assistant"
+    content = Column(Text, nullable=False)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
 

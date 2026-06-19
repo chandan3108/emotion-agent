@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getLinkStatus, linkDiscord, resetUser, getIdentity, updateProfile } from "@/lib/gameApi";
+import { getLinkStatus, getOAuthUrl, linkDiscordOAuth, resetUser, getIdentity, updateProfile } from "@/lib/gameApi";
 
 export default function SettingsPage() {
-  const [linkCode, setLinkCode] = useState("");
   const [linkStatus, setLinkStatus] = useState<{ linked: boolean; discord_id?: string } | null>(null);
   const [linkMessage, setLinkMessage] = useState("");
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [linkingLoading, setLinkingLoading] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   // User Profile fields
   const [preferredName, setPreferredName] = useState("");
@@ -19,11 +20,20 @@ export default function SettingsPage() {
   const [profileSaving, setProfileSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      getLinkStatus().catch(() => ({ linked: false })),
-      getIdentity().catch(() => null)
-    ])
-      .then(([linkRes, identityRes]) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const code = searchParams.get("code");
+
+    if (typeof window !== "undefined") {
+      setUserEmail(localStorage.getItem("user_email") || "");
+    }
+
+    async function loadData() {
+      try {
+        const [linkRes, identityRes] = await Promise.all([
+          getLinkStatus().catch(() => ({ linked: false })),
+          getIdentity().catch(() => null)
+        ]);
+        
         setLinkStatus(linkRes);
         if (identityRes && identityRes.user_facts) {
           const getFactVal = (key: string) => {
@@ -38,8 +48,33 @@ export default function SettingsPage() {
           setGender(getFactVal("gender"));
           setPronouns(getFactVal("pronouns"));
         }
-      })
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error("Failed to load settings data", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function checkOAuthLink() {
+      if (code) {
+        setLinkMessage("Linking Discord account...");
+        try {
+          const redirectUri = window.location.origin + window.location.pathname;
+          const result = await linkDiscordOAuth(code, redirectUri);
+          if (result.success) {
+            setLinkMessage(`✅ Linked to Discord successfully!`);
+          } else {
+            setLinkMessage(`❌ Failed to link Discord: Unknown error`);
+          }
+        } catch (e: any) {
+          setLinkMessage(`❌ Failed to link: ${e.message || e}`);
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      loadData();
+    }
+
+    checkOAuthLink();
   }, []);
 
   async function handleSaveProfile() {
@@ -63,22 +98,21 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleLink() {
-    if (!linkCode.trim() || linkCode.length !== 6) {
-      setLinkMessage("Enter a 6-character code from Discord (!link)");
-      return;
-    }
+  async function handleDiscordOAuthLink() {
+    setLinkingLoading(true);
+    setLinkMessage("");
     try {
-      const result = await linkDiscord(linkCode.trim());
-      if (result.success) {
-        setLinkMessage(`✅ Linked to Discord (${result.discord_id})`);
-        setLinkStatus({ linked: true, discord_id: result.discord_id });
-        setLinkCode("");
+      const redirectUri = window.location.origin + window.location.pathname;
+      const res = await getOAuthUrl("discord", redirectUri);
+      if (res.url) {
+        window.location.href = res.url;
       } else {
-        setLinkMessage(`❌ ${result.error || "Invalid code"}`);
+        setLinkMessage("❌ Failed to initiate Discord OAuth link: No URL returned.");
       }
-    } catch (e) {
-      setLinkMessage(`❌ Error: ${e}`);
+    } catch (e: any) {
+      setLinkMessage(`❌ Error: ${e.message || e}`);
+    } finally {
+      setLinkingLoading(false);
     }
   }
 
@@ -101,6 +135,14 @@ export default function SettingsPage() {
     }
   }
 
+  function handleLogout() {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user_email");
+      window.location.href = "/login";
+    }
+  }
+
   if (loading) {
     return (
       <div className="page-container" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
@@ -115,6 +157,44 @@ export default function SettingsPage() {
       <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", marginBottom: 40 }}>
         Account linking and system controls.
       </p>
+
+      {/* ── Active Account Details & Log Out ── */}
+      <section className="glass-panel" style={{ padding: "20px 28px", marginBottom: 28, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: "var(--accent-secondary)" }}>⟡</span> Active Profile
+          </h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", margin: 0 }}>
+            Logged in as: <strong style={{ color: "var(--accent-primary)", fontFamily: "var(--font-mono)" }}>{userEmail || "Guest User"}</strong>
+          </p>
+        </div>
+        <button
+          onClick={handleLogout}
+          style={{
+            padding: "10px 20px",
+            borderRadius: 8,
+            border: "1px solid var(--border-subtle)",
+            background: "rgba(255,255,255,0.03)",
+            color: "var(--text-primary)",
+            fontWeight: 600,
+            fontSize: "0.8125rem",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = "rgba(255, 60, 60, 0.08)";
+            e.currentTarget.style.borderColor = "rgba(255, 60, 60, 0.3)";
+            e.currentTarget.style.color = "#ff4444";
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+            e.currentTarget.style.borderColor = "var(--border-subtle)";
+            e.currentTarget.style.color = "var(--text-primary)";
+          }}
+        >
+          Sign Out
+        </button>
+      </section>
 
       {/* ── User Profile Settings ── */}
       <section className="glass-panel" style={{ padding: 28, marginBottom: 28 }}>
@@ -226,47 +306,39 @@ export default function SettingsPage() {
           </div>
         ) : (
           <div>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginBottom: 12, lineHeight: 1.6 }}>
-              Type <code style={{ color: "var(--accent-primary)", background: "rgba(var(--accent-primary-rgb), 0.1)", padding: "2px 6px", borderRadius: 4, fontSize: "0.75rem" }}>!link</code> in Discord DMs to get a 6-character code.
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginBottom: 20, lineHeight: 1.6 }}>
+              Sync your web progress with Discord. Both interfaces will share the same memories, XP, relationship status, and dialogue history.
             </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                value={linkCode}
-                onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
-                placeholder="ABC123"
-                maxLength={6}
-                style={{
-                  flex: 1,
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border-subtle)",
-                  background: "rgba(255,255,255,0.03)",
-                  color: "var(--text-primary)",
-                  fontSize: "1rem",
-                  fontFamily: "var(--font-mono)",
-                  letterSpacing: "0.15em",
-                  textAlign: "center",
-                  outline: "none",
-                }}
-              />
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <button
-                onClick={handleLink}
+                onClick={handleDiscordOAuthLink}
+                disabled={linkingLoading}
                 className="btn-primary"
                 style={{
-                  padding: "10px 20px",
-                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "10px",
+                  background: "#5865F2",
+                  color: "#FFF",
                   border: "none",
+                  borderRadius: 8,
+                  padding: "12px 24px",
                   fontWeight: 600,
-                  fontSize: "0.8125rem",
+                  fontSize: "0.875rem",
                   cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  width: "100%",
                 }}
               >
-                Link
+                <svg width="18" height="18" viewBox="0 0 127.14 96.36" fill="currentColor">
+                  <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,53.22,6.83,77.19,77.19,0,0,0,49.88,0,105.15,105.15,0,0,0,19.44,8.07C3.66,31.58-1.86,54.65,1,77.53A105.73,105.73,0,0,0,32,96.36a77.7,77.7,0,0,0,6.63-10.85,68.43,68.43,0,0,1-10.4-5c.8-1.57,1.57-3.17,2.3-4.81a74.9,74.9,0,0,0,73.13,0c.73,1.64,1.5,3.24,2.3,4.81a68.43,68.43,0,0,1-10.4,5,77.7,77.7,0,0,0,6.63,10.85,105.73,105.73,0,0,0,31.06-18.83C129,50.7,122.64,27.78,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z"/>
+                </svg>
+                {linkingLoading ? "Connecting..." : "Link Discord Account"}
               </button>
             </div>
             {linkMessage && (
-              <p style={{ marginTop: 8, fontSize: "0.75rem", color: linkMessage.startsWith("✅") ? "var(--accent-primary)" : "var(--accent-warning)" }}>
+              <p style={{ marginTop: 12, fontSize: "0.8125rem", color: linkMessage.startsWith("✅") ? "var(--accent-primary)" : "var(--accent-warning)" }}>
                 {linkMessage}
               </p>
             )}

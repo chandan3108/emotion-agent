@@ -1,0 +1,1205 @@
+{
+  "type": "gesture-recording",
+  "tickLogs": [
+    {
+      "time": 6.004599999964231,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.9825,
+      "leftUpperArmZ": 1.2150740140089626,
+      "leftLowerArmZ": -0.36150102844597526,
+      "leftUpperArmRotZ": 1.2235417193466966,
+      "leftLowerArmRotZ": -0.36152940419871504
+    },
+    {
+      "time": 6.020999999999994,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.9660999999642375,
+      "leftUpperArmZ": 1.1968203133085145,
+      "leftLowerArmZ": -0.4459259770236765,
+      "leftUpperArmRotZ": 1.2056266827440971,
+      "leftLowerArmRotZ": -0.4459597778923967
+    },
+    {
+      "time": 6.037599999964231,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.9495000000000005,
+      "leftUpperArmZ": 1.1794792976430888,
+      "leftLowerArmZ": -0.5261296781724927,
+      "leftUpperArmRotZ": 1.18880236681558,
+      "leftLowerArmRotZ": -0.5261678738896248
+    },
+    {
+      "time": 6.05429999995231,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.932800000011921,
+      "leftUpperArmZ": 1.1630053327609344,
+      "leftLowerArmZ": -0.602323194263868,
+      "leftUpperArmRotZ": 1.173012270699266,
+      "leftLowerArmRotZ": -0.6023647587348983
+    },
+    {
+      "time": 6.0708999999761515,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.91619999998808,
+      "leftUpperArmZ": 1.1473550661228877,
+      "leftLowerArmZ": -0.6747070345506746,
+      "leftUpperArmRotZ": 1.1582025752746272,
+      "leftLowerArmRotZ": -0.6747509770600554
+    },
+    {
+      "time": 6.087899999976152,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.899199999988079,
+      "leftUpperArmZ": 1.1324873128167434,
+      "leftLowerArmZ": -0.7434716828231409,
+      "leftUpperArmRotZ": 1.1443008046831578,
+      "leftLowerArmRotZ": -0.7435170941676574
+    },
+    {
+      "time": 6.103499999999993,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.883599999964238,
+      "leftUpperArmZ": 1.1183629471759062,
+      "leftLowerArmZ": -0.8087980986819838,
+      "leftUpperArmRotZ": 1.1313006574262379,
+      "leftLowerArmRotZ": -0.808844097098095
+    },
+    {
+      "time": 6.12129999995231,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.865800000011921,
+      "leftUpperArmZ": 1.104944799817111,
+      "leftLowerArmZ": -0.8708581937478846,
+      "leftUpperArmRotZ": 1.1190455291066859,
+      "leftLowerArmRotZ": -0.8709040980861935
+    },
+    {
+      "time": 6.137099999964231,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.8500000000000005,
+      "leftUpperArmZ": 1.0921975598262554,
+      "leftLowerArmZ": -0.9298152840604904,
+      "leftUpperArmRotZ": 1.1076021219918384,
+      "leftLowerArmRotZ": -0.9298603829311681
+    },
+    {
+      "time": 6.15379999995231,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.8333000000119215,
+      "leftUpperArmZ": 1.0800876818349427,
+      "leftLowerArmZ": -0.9858245198574659,
+      "leftUpperArmRotZ": 1.0968380295772204,
+      "leftLowerArmRotZ": -0.9858682809889902
+    },
+    {
+      "time": 6.17159999996423,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.815500000000001,
+      "leftUpperArmZ": 1.0685832977431957,
+      "leftLowerArmZ": -1.0390332938645925,
+      "leftUpperArmRotZ": 1.0866999370469073,
+      "leftLowerArmRotZ": -1.039075275540089
+    },
+    {
+      "time": 6.187999999999993,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.7990999999642385,
+      "leftUpperArmZ": 1.0576541328560358,
+      "leftLowerArmZ": -1.089581629171363,
+      "leftUpperArmRotZ": 1.0772159117308475,
+      "leftLowerArmRotZ": -1.089621411531205
+    },
+    {
+      "time": 6.204799999952309,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.782300000011922,
+      "leftUpperArmZ": 1.047271426213234,
+      "leftLowerArmZ": -1.1376025477127947,
+      "leftUpperArmRotZ": 1.0682923402868927,
+      "leftLowerArmRotZ": -1.137639833069753
+    },
+    {
+      "time": 6.221299999952309,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.7658000000119225,
+      "leftUpperArmZ": 1.0374078549025725,
+      "leftLowerArmZ": -1.1832224203271549,
+      "leftUpperArmRotZ": 1.0599107828318677,
+      "leftLowerArmRotZ": -1.1832569653837277
+    },
+    {
+      "time": 6.23809999996423,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.749000000000001,
+      "leftUpperArmZ": 1.028037462157444,
+      "leftLowerArmZ": -1.226561299310797,
+      "leftUpperArmRotZ": 1.0520174179121977,
+      "leftLowerArmRotZ": -1.2265929338791404
+    },
+    {
+      "time": 6.254599999964229,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.732500000000002,
+      "leftUpperArmZ": 1.0191355890495717,
+      "leftLowerArmZ": -1.2677332343452572,
+      "leftUpperArmRotZ": 1.0445961056692044,
+      "leftLowerArmRotZ": -1.2677618318802324
+    },
+    {
+      "time": 6.2713999999761505,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.715699999988081,
+      "leftUpperArmZ": 1.010678809597093,
+      "leftLowerArmZ": -1.3068465726279943,
+      "leftUpperArmRotZ": 1.0375977475271043,
+      "leftLowerArmRotZ": -1.3068720619905583
+    },
+    {
+      "time": 6.286899999976151,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.70019999998808,
+      "leftUpperArmZ": 1.0026448691172385,
+      "leftLowerArmZ": -1.3440042439965947,
+      "leftUpperArmRotZ": 1.031040489664197,
+      "leftLowerArmRotZ": -1.3440265757691745
+    },
+    {
+      "time": 6.304699999988071,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.68239999997616,
+      "leftUpperArmZ": 0.9950126256613766,
+      "leftLowerArmZ": -1.3793040317967649,
+      "leftUpperArmRotZ": 1.0247905921990779,
+      "leftLowerArmRotZ": -1.3793232265793391
+    },
+    {
+      "time": 6.320999999999993,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.6660999999642385,
+      "leftUpperArmZ": 0.9877619943783078,
+      "leftLowerArmZ": -1.4128388302069266,
+      "leftUpperArmRotZ": 1.0189354780009177,
+      "leftLowerArmRotZ": -1.4128548991334262
+    },
+    {
+      "time": 6.33809999996423,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.649000000000001,
+      "leftUpperArmZ": 0.9808738946593925,
+      "leftLowerArmZ": -1.4446968886965803,
+      "leftUpperArmRotZ": 1.0133835967771432,
+      "leftLowerArmRotZ": -1.4447098844883661
+    },
+    {
+      "time": 6.354499999999993,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.632599999964238,
+      "leftUpperArmZ": 0.9743301999264228,
+      "leftLowerArmZ": -1.4749620442617513,
+      "leftUpperArmRotZ": 1.0081578280232448,
+      "leftLowerArmRotZ": -1.4749720286367032
+    },
+    {
+      "time": 6.37009999996423,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.617000000000001,
+      "leftUpperArmZ": 0.9681136899301016,
+      "leftLowerArmZ": -1.5037139420486636,
+      "leftUpperArmRotZ": 1.0032410513704992,
+      "leftLowerArmRotZ": -1.5037209934876357
+    },
+    {
+      "time": 6.38779999995231,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.5993000000119215,
+      "leftUpperArmZ": 0.9622080054335965,
+      "leftLowerArmZ": -1.5310282449462305,
+      "leftUpperArmRotZ": 0.9985285684254447,
+      "leftLowerArmRotZ": -1.531032459624696
+    },
+    {
+      "time": 6.404199999988072,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.582899999976159,
+      "leftUpperArmZ": 0.9565976051619167,
+      "leftLowerArmZ": -1.5569768326989188,
+      "leftUpperArmRotZ": 0.994104019101279,
+      "leftLowerArmRotZ": -1.5569783067547907
+    },
+    {
+      "time": 6.420899999976151,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.56619999998808,
+      "leftUpperArmZ": 0.9512677249038208,
+      "leftLowerArmZ": -1.5816279910639728,
+      "leftUpperArmRotZ": 0.9899039204140733,
+      "leftLowerArmRotZ": -1.5816268294887412
+    },
+    {
+      "time": 6.43759999996423,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.549500000000001,
+      "leftUpperArmZ": 0.9462043386586297,
+      "leftLowerArmZ": -1.6050465915107741,
+      "leftUpperArmRotZ": 0.9859223136376852,
+      "leftLowerArmRotZ": -1.6050429026273718
+    },
+    {
+      "time": 6.45359999996423,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.533500000000001,
+      "leftUpperArmZ": 0.9413941217256983,
+      "leftLowerArmZ": -1.6272942619352353,
+      "leftUpperArmRotZ": 0.9821660150457527,
+      "leftLowerArmRotZ": -1.6272881573589753
+    },
+    {
+      "time": 6.470999999999993,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.516099999964238,
+      "leftUpperArmZ": 0.9368244156394133,
+      "leftLowerArmZ": -1.6484295488384735,
+      "leftUpperArmRotZ": 0.9785604259581099,
+      "leftLowerArmRotZ": -1.6484211374028999
+    },
+    {
+      "time": 6.48759999996423,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.499500000000001,
+      "leftUpperArmZ": 0.9324831948574427,
+      "leftLowerArmZ": -1.6685080713965499,
+      "leftUpperArmRotZ": 0.9751583931171232,
+      "leftLowerArmRotZ": -1.6684974653856857
+    },
+    {
+      "time": 6.504399999976151,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.48269999998808,
+      "leftUpperArmZ": 0.9283590351145705,
+      "leftLowerArmZ": -1.6875826678267223,
+      "leftUpperArmRotZ": 0.9719195077475695,
+      "leftLowerArmRotZ": -1.6875699763512455
+    },
+    {
+      "time": 6.520999999999993,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.466099999964238,
+      "leftUpperArmZ": 0.924441083358842,
+      "leftLowerArmZ": -1.7057035344353861,
+      "leftUpperArmRotZ": 0.968845187281184,
+      "leftLowerArmRotZ": -1.7056888657627856
+    },
+    {
+      "time": 6.537699999988072,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.449399999976159,
+      "leftUpperArmZ": 0.9207190291908999,
+      "leftLowerArmZ": -1.722918357713617,
+      "leftUpperArmRotZ": 0.9659171602117969,
+      "leftLowerArmRotZ": -1.722901816802147
+    },
+    {
+      "time": 6.554199999988072,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.43289999997616,
+      "leftUpperArmZ": 0.9171830777313549,
+      "leftLowerArmZ": -1.739272439827936,
+      "leftUpperArmRotZ": 0.9631352169193439,
+      "leftLowerArmRotZ": -1.739254129707331
+    },
+    {
+      "time": 6.570799999952309,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.416300000011923,
+      "leftUpperArmZ": 0.9138239238447872,
+      "leftLowerArmZ": -1.754808817836539,
+      "leftUpperArmRotZ": 0.9604824437453664,
+      "leftLowerArmRotZ": -1.7547888374168659
+    },
+    {
+      "time": 6.587499999999992,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.399599999964239,
+      "leftUpperArmZ": 0.9106327276525478,
+      "leftLowerArmZ": -1.7695683769447121,
+      "leftUpperArmRotZ": 0.9579512050591014,
+      "leftLowerArmRotZ": -1.7695468217800405
+    },
+    {
+      "time": 6.604099999964229,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.383000000000002,
+      "leftUpperArmZ": 0.9076010912699204,
+      "leftLowerArmZ": -1.7835899580974766,
+      "leftUpperArmRotZ": 0.9555400414813165,
+      "leftLowerArmRotZ": -1.7835669208819578
+    },
+    {
+      "time": 6.620799999952308,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.366300000011923,
+      "leftUpperArmZ": 0.9047210367064243,
+      "leftLowerArmZ": -1.7969104601926027,
+      "leftUpperArmRotZ": 0.9532366273655449,
+      "leftLowerArmRotZ": -1.7968860294850477
+    },
+    {
+      "time": 6.637499999999992,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.349599999964239,
+      "leftUpperArmZ": 0.9019849848711031,
+      "leftLowerArmZ": -1.8095649371829725,
+      "leftUpperArmRotZ": 0.9510375890777615,
+      "leftLowerArmRotZ": -1.8095391983006508
+    },
+    {
+      "time": 6.654099999964229,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.333000000000002,
+      "leftUpperArmZ": 0.899385735627548,
+      "leftLowerArmZ": -1.8215866903238238,
+      "leftUpperArmRotZ": 0.948939891469396,
+      "leftLowerArmRotZ": -1.8215597252665807
+    },
+    {
+      "time": 6.670799999952308,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.316300000011923,
+      "leftUpperArmZ": 0.8969164488461706,
+      "leftLowerArmZ": -1.8330073558076325,
+      "leftUpperArmRotZ": 0.9469325860214872,
+      "leftLowerArmRotZ": -1.8329792426581517
+    },
+    {
+      "time": 6.68739999997615,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.299699999988081,
+      "leftUpperArmZ": 0.8945706264038621,
+      "leftLowerArmZ": -1.8438569880172508,
+      "leftUpperArmRotZ": 0.9450161188565058,
+      "leftLowerArmRotZ": -1.843827801835657
+    },
+    {
+      "time": 6.704099999964229,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.283000000000002,
+      "leftUpperArmZ": 0.892342095083669,
+      "leftLowerArmZ": -1.8541641386163883,
+      "leftUpperArmRotZ": 0.9431803244001774,
+      "leftLowerArmRotZ": -1.8541339508706716
+    },
+    {
+      "time": 6.720799999952308,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.266300000011923,
+      "leftUpperArmZ": 0.8902249903294855,
+      "leftLowerArmZ": -1.863955931685569,
+      "leftUpperArmRotZ": 0.9414235336017096,
+      "leftLowerArmRotZ": -1.8639248108300228
+    },
+    {
+      "time": 6.737599999964229,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.249500000000002,
+      "leftUpperArmZ": 0.8882137408130113,
+      "leftLowerArmZ": -1.8732581351012905,
+      "leftUpperArmRotZ": 0.9397389922681011,
+      "leftLowerArmRotZ": -1.8732261465433493
+    },
+    {
+      "time": 6.754199999988071,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.23289999997616,
+      "leftUpperArmZ": 0.8863030537723607,
+      "leftLowerArmZ": -1.882095228346226,
+      "leftUpperArmRotZ": 0.9381307530865662,
+      "leftLowerArmRotZ": -1.88206243450045
+    },
+    {
+      "time": 6.769999999999992,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.21709999996424,
+      "leftUpperArmZ": 0.8844879010837428,
+      "leftLowerArmZ": -1.8904904669289146,
+      "leftUpperArmRotZ": 0.9366105174318623,
+      "leftLowerArmRotZ": -1.8904569263102249
+    },
+    {
+      "time": 6.787499999999992,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.1995999999642395,
+      "leftUpperArmZ": 0.8827635060295557,
+      "leftLowerArmZ": -1.898465943582469,
+      "leftUpperArmRotZ": 0.9351104570216484,
+      "leftLowerArmRotZ": -1.8984317152301213
+    },
+    {
+      "time": 6.804199999988071,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.1828999999761605,
+      "leftUpperArmZ": 0.8811253307280779,
+      "leftLowerArmZ": -1.9060426464033455,
+      "leftUpperArmRotZ": 0.9336919189919571,
+      "leftLowerArmRotZ": -1.9060077836948837
+    },
+    {
+      "time": 6.820799999952308,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.1663000000119235,
+      "leftUpperArmZ": 0.879569064191674,
+      "leftLowerArmZ": -1.9132405140831783,
+      "leftUpperArmRotZ": 0.9323337929439519,
+      "leftLowerArmRotZ": -1.9132050686627415
+    },
+    {
+      "time": 6.8374999999999915,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.14959999996424,
+      "leftUpperArmZ": 0.8780906109820903,
+      "leftLowerArmZ": -1.9200784883790194,
+      "leftUpperArmRotZ": 0.9310282968241476,
+      "leftLowerArmRotZ": -1.9200425101318441
+    },
+    {
+      "time": 6.854299999952308,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.132800000011923,
+      "leftUpperArmZ": 0.8766860804329858,
+      "leftLowerArmZ": -1.9265745639600684,
+      "leftUpperArmRotZ": 0.9297729238101885,
+      "leftLowerArmRotZ": -1.9265381007670916
+    },
+    {
+      "time": 6.8708999999761495,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.116199999988082,
+      "leftUpperArmZ": 0.8753517764113365,
+      "leftLowerArmZ": -1.932745835762065,
+      "leftUpperArmRotZ": 0.9285724885311429,
+      "leftLowerArmRotZ": -1.9327089321079418
+    },
+    {
+      "time": 6.887599999964229,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.099500000000003,
+      "leftUpperArmZ": 0.8740841875907697,
+      "leftLowerArmZ": -1.9386085439739618,
+      "leftUpperArmRotZ": 0.9274174374666821,
+      "leftLowerArmRotZ": -1.9385712436832716
+    },
+    {
+      "time": 6.90439999997615,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.0826999999880815,
+      "leftUpperArmZ": 0.8728799782112312,
+      "leftLowerArmZ": -1.9441781167752636,
+      "leftUpperArmRotZ": 0.9263057215212975,
+      "leftLowerArmRotZ": -1.9441404620031333
+    },
+    {
+      "time": 6.920899999976149,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.066199999988082,
+      "leftUpperArmZ": 0.8717359793006696,
+      "leftLowerArmZ": -1.9494692109365004,
+      "leftUpperArmRotZ": 0.9252445342498206,
+      "leftLowerArmRotZ": -1.9494312394408335
+    },
+    {
+      "time": 6.937599999964228,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.049500000000003,
+      "leftUpperArmZ": 0.8706491803356361,
+      "leftLowerArmZ": -1.9544957503896754,
+      "leftUpperArmRotZ": 0.9242204392979413,
+      "leftLowerArmRotZ": -1.9544575015121357
+    },
+    {
+      "time": 6.953999999999991,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.03309999996424,
+      "leftUpperArmZ": 0.8696167213188543,
+      "leftLowerArmZ": -1.9592709628701916,
+      "leftUpperArmRotZ": 0.9232428788790691,
+      "leftLowerArmRotZ": -1.959232470548596
+    },
+    {
+      "time": 6.970999999999991,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 4.01609999996424,
+      "leftUpperArmZ": 0.8686358852529116,
+      "leftLowerArmZ": -1.963807414726682,
+      "leftUpperArmRotZ": 0.9222903560891573,
+      "leftLowerArmRotZ": -1.9637687189941242
+    },
+    {
+      "time": 6.987499999999991,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.9995999999642398,
+      "leftUpperArmZ": 0.867704090990266,
+      "leftLowerArmZ": -1.968117043990348,
+      "leftUpperArmRotZ": 0.9213853435820524,
+      "leftLowerArmRotZ": -1.9680781738773352
+    },
+    {
+      "time": 7.0045999999642286,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.9825000000000026,
+      "leftUpperArmZ": 0.8668188864407527,
+      "leftLowerArmZ": -1.9722111917908305,
+      "leftUpperArmRotZ": 0.920502847560368,
+      "leftLowerArmRotZ": -1.9721721855195986
+    },
+    {
+      "time": 7.020099999964229,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.9670000000000027,
+      "leftUpperArmZ": 0.865977942118715,
+      "leftLowerArmZ": -1.9761006322012888,
+      "leftUpperArmRotZ": 0.9196871014493322,
+      "leftLowerArmRotZ": -1.9760615032539834
+    },
+    {
+      "time": 7.038199999988071,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.948899999976161,
+      "leftUpperArmZ": 0.8651790450127793,
+      "leftLowerArmZ": -1.9797956005912245,
+      "leftUpperArmRotZ": 0.9188508020394719,
+      "leftLowerArmRotZ": -1.9797564079530303
+    },
+    {
+      "time": 7.054499999999992,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.93259999996424,
+      "leftUpperArmZ": 0.8644200927621404,
+      "leftLowerArmZ": -1.9833058205616632,
+      "leftUpperArmRotZ": 0.9180820925346305,
+      "leftLowerArmRotZ": -1.9832665719629343
+    },
+    {
+      "time": 7.071199999988071,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.915899999976161,
+      "leftUpperArmZ": 0.8636990881240334,
+      "leftLowerArmZ": -1.98664052953358,
+      "leftUpperArmRotZ": 0.9173353977550484,
+      "leftLowerArmRotZ": -1.9866012571405631
+    },
+    {
+      "time": 7.087999999999992,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.89909999996424,
+      "leftUpperArmZ": 0.8630141337178318,
+      "leftLowerArmZ": -1.989808503056901,
+      "leftUpperArmRotZ": 0.9166157272765253,
+      "leftLowerArmRotZ": -1.989769234604243
+    },
+    {
+      "time": 7.104499999999992,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.8825999999642398,
+      "leftUpperArmZ": 0.8623634270319401,
+      "leftLowerArmZ": -1.992818077904056,
+      "leftUpperArmRotZ": 0.9159294654932094,
+      "leftLowerArmRotZ": -1.9927788344566781
+    },
+    {
+      "time": 7.121199999988071,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.8658999999761607,
+      "leftUpperArmZ": 0.8617452556803431,
+      "leftLowerArmZ": -1.9956771740088532,
+      "leftUpperArmRotZ": 0.9152663120703117,
+      "leftLowerArmRotZ": -1.9956379827329591
+    },
+    {
+      "time": 7.137599999964229,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.8495000000000026,
+      "leftUpperArmZ": 0.861157992896326,
+      "leftLowerArmZ": -1.9983933153084106,
+      "leftUpperArmRotZ": 0.9146342799511722,
+      "leftLowerArmRotZ": -1.9983541948578651
+    },
+    {
+      "time": 7.15439999997615,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.8326999999880815,
+      "leftUpperArmZ": 0.8606000932515097,
+      "leftLowerArmZ": -2.00097364954299,
+      "leftUpperArmRotZ": 0.9140202268269825,
+      "leftLowerArmRotZ": -2.0009346287526086
+    },
+    {
+      "time": 7.170099999964228,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.8170000000000024,
+      "leftUpperArmZ": 0.8600700885889342,
+      "leftLowerArmZ": -2.0034249670658406,
+      "leftUpperArmRotZ": 0.9134485695337946,
+      "leftLowerArmRotZ": -2.003386048796692
+    },
+    {
+      "time": 7.186799999952307,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.8003000000119234,
+      "leftUpperArmZ": 0.8595665841594875,
+      "leftLowerArmZ": -2.0057537187125485,
+      "leftUpperArmRotZ": 0.9128833514863193,
+      "leftLowerArmRotZ": -2.0057149405201713
+    },
+    {
+      "time": 7.204399999976149,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.7826999999880817,
+      "leftUpperArmZ": 0.8590882549515131,
+      "leftLowerArmZ": -2.007966032776921,
+      "leftUpperArmRotZ": 0.9123267521599757,
+      "leftLowerArmRotZ": -2.0079274315013054
+    },
+    {
+      "time": 7.220999999999991,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.76609999996424,
+      "leftUpperArmZ": 0.8586338422039375,
+      "leftLowerArmZ": -2.010067731138075,
+      "leftUpperArmRotZ": 0.9118079876431479,
+      "leftLowerArmRotZ": -2.010029308146599
+    },
+    {
+      "time": 7.237599999964228,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.749500000000003,
+      "leftUpperArmZ": 0.8582021500937406,
+      "leftLowerArmZ": -2.0120643445811712,
+      "leftUpperArmRotZ": 0.9113103561240586,
+      "leftLowerArmRotZ": -2.0120261184353687
+    },
+    {
+      "time": 7.254299999952307,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.732800000011924,
+      "leftUpperArmZ": 0.8577920425890535,
+      "leftLowerArmZ": -2.0139611273521125,
+      "leftUpperArmRotZ": 0.9108317958431976,
+      "leftLowerArmRotZ": -2.013923117960692
+    },
+    {
+      "time": 7.270899999976149,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.716199999988082,
+      "leftUpperArmZ": 0.8574024404596008,
+      "leftLowerArmZ": -2.015763070984507,
+      "leftUpperArmRotZ": 0.9103745673702391,
+      "leftLowerArmRotZ": -2.0157252935746244
+    },
+    {
+      "time": 7.287599999964228,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.699500000000003,
+      "leftUpperArmZ": 0.8570323184366208,
+      "leftLowerArmZ": -2.0174749174352815,
+      "leftUpperArmRotZ": 0.9099353040699905,
+      "leftLowerArmRotZ": -2.0174373907209153
+    },
+    {
+      "time": 7.304299999952307,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.682800000011924,
+      "leftUpperArmZ": 0.8566807025147897,
+      "leftLowerArmZ": -2.019101171563517,
+      "leftUpperArmRotZ": 0.9095148631948877,
+      "leftLowerArmRotZ": -2.0190639115951736
+    },
+    {
+      "time": 7.3198999999761485,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.667199999988082,
+      "leftUpperArmZ": 0.8563466673890502,
+      "leftLowerArmZ": -2.0206461129853412,
+      "leftUpperArmRotZ": 0.9091261935520254,
+      "leftLowerArmRotZ": -2.020609110316875
+    },
+    {
+      "time": 7.3366999999880695,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.650399999976161,
+      "leftUpperArmZ": 0.8560293340195977,
+      "leftLowerArmZ": -2.022113807336074,
+      "leftUpperArmRotZ": 0.9087401212954742,
+      "leftLowerArmRotZ": -2.022077103434402
+    },
+    {
+      "time": 7.354399999976149,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.6326999999880822,
+      "leftUpperArmZ": 0.8557278673186178,
+      "leftLowerArmZ": -2.0235081169692704,
+      "leftUpperArmRotZ": 0.9083612830649295,
+      "leftLowerArmRotZ": -2.0234717475567274
+    },
+    {
+      "time": 7.370999999999991,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.6160999999642405,
+      "leftUpperArmZ": 0.855441473952687,
+      "leftLowerArmZ": -2.0248327111208066,
+      "leftUpperArmRotZ": 0.908012134768052,
+      "leftLowerArmRotZ": -2.024796664333955
+    },
+    {
+      "time": 7.387799999952307,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.599300000011924,
+      "leftUpperArmZ": 0.8551694002550526,
+      "leftLowerArmZ": -2.026091075564766,
+      "leftUpperArmRotZ": 0.9076772207276474,
+      "leftLowerArmRotZ": -2.026055369426019
+    },
+    {
+      "time": 7.404299999952307,
+      "mood": "unyielding & detached",
+      "activeGesture": "folded-arms",
+      "gestureTimer": 3.582800000011924,
+      "leftUpperArmZ": 0.8549109302423,
+      "leftLowerArmZ": -2.027286521786528,
+      "leftUpperArmRotZ": 0.907361322872306,
+      "leftLowerArmRotZ": -2.0272511614873516
+    },
+    {
+      "time": 7.4208999999761485,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 0.874665383730185,
+      "leftLowerArmZ": -1.9359221956972015,
+      "leftUpperArmRotZ": 0.9188821562541202,
+      "leftLowerArmRotZ": -1.935892744007672
+    },
+    {
+      "time": 7.437799999952307,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 0.8934321145436758,
+      "leftLowerArmZ": -1.8491260859123413,
+      "leftUpperArmRotZ": 0.93028128432344,
+      "leftLowerArmRotZ": -1.8491030496076326
+    },
+    {
+      "time": 7.453399999976148,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 0.911260508816492,
+      "leftLowerArmZ": -1.7666697816167243,
+      "leftUpperArmRotZ": 0.9415335623985627,
+      "leftLowerArmRotZ": -1.7666533321703721
+    },
+    {
+      "time": 7.471199999988069,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 0.9281974833756674,
+      "leftLowerArmZ": -1.688336292535888,
+      "leftUpperArmRotZ": 0.9525783815526292,
+      "leftLowerArmRotZ": -1.688326396815558
+    },
+    {
+      "time": 7.4876999999880685,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 0.944287609206884,
+      "leftLowerArmZ": -1.6139194779090935,
+      "leftUpperArmRotZ": 0.9634164057909036,
+      "leftLowerArmRotZ": -1.6139158666913502
+    },
+    {
+      "time": 7.5043999999761475,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 0.9595732287465398,
+      "leftLowerArmZ": -1.5432235040136388,
+      "leftUpperArmRotZ": 0.9740137388996064,
+      "leftLowerArmRotZ": -1.5432257829237652
+    },
+    {
+      "time": 7.5210999999642265,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 0.9740945673092128,
+      "leftLowerArmZ": -1.4760623288129568,
+      "leftUpperArmRotZ": 0.9843538040152652,
+      "leftLowerArmRotZ": -1.4760700058508502
+    },
+    {
+      "time": 7.537699999988068,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 0.9878898389437522,
+      "leftLowerArmZ": -1.412259212372309,
+      "leftUpperArmRotZ": 0.9944228121228782,
+      "leftLowerArmRotZ": -1.4122717384998977
+    },
+    {
+      "time": 7.554399999976147,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0009953469965645,
+      "leftLowerArmZ": -1.3516462517536936,
+      "leftUpperArmRotZ": 1.0042087430584115,
+      "leftLowerArmRotZ": -1.3516630486271628
+    },
+    {
+      "time": 7.570999999999989,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0134455796467363,
+      "leftLowerArmZ": -1.294063939166009,
+      "leftUpperArmRotZ": 1.0137045344969635,
+      "leftLowerArmRotZ": -1.2940844274413092
+    },
+    {
+      "time": 7.587599999964226,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0252733006643995,
+      "leftLowerArmZ": -1.2393607422077084,
+      "leftUpperArmRotZ": 1.022904270797767,
+      "leftLowerArmRotZ": -1.2393843557601327
+    },
+    {
+      "time": 7.604699999988068,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0365096356311796,
+      "leftLowerArmZ": -1.187392705097323,
+      "leftUpperArmRotZ": 1.0318034313195568,
+      "leftLowerArmRotZ": -1.1874188922329256
+    },
+    {
+      "time": 7.620499999999988,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0471841538496207,
+      "leftLowerArmZ": -1.1380230698424567,
+      "leftUpperArmRotZ": 1.040405687771997,
+      "leftLowerArmRotZ": -1.13805136190288
+    },
+    {
+      "time": 7.637699999988067,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0573249461571397,
+      "leftLowerArmZ": -1.0911219163503338,
+      "leftUpperArmRotZ": 1.0487049455275335,
+      "leftLowerArmRotZ": -1.0911518127652935
+    },
+    {
+      "time": 7.654799999952305,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0669586988492827,
+      "leftLowerArmZ": -1.0465658205328172,
+      "leftUpperArmRotZ": 1.056707253413645,
+      "leftLowerArmRotZ": -1.0465969046785266
+    },
+    {
+      "time": 7.670299999952305,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0761107639068186,
+      "leftLowerArmZ": -1.0042375295061763,
+      "leftUpperArmRotZ": 1.064416681660118,
+      "leftLowerArmRotZ": -1.0042694824173
+    },
+    {
+      "time": 7.688099999964225,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0848052257114777,
+      "leftLowerArmZ": -0.9640256530308675,
+      "leftUpperArmRotZ": 1.0718347303446811,
+      "leftLowerArmRotZ": -0.9640580669129035
+    },
+    {
+      "time": 7.7034999999999885,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.0930649644259038,
+      "leftLowerArmZ": -0.9258243703793241,
+      "leftUpperArmRotZ": 1.078968312373347,
+      "leftLowerArmRotZ": -0.9258570449028909
+    },
+    {
+      "time": 7.721299999952305,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1009117162046087,
+      "leftLowerArmZ": -0.8895331518603579,
+      "leftUpperArmRotZ": 1.0858241998353644,
+      "leftLowerArmRotZ": -0.8895657516789666
+    },
+    {
+      "time": 7.737999999999989,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1083661303943784,
+      "leftLowerArmZ": -0.85505649426734,
+      "leftUpperArmRotZ": 1.0924076858279737,
+      "leftLowerArmRotZ": -0.8550888500085371
+    },
+    {
+      "time": 7.753299999952305,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1154478238746595,
+      "leftLowerArmZ": -0.8223036695539729,
+      "leftUpperArmRotZ": 1.098723667893359,
+      "leftLowerArmRotZ": -0.822335659050385
+    },
+    {
+      "time": 7.771299999952305,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1221754326809266,
+      "leftLowerArmZ": -0.7911884860762743,
+      "leftUpperArmRotZ": 1.1047873792385485,
+      "leftLowerArmRotZ": -0.7912198579411934
+    },
+    {
+      "time": 7.7891999999880674,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1285666610468803,
+      "leftLowerArmZ": -0.7616290617724606,
+      "leftUpperArmRotZ": 1.1106024788988353,
+      "leftLowerArmRotZ": -0.7616597000736741
+    },
+    {
+      "time": 7.804399999976146,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1346383279945362,
+      "leftLowerArmZ": -0.7335476086838375,
+      "leftUpperArmRotZ": 1.11616799039812,
+      "leftLowerArmRotZ": -0.7335775235151768
+    },
+    {
+      "time": 7.8210999999642254,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1404064115948094,
+      "leftLowerArmZ": -0.7068702282496456,
+      "leftUpperArmRotZ": 1.1215042361514387,
+      "leftLowerArmRotZ": -0.7068992861198341
+    },
+    {
+      "time": 7.837599999964225,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.145886091015069,
+      "leftLowerArmZ": -0.6815267168371634,
+      "leftUpperArmRotZ": 1.126614165230402,
+      "leftLowerArmRotZ": -0.681554868929579
+    },
+    {
+      "time": 7.854299999952304,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1510917864643155,
+      "leftLowerArmZ": -0.6574503809953052,
+      "leftUpperArmRotZ": 1.1315075041498586,
+      "leftLowerArmRotZ": -0.6574775787368754
+    },
+    {
+      "time": 7.870999999999988,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1560371971410999,
+      "leftLowerArmZ": -0.6345778619455399,
+      "leftUpperArmRotZ": 1.136191575353592,
+      "leftLowerArmRotZ": -0.6346040780229825
+    },
+    {
+      "time": 7.887499999999988,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.160735337284045,
+      "leftLowerArmZ": -0.6128489688482629,
+      "leftUpperArmRotZ": 1.1406732747693316,
+      "leftLowerArmRotZ": -0.6128741948207194
+    },
+    {
+      "time": 7.904299999952304,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1651985704198426,
+      "leftLowerArmZ": -0.5922065204058498,
+      "leftUpperArmRotZ": 1.1449631944062117,
+      "leftLowerArmRotZ": -0.5922307389326179
+    },
+    {
+      "time": 7.920999999999988,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1694386418988505,
+      "leftLowerArmZ": -0.5725961943855573,
+      "leftUpperArmRotZ": 1.1490669145398913,
+      "leftLowerArmRotZ": -0.5726194110699895
+    },
+    {
+      "time": 7.937499999999988,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.173466709803908,
+      "leftLowerArmZ": -0.5539663846662795,
+      "leftUpperArmRotZ": 1.152991222680317,
+      "leftLowerArmRotZ": -0.5539886150921258
+    },
+    {
+      "time": 7.954299999952304,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1772933743137126,
+      "leftLowerArmZ": -0.5362680654329655,
+      "leftUpperArmRotZ": 1.1567468194339638,
+      "leftLowerArmRotZ": -0.5362893130763393
+    },
+    {
+      "time": 7.970899999976146,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1809287055980269,
+      "leftLowerArmZ": -0.5194546621613172,
+      "leftUpperArmRotZ": 1.1603375219940073,
+      "leftLowerArmRotZ": -0.5194749523197039
+    },
+    {
+      "time": 7.987699999988067,
+      "mood": "neutral",
+      "activeGesture": "none",
+      "gestureTimer": 0,
+      "leftUpperArmZ": 1.1843822703181255,
+      "leftLowerArmZ": -0.5034819290532513,
+      "leftUpperArmRotZ": 1.1637732187059755,
+      "leftLowerArmRotZ": -0.5035012769697598
+    }
+  ]
+}

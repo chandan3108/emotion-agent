@@ -192,7 +192,11 @@ class StateOrchestrator:
         
         for key, value in updates.items():
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                result[key] = self._deep_merge(result[key], value)
+                # If this is an active game session and the session ID changed, overwrite instead of merge
+                if key.startswith("_active_") and result[key].get("id") != value.get("id"):
+                    result[key] = value
+                else:
+                    result[key] = self._deep_merge(result[key], value)
             else:
                 result[key] = value
         

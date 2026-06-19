@@ -166,29 +166,18 @@ def test_chat():
     return _fail("Chat endpoint", f"Missing or empty reply. Keys: {list(r.keys())}")
 
 
-def test_link_flow():
-    """Test the Discord link code flow end-to-end."""
-    from backend.user_sync import generate_link_code
-
-    # Step 1: Generate a code for a fake Discord user
-    fake_discord_id = f"fake_{secrets.token_hex(4)}"
-    code = generate_link_code(fake_discord_id)
-    if not code or len(code) != 6:
-        return _fail("Link flow", f"Bad code: {code}")
-
-    # Step 2: Verify the code via API
-    r = _req("POST", "/api/user/link", {"code": code})
+def test_oauth_flow():
+    """Test OAuth configuration endpoints."""
+    r = _req("GET", "/api/auth/oauth/google/url?redirect_uri=http://localhost:3000/login")
     if r.get("_error"):
-        return _fail("Link flow (verify)", r.get("_body", ""))
-    if not r.get("success"):
-        return _fail("Link flow (verify)", f"Not successful: {r}")
-
-    # Step 3: Check link status
-    r2 = _req("GET", "/api/user/link")
-    if not r2.get("linked"):
-        return _fail("Link flow (status)", f"Not linked: {r2}")
-
-    return _pass(f"Link flow (code={code}, discord_id={fake_discord_id})")
+        body = r.get("_body", "")
+        if "not configured" in body:
+            return _pass("OAuth URL endpoint (handled not configured)")
+        return _fail("OAuth URL endpoint", body)
+    
+    if "url" in r:
+        return _pass("OAuth URL endpoint (generated URL)")
+    return _fail("OAuth URL endpoint", f"Keys: {list(r.keys())}")
 
 
 def test_yap_mode():
@@ -496,7 +485,7 @@ def main():
         test_inside_jokes,
         test_patterns,
         test_chat,
-        test_link_flow,
+        test_oauth_flow,
         test_yap_mode,
         test_rpg_mode,
         test_court_mode,

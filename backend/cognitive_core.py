@@ -455,10 +455,19 @@ class CognitiveCore:
         # Stage 14: Pre-Response Assessment (LLM-driven, replaces hardcoded ToM + intentions)
         # Single 8B LLM call that reads the room: user state, Rem's intent, reciprocity feel
         recent_stm_for_assessment = self.memory.get_stm(decay=False)[-6:]
-        assessment_messages = [
-            {"role": m.get("role", "user"), "content": m.get("content", "")}
-            for m in recent_stm_for_assessment
-        ]
+        assessment_messages = []
+        for m in recent_stm_for_assessment:
+            content = m.get("content", "")
+            role = m.get("role", "user")
+            if content.startswith("[Rem] "):
+                role = "assistant"
+                content = content[6:]
+            elif content.startswith("[User] "):
+                role = "user"
+                content = content[7:]
+            elif role == "model":
+                role = "assistant"
+            assessment_messages.append({"role": role, "content": content})
         # Gather compact context for richer assessment
         _rum_data = self.state.get("_rumination")
         _rum_summary = None
@@ -1859,7 +1868,7 @@ EXTRACT:
 
 2. EPISODIC MEMORIES — significant moments from Rem's perspective.
    RULES:
-   - Write in third person as if Rem is journaling: "We talked about exams — they seemed stressed"
+   - Write specific, detailed episodic memories in third-person, highlighting EXACTLY who said what and what occurred. Always use names where possible (e.g., 'Chandan shared that they are procrastinating on exam prep, and Rem playfully teased them about watching YouTube instead.'). Never write generic summaries like 'We talked about exams.' or use vague pronouns like 'they' when referring to the user. Always clearly attribute actions and disclosures to either the user's name (e.g., 'Chandan') or 'Rem'.
    - Only genuinely meaningful moments: emotional exchanges, conflicts, breakthroughs, confessions
    - NOT small talk like "we said hi" or "they asked what's up"
    - Include emotional context: how did it feel, was there tension, warmth, awkwardness?

@@ -148,13 +148,14 @@ body::before {
 [style*="background:var(--bg-surface)"],
 .glass-card, 
 .glass-panel,
-.chat-bubble-rem {
-  --text-primary: #0F0F0F;
-  --text-secondary: #4A4640;
-  --text-muted: #7A7670;
-  --border-subtle: #E3DCD0;
-  --accent-primary: #0F0F0F;
-  --accent-secondary: #2A2A2A;
+.chat-bubble-rem,
+.theme-light {
+  --text-primary: #0F0F0F !important;
+  --text-secondary: #4A4640 !important;
+  --text-muted: #7A7670 !important;
+  --border-subtle: #E3DCD0 !important;
+  --accent-primary: #0F0F0F !important;
+  --accent-secondary: #2A2A2A !important;
   color: #0F0F0F !important;
 }
 
@@ -162,13 +163,14 @@ body::before {
 [style*="background: var(--bg-surface)"] *,
 [style*="background:var(--bg-surface)"] *,
 .glass-card *, 
-.glass-panel * {
-  --text-primary: #0F0F0F;
-  --text-secondary: #4A4640;
-  --text-muted: #7A7670;
-  --border-subtle: #E3DCD0;
-  --accent-primary: #0F0F0F;
-  --accent-secondary: #2A2A2A;
+.glass-panel *,
+.theme-light * {
+  --text-primary: #0F0F0F !important;
+  --text-secondary: #4A4640 !important;
+  --text-muted: #7A7670 !important;
+  --border-subtle: #E3DCD0 !important;
+  --accent-primary: #0F0F0F !important;
+  --accent-secondary: #2A2A2A !important;
 }
 
 /* ─── XP Progress Bar ─── */
@@ -565,41 +567,7 @@ body.preset-violet {
   transform: translateY(0);
 }
 
-/* Override to restore light text inside nested dark containers (e.g. inside cream cards) */
-[style*="var(--bg-void)"],
-[style*="background: var(--bg-void)"],
-[style*="background:var(--bg-void)"],
-[style*="var(--bg-primary)"],
-[style*="background: var(--bg-primary)"],
-[style*="background:var(--bg-primary)"],
-[style*="var(--bg-elevated)"],
-[style*="background: var(--bg-elevated)"],
-[style*="background:var(--bg-elevated)"] {
-  --text-primary: #FAF6EE !important;
-  --text-secondary: #C8C3BC !important;
-  --text-muted: #6C6863 !important;
-  --border-subtle: #242424 !important;
-  --accent-primary: #FAF6EE !important;
-  --accent-secondary: #EAE3D5 !important;
-  color: #FAF6EE !important;
-}
-
-[style*="var(--bg-void)"] *,
-[style*="background: var(--bg-void)"] *,
-[style*="background:var(--bg-void)"] *,
-[style*="var(--bg-primary)"] *,
-[style*="background: var(--bg-primary)"] *,
-[style*="background:var(--bg-primary)"] *,
-[style*="var(--bg-elevated)"] *,
-[style*="background: var(--bg-elevated)"] *,
-[style*="background:var(--bg-elevated)"] * {
-  --text-primary: #FAF6EE !important;
-  --text-secondary: #C8C3BC !important;
-  --text-muted: #6C6863 !important;
-  --border-subtle: #242424 !important;
-  --accent-primary: #FAF6EE !important;
-  --accent-secondary: #EAE3D5 !important;
-}
+/* Override to restore light text inside nested dark containers (moved down for specificity) */
 
 /* ─── Ruled Notebook Page (Diary) ─── */
 .notebook-container {
@@ -660,7 +628,8 @@ body.preset-violet {
 .glass-card *,
 .glass-panel *,
 .chat-bubble-rem *,
-.notebook-page * {
+.notebook-page *,
+.theme-light * {
   --text-primary: #0F0F0F !important;
   --text-secondary: #4A4640 !important;
   --text-muted: #7A7670 !important;
@@ -669,6 +638,44 @@ body.preset-violet {
   --accent-primary: #0F0F0F !important;
   --accent-secondary: #2A2A2A !important;
   --accent-tertiary: #4A4640 !important;
+}
+
+/* Force light text inside nested dark containers */
+[style*="var(--bg-void)"],
+[style*="background: var(--bg-void)"],
+[style*="background:var(--bg-void)"],
+[style*="var(--bg-primary)"],
+[style*="background: var(--bg-primary)"],
+[style*="background:var(--bg-primary)"],
+[style*="var(--bg-elevated)"],
+[style*="background: var(--bg-elevated)"],
+[style*="background:var(--bg-elevated)"],
+.theme-dark {
+  --text-primary: #FAF6EE !important;
+  --text-secondary: #C8C3BC !important;
+  --text-muted: #6C6863 !important;
+  --border-subtle: #242424 !important;
+  --accent-primary: #FAF6EE !important;
+  --accent-secondary: #EAE3D5 !important;
+  color: #FAF6EE !important;
+}
+
+[style*="var(--bg-void)"] *,
+[style*="background: var(--bg-void)"] *,
+[style*="background:var(--bg-void)"] *,
+[style*="var(--bg-primary)"] *,
+[style*="background: var(--bg-primary)"] *,
+[style*="background:var(--bg-primary)"] *,
+[style*="var(--bg-elevated)"] *,
+[style*="background: var(--bg-elevated)"] *,
+[style*="background:var(--bg-elevated)"] *,
+.theme-dark * {
+  --text-primary: #FAF6EE !important;
+  --text-secondary: #C8C3BC !important;
+  --text-muted: #6C6863 !important;
+  --border-subtle: #242424 !important;
+  --accent-primary: #FAF6EE !important;
+  --accent-secondary: #EAE3D5 !important;
 }
 
 /* Restore light text/borders inside dark info boxes on the Mind page */
@@ -720,6 +727,61 @@ body.preset-violet {
 .glass-card .btn-primary:hover {
   background: #2A2A2A !important;
 }
+/* ──────────────────────────────────────────────────────────────────────────
+   HIGH-CONTRAST NESTED OVERRIDES
+   ────────────────────────────────────────────────────────────────────────── */
 
+/* 1. Light-colored containers & children MUST use dark-colored text */
+.theme-light,
+.theme-light *,
+.glass-card,
+.glass-card *,
+.glass-panel,
+.glass-panel *,
+.chat-bubble-rem,
+.chat-bubble-rem *,
+.notebook-page,
+.notebook-page *,
+.stat-card,
+.stat-card *,
+[style*="var(--bg-surface)"],
+[style*="var(--bg-surface)"] *,
+[style*="background: var(--bg-surface)"],
+[style*="background: var(--bg-surface)"] *,
+[style*="background:var(--bg-surface)"],
+[style*="background:var(--bg-surface)"] * {
+  --text-primary: #0F0F0F !important;
+  --text-secondary: #4A4640 !important;
+  --text-muted: #7A7670 !important;
+  --text-accent: #0F0F0F !important;
+  --border-subtle: #E3DCD0 !important;
+  --accent-primary: #0F0F0F !important;
+  --accent-secondary: #2A2A2A !important;
+  --accent-tertiary: #4A4640 !important;
+  color: #0F0F0F !important;
+}
 
+/* 2. Explicit style for input/select elements to ensure light text on dark inputs */
+input,
+select,
+textarea {
+  --text-primary: #FAF6EE !important;
+  --text-secondary: #C8C3BC !important;
+  --text-muted: #6C6863 !important;
+  --border-subtle: #242424 !important;
+  --accent-primary: #FAF6EE !important;
+  --accent-secondary: #EAE3D5 !important;
+  color: #FAF6EE !important;
+}
+
+/* 3. Exceptions: Inputs with light backgrounds (like Memory Vault search) must use dark text */
+input[style*="var(--bg-surface)"],
+input[style*="background: var(--bg-surface)"],
+input[style*="background:var(--bg-surface)"],
+.theme-light input,
+.theme-light select,
+.theme-light textarea {
+  --text-primary: #0F0F0F !important;
+  color: #0F0F0F !important;
+}
 

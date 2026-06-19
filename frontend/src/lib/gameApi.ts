@@ -115,6 +115,7 @@ export interface PatternsData {
 export interface ChatRequest {
   message: string;
   user_name?: string;
+  session_id?: string;
 }
 
 export interface ChatResponse {
@@ -304,10 +305,21 @@ export function getLinkStatus(userId: string = DEFAULT_USER_ID) {
   return apiFetch<LinkStatus>(`/api/user/link`);
 }
 
-export function linkDiscord(code: string, userId: string = DEFAULT_USER_ID) {
-  return apiFetch<LinkResult>(`/api/user/link`, {
+export function getOAuthUrl(provider: string, redirectUri: string) {
+  return apiFetch<{ url: string }>(`/api/auth/oauth/${provider}/url?redirect_uri=${encodeURIComponent(redirectUri)}`);
+}
+
+export function oauthCallback(provider: string, code: string, redirectUri: string) {
+  return apiFetch<AuthResponse>(`/api/auth/oauth/${provider}/callback`, {
     method: "POST",
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
+  });
+}
+
+export function linkDiscordOAuth(code: string, redirectUri: string) {
+  return apiFetch<{ success: boolean; discord_id: string }>(`/api/auth/oauth/discord/link`, {
+    method: "POST",
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
   });
 }
 
@@ -335,8 +347,9 @@ export function getPostcards(userId: string = DEFAULT_USER_ID) {
   return apiFetch<PostcardsData>(`/api/user/postcards`);
 }
 
-export function getMessages(userId: string = DEFAULT_USER_ID) {
-  return apiFetch<{ messages: { role: "user" | "assistant"; content: string; timestamp: string }[] }>(`/api/user/messages`);
+export function getMessages(sessionId?: string) {
+  const path = sessionId ? `/api/user/messages?session_id=${encodeURIComponent(sessionId)}` : `/api/user/messages`;
+  return apiFetch<{ messages: { role: "user" | "assistant"; content: string; timestamp: string }[] }>(path);
 }
 
 // ── Mini-Games APIs ──
@@ -731,5 +744,43 @@ export function loginUser(payload: any) {
   return apiFetch<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+// ── Chat Session APIs ──
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatSessionsList {
+  sessions: ChatSession[];
+  active_session_id: string | null;
+}
+
+export function getSessions() {
+  return apiFetch<ChatSessionsList>("/api/user/sessions");
+}
+
+export function startNewSession(title?: string) {
+  return apiFetch<ChatSession>("/api/user/sessions/new", {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export function switchSession(sessionId: string) {
+  return apiFetch<{ success: boolean; active_session_id: string }>("/api/user/sessions/switch", {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+}
+
+export function deleteSession(sessionId: string) {
+  return apiFetch<{ success: boolean }>(`/api/user/sessions/${sessionId}`, {
+    method: "DELETE",
   });
 }
