@@ -437,11 +437,56 @@ def process_win_over_state_updates(stats: dict, evaluation: dict, scenario_id: s
 
 # ================= OPENROUTER CONNECTOR =================
 
+async def call_gemini_fallback(messages: List[Dict], temperature: float, max_tokens: int) -> str:
+    """Helper to call Gemini 2.5 Flash during fallback if Groq/OpenRouter fails."""
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if not gemini_key:
+        return "the servers are a bit busy, let's try again in a sec."
+    
+    formatted_contents = []
+    system_instruction = ""
+    for m in messages:
+        if m["role"] == "system":
+            system_instruction = m["content"]
+        else:
+            role = "model" if m["role"] == "assistant" else "user"
+            formatted_contents.append({
+                "role": role,
+                "parts": [{"text": m["content"]}]
+            })
+            
+    payload = {
+        "contents": formatted_contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens
+        }
+    }
+    if system_instruction:
+        payload["systemInstruction"] = {
+            "parts": [{"text": system_instruction}]
+        }
+        
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                return _clean_game_response(text)
+            else:
+                print(f"[GEMINI FALLBACK ERROR] Status {resp.status_code}: {resp.text}")
+    except Exception as e:
+        print(f"[GEMINI FALLBACK ERROR] {e}")
+    return "the servers are a bit busy, let's try again in a sec."
+
+
 async def call_groq_fallback(messages: List[Dict], temperature: float, max_tokens: int) -> str:
     """Helper to call Groq with full messages history during fallback."""
     groq_key = os.environ.get("GROQ_API_KEY")
     if not groq_key:
-        return "the servers are a bit busy, let's try again in a sec."
+        return await call_gemini_fallback(messages, temperature, max_tokens)
     payload = {
         "model": "llama-3.3-70b-versatile",
         "messages": messages,
@@ -462,13 +507,13 @@ async def call_groq_fallback(messages: List[Dict], temperature: float, max_token
                 print(f"[GROQ FALLBACK ERROR] Status {resp.status_code}: {resp.text}")
     except Exception as e:
         print(f"[GROQ FALLBACK ERROR] {e}")
-    return "the servers are a bit busy, let's try again in a sec."
+    return await call_gemini_fallback(messages, temperature, max_tokens)
 
 
 async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_tokens: int = 300) -> str:
     """
     Call OpenRouter API for uncensored roleplay.
-    Falls back to Groq if key is missing or calls fail.
+    Falls back to free uncensored models if key lacks credits, then Groq/Gemini.
     """
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
@@ -493,9 +538,39 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
             )
             if resp.status_code == 200:
                 return resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            
+            # If insufficient credits, try free uncensored models
+            if resp.status_code == 402 or "credits" in resp.text.lower():
+                print("[OPENROUTER] Insufficient credits. Trying free uncensored Dolphin/Hermes models...")
+                free_models = [
+                    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+                    "nousresearch/hermes-3-llama-3.1-405b:free"
+                ]
+                for free_model in free_models:
+                    print(f"[OPENROUTER FREE FALLBACK] Attempting with model: {free_model}")
+                    free_payload = dict(payload)
+                    free_payload["model"] = free_model
+                    try:
+                        resp_free = await client.post(
+                            "https://openrouter.ai/api/v1/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {api_key}",
+                                "HTTP-Referer": "http://localhost:3000",
+                                "X-Title": "Emotion Agent Rem"
+                            },
+                            json=free_payload
+                        )
+                        if resp_free.status_code == 200:
+                            print(f"[OPENROUTER FREE FALLBACK] Success with model: {free_model}")
+                            return resp_free.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                        else:
+                            print(f"[OPENROUTER FREE FALLBACK] Error {resp_free.status_code} for {free_model}: {resp_free.text}")
+                    except Exception as e_free:
+                        print(f"[OPENROUTER FREE FALLBACK] Connection error for {free_model}: {e_free}")
             else:
                 print(f"[OPENROUTER] Error {resp.status_code}: {resp.text}")
-                return await call_groq_fallback(messages, temperature, max_tokens)
+            
+            return await call_groq_fallback(messages, temperature, max_tokens)
     except Exception as e:
         print(f"[OPENROUTER] Connection error: {e}")
         return await call_groq_fallback(messages, temperature, max_tokens)

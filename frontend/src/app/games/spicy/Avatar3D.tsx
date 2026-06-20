@@ -192,6 +192,7 @@ export default function Avatar3D({ mood, isSpeaking }: Avatar3DProps) {
             body: JSON.stringify({ logs: `Error checking bones: ${e.message}\nStack: ${e.stack}` }),
           }).catch(() => {});
         }
+        setLoadingProgress(100);
       },
       (xhr) => {
         if (xhr.total > 0) {
