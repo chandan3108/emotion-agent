@@ -218,7 +218,10 @@ export default function DatePage() {
     setLoading(true);
 
     try {
-      const response = await sendChat({ message: textToSend });
+      const response = await sendChat({ 
+        message: textToSend,
+        session_id: selectedSession?.id || undefined
+      });
       if (response && response.reply) {
         const assistantMsg: Message = {
           role: "assistant",

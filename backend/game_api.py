@@ -391,6 +391,7 @@ class PlanRequest(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     user_name: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 class RememberRequest(BaseModel):
@@ -948,6 +949,29 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
     xp_before = core.xp_system.total_xp
     phase_before = core.xp_system.current_phase
 
+    # Resolve active_sess_id consistently (supporting frontend date/roleplay sessions)
+    active_sess_id = payload.session_id
+    db_init = SessionLocal()
+    try:
+        if not active_sess_id:
+            active_sess_id = _get_active_session_id(user_id, db_init)
+        else:
+            # Ensure the session exists in the DB
+            session_row = db_init.query(ChatSession).filter(ChatSession.id == active_sess_id).first()
+            if not session_row:
+                is_date = active_sess_id.startswith("date_") or active_sess_id.startswith("rp_")
+                title = "Date/Roleplay Session" if is_date else "Chat Session"
+                session_row = ChatSession(id=active_sess_id, user_id=user_id, title=title)
+                db_init.add(session_row)
+                db_init.commit()
+    except Exception as e:
+        print(f"Error initializing session in chat route: {e}")
+        db_init.rollback()
+        if not active_sess_id:
+            active_sess_id = "sess_fallback"
+    finally:
+        db_init.close()
+
     # Helper: human-readable time-ago for temporal reasoning
     def _time_ago_label(ts_str: str) -> str:
         """Convert ISO timestamp to a relative time label for the LLM."""
@@ -972,8 +996,6 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
     db = SessionLocal()
     message_history = []
     try:
-        active_sess_id = _get_active_session_id(user_id, db)
-        
         # Save user message to database
         user_msg_content = payload.message.strip()
         db_user_msg = ChatMessage(session_id=active_sess_id, role="user", content=user_msg_content)
@@ -1071,7 +1093,6 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
     # Save Rem's response to database
     db = SessionLocal()
     try:
-        active_sess_id = _get_active_session_id(user_id, db)
         db_assistant_msg = ChatMessage(session_id=active_sess_id, role="assistant", content=response_text)
         db.add(db_assistant_msg)
         
