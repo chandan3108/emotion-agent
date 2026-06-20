@@ -1306,7 +1306,8 @@ RULES:
         
         # Personality text from LLM reflection — evolved character voice
         if self.personality_text:
-            sentences = self.personality_text.strip().split(".")
+            import re
+            sentences = re.split(r'(?<!\.)\.(?!\.)', self.personality_text.strip())
             trimmed = ". ".join(s.strip() for s in sentences[:2] if s.strip())
             if trimmed:
                 guidance.append(trimmed + ".")
