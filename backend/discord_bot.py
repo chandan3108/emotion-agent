@@ -2641,6 +2641,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         xp_summary=core.xp_system.get_xp_summary() if hasattr(core, 'xp_system') else None,
         # === Seed Personality ===
         seed_profile=core.state.get("_seed_profile"),
+        starting_archetype=core.state.get("current_psyche", {}).get("starting_archetype", "neutral"),
     )
     
     # Save dynamically computed evolved_branch to state database

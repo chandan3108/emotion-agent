@@ -44,7 +44,7 @@ _DEFAULT_PERSONA = """- Has opinions about a show or game she's been into
 - A random hot take she'd share unprompted"""
 
 
-def _build_identity(persona_flavor: str = None, seed_profile: Dict[str, Any] = None) -> str:
+def _build_identity(persona_flavor: str = None, seed_profile: Dict[str, Any] = None, archetype_guideline: str = None) -> str:
     """Build the full identity block with dynamic persona flavor and seed details."""
     persona = persona_flavor or _DEFAULT_PERSONA
     
@@ -73,7 +73,24 @@ def _build_identity(persona_flavor: str = None, seed_profile: Dict[str, Any] = N
         if "guilty_pleasure" in seed_profile:
             seed_block += f"\n- Guilty Pleasure: {seed_profile['guilty_pleasure'].get('details', '')} (Keywords: {', '.join(seed_profile['guilty_pleasure'].get('trigger_keywords', []))})"
             
-    identity_core_with_style = _IDENTITY_CORE.replace("HOW YOU TALK:", f"HOW YOU TALK:{style_instruction}")
+    if archetype_guideline:
+        clean_guideline = archetype_guideline.strip()
+        if clean_guideline.startswith("-"):
+            clean_guideline = clean_guideline.lstrip("- ").strip()
+        
+        # Keep formatting (types fast/no typos/lowercase) + specific persona behavior + pacing (share before ask)
+        combined_how_you_talk = (
+            f"You text like someone who types fast and doesn't care about typos. Lowercase, shorthand, abbreviations. "
+            f"{clean_guideline} "
+            f"You share before you ask — you lead with reactions, opinions, and what's on your mind, not questions.{style_instruction}"
+        )
+        
+        identity_core_with_style = _IDENTITY_CORE.replace(
+            "You text like someone who types fast and doesn't care about typos. Lowercase, shorthand, abbreviations. Your humor is dry — you'll deadpan something absurd. You roast before you compliment. Warm underneath but people have to earn it. You get bored fast and you'll call it out or pivot to something you actually want to talk about. You share before you ask — you lead with reactions, opinions, and what's on your mind, not questions. You're blunt but not cruel.",
+            combined_how_you_talk
+        )
+    else:
+        identity_core_with_style = _IDENTITY_CORE.replace("HOW YOU TALK:", f"HOW YOU TALK:{style_instruction}")
         
     return f"""{identity_core_with_style}
 
@@ -1053,6 +1070,7 @@ def distill_prompt(
     xp_summary: Dict[str, Any] = None,
     # === Seed Personality ===
     seed_profile: Dict[str, Any] = None,
+    starting_archetype: str = "neutral",
 ) -> str:
     """
     Compressed prompt builder v2.
@@ -1120,11 +1138,28 @@ def distill_prompt(
         if current_rank >= 5 or is_triggered("deep_secret"):
             filtered_seed["deep_secret"] = seed_profile.get("deep_secret", {})
 
+    # === Archetype Evolution Calculation ===
+    evolved_guideline = ""
+    evolved_branch = "neutral_balanced"
+    try:
+        branch_info = evolve_archetype(
+            archetype=starting_archetype,
+            phase=phase,
+            trust=trust,
+            hurt=hurt,
+            active_wounds=unresolved_wounds,
+            active_undercurrents=emotional_undercurrents
+        )
+        evolved_guideline = branch_info.get("guideline", "")
+        evolved_branch = branch_info.get("branch", "neutral_balanced")
+    except Exception as evolve_err:
+        print(f"[PROMPT] Archetype evolution calculation failed: {evolve_err}")
+
     # ── 1. IDENTITY (~300 tokens, dynamic persona) ──
     persona_flavor = None
     if self_identity and isinstance(self_identity, dict):
         persona_flavor = self_identity.get("_persona_flavor")
-    identity_prompt = _build_identity(persona_flavor, seed_profile=filtered_seed)
+    identity_prompt = _build_identity(persona_flavor, seed_profile=filtered_seed, archetype_guideline=None if is_roleplay else evolved_guideline)
     if is_roleplay:
         # Lift the narration ban and replace with active narration rules
         identity_prompt = identity_prompt.replace(
@@ -1244,23 +1279,8 @@ def distill_prompt(
     )
     
     # Apply evolved archetype branching rules
-    try:
-        starting_archetype = psyche_state.get("starting_archetype", "neutral") if psyche_state else "neutral"
-        branch_info = evolve_archetype(
-            archetype=starting_archetype,
-            phase=phase,
-            trust=trust,
-            hurt=hurt,
-            active_wounds=unresolved_wounds,
-            active_undercurrents=emotional_undercurrents
-        )
-        evolved_guideline = branch_info.get("guideline", "")
-        evolved_branch = branch_info.get("branch", "neutral_balanced")
-        
-        if evolved_guideline and state_block:
-            state_block += f"\n\n[EVOLVED PERSONALITY PATH: {evolved_branch}]\n{evolved_guideline}"
-    except Exception as evolve_err:
-        print(f"[PROMPT] Archetype evolution calculation failed: {evolve_err}")
+    if evolved_guideline and state_block:
+        state_block += f"\n\n[EVOLVED PERSONALITY PATH: {evolved_branch}]\n{evolved_guideline}"
 
     if state_block:
         prompt += f"[YOUR STATE]\n{state_block}\n\n"
