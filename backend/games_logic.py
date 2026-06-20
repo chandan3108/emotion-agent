@@ -139,9 +139,9 @@ async def call_groq(prompt: str, temperature: float = 0.8, max_tokens: int = 250
     if not api_key:
         return ""
     
-    # Primary: Scout 17B (better at complex instructions & creative dialogue)
-    # Fallback: 8B instant (if 17B fails or rate-limits)
-    models = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+    # Primary: Llama 3.3 70B (better at complex instructions & creative dialogue)
+    # Fallback: 8B instant (if 70B fails or rate-limits)
+    models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
     
     for model_id in models:
         payload = {

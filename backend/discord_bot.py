@@ -1572,7 +1572,7 @@ HF_TOKEN = GROQ_API_KEY  # Alias for compatibility
 # Primary → Mid-tier → Lightweight
 MODEL_CASCADE = [
     {"id": "llama-3.3-70b-versatile", "label": "70B", "wait_before": 0},
-    {"id": "meta-llama/llama-4-scout-17b-16e-instruct", "label": "Scout 17B", "wait_before": 0},
+    {"id": "llama-3.1-70b-versatile", "label": "3.1-70B", "wait_before": 0},
     {"id": "llama-3.1-8b-instant", "label": "8B", "wait_before": 0},
 ]
 
@@ -2727,8 +2727,8 @@ async def generate_response(core: CognitiveCore, user_message: str,
     # Trust the psychological state to guide natural response length
     import random
     temp_jitter = round(0.82 + random.uniform(-0.05, 0.05), 2)
-    freq_jitter = round(0.85 + random.uniform(-0.05, 0.05), 2)
-    pres_jitter = round(0.60 + random.uniform(-0.05, 0.05), 2)
+    freq_jitter = round(0.12 + random.uniform(-0.02, 0.02), 2)
+    pres_jitter = round(0.08 + random.uniform(-0.02, 0.02), 2)
 
     body = {
         "model": MODEL_ID,
@@ -3048,7 +3048,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
                 retry_history.append({"role": "assistant", "content": text if text else "(empty)"})  # Show what it tried
                 retry_history.append({"role": "user", "content": "(System: your previous response was empty after processing. Reply with actual dialogue, no *actions* or *italics*. Just speak normally.)"})
                 # Use fallback model for retry to avoid hitting rate limits on primary
-                retry_model = "meta-llama/llama-4-scout-17b-16e-instruct"
+                retry_model = "llama-3.1-8b-instant"
                 async with httpx.AsyncClient(timeout=30) as retry_client:
                     retry_resp = await retry_client.post(
                         INFERENCE_URL,
@@ -3673,7 +3673,7 @@ Respond ONLY with JSON:
     
     try:
         api_key = os.environ.get('GROQ_API_KEY')
-        MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+        MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
         
         async with httpx.AsyncClient(timeout=10.0) as client:
             content = None
@@ -4015,7 +4015,7 @@ Respond ONLY with JSON:
 {{"favorites": {{}}, "experiences": {{}}, "preferences": {{}}, "user_facts": {{"snake_key": "Third person value"}}, "active_topic": "topic or null", "taught_knowledge": {{"topic_key": "what they explained"}}, "semantic_glue": {{"term": "meaning"}}}}"""
 
     # Scout 17B primary → 8B fallback for better extraction quality
-    EXTRACTION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+    EXTRACTION_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
     
     try:
         api_key = os.environ.get('GROQ_API_KEY')
