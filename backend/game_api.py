@@ -990,7 +990,7 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
         db_history = list(reversed(db_history))
         
         for m in db_history:
-            ts = m.timestamp.isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
+            ts = m.timestamp.replace(tzinfo=timezone.utc).isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
             message_history.append({
                 "role": m.role,
                 "content": m.content,
@@ -2455,7 +2455,7 @@ async def get_messages(session_id: Optional[str] = None, user_id: str = Depends(
                 messages.append(MessageEntry(
                     role=m.role,
                     content=m.content,
-                    timestamp=m.timestamp.isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
+                    timestamp=m.timestamp.replace(tzinfo=timezone.utc).isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
                 ))
             return MessagesResponse(messages=messages)
             
@@ -3566,8 +3566,8 @@ async def list_sessions(user_id: str = Depends(get_current_user_id)):
             sessions_list.append(ChatSessionResponse(
                 id=s.id,
                 title=s.title,
-                created_at=s.created_at.isoformat() if hasattr(s.created_at, 'isoformat') else str(s.created_at),
-                updated_at=s.updated_at.isoformat() if hasattr(s.updated_at, 'isoformat') else str(s.updated_at)
+                created_at=s.created_at.replace(tzinfo=timezone.utc).isoformat() if hasattr(s.created_at, 'isoformat') else str(s.created_at),
+                updated_at=s.updated_at.replace(tzinfo=timezone.utc).isoformat() if hasattr(s.updated_at, 'isoformat') else str(s.updated_at)
             ))
             
         return ChatSessionsListResponse(sessions=sessions_list, active_session_id=active_id)
@@ -3606,8 +3606,8 @@ async def create_session(payload: CreateSessionRequest, user_id: str = Depends(g
         return ChatSessionResponse(
             id=new_session.id,
             title=new_session.title,
-            created_at=new_session.created_at.isoformat() if hasattr(new_session.created_at, 'isoformat') else str(new_session.created_at),
-            updated_at=new_session.updated_at.isoformat() if hasattr(new_session.updated_at, 'isoformat') else str(new_session.updated_at)
+            created_at=new_session.created_at.replace(tzinfo=timezone.utc).isoformat() if hasattr(new_session.created_at, 'isoformat') else str(new_session.created_at),
+            updated_at=new_session.updated_at.replace(tzinfo=timezone.utc).isoformat() if hasattr(new_session.updated_at, 'isoformat') else str(new_session.updated_at)
         )
     finally:
         db.close()
@@ -3632,7 +3632,7 @@ async def switch_session(payload: SwitchSessionRequest, user_id: str = Depends(g
             prefix = "[Rem] " if m.role == "assistant" else "[User] "
             stm_entries.append({
                 "content": prefix + m.content,
-                "timestamp": m.timestamp.isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
+                "timestamp": m.timestamp.replace(tzinfo=timezone.utc).isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
             })
             
         core.memory.memory["stm"] = stm_entries
