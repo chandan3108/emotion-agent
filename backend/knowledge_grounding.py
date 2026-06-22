@@ -177,9 +177,17 @@ def extract_facts_from_search(query: str, results: List[Dict[str, str]]) -> List
     ]
     facts = []
     
+    # Check if Tavily provided a clean, unified AI Answer (best quality)
+    has_ai_answer = any(r.get('is_answer') for r in results)
+    
     for r in results[:4]:
         snippet = r.get("snippet", "")
         title = r.get("title", "")
+        
+        # If we have a unified AI answer, skip the noisy individual snippets
+        if has_ai_answer and not r.get('is_answer'):
+            continue
+            
         combined_text = (snippet + " " + title).lower()
         
         # Skip results matching content blocklist (e.g. Re:Zero contamination)
