@@ -1731,8 +1731,8 @@ Summary:"""
             if not api_key:
                 return
             
-            # Llama 3.3 70B primary → 8B fallback for better summarization
-            SUMMARY_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+            # Scout 17B primary → 8B fallback for better summarization
+            SUMMARY_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
             summary = None
             
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -1888,8 +1888,8 @@ Empty arrays [] if nothing worth extracting."""
             if not api_key:
                 return
             
-            # Llama 3.3 70B primary → 8B fallback
-            CONSOLIDATION_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+            # Scout 17B primary → 8B fallback
+            CONSOLIDATION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
             content = None
             
             async with httpx.AsyncClient(timeout=20.0) as client:

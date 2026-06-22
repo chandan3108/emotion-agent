@@ -506,9 +506,9 @@ body.preset-violet {
 .action-chip {
   padding: 6px 14px;
   font-size: 0.75rem;
-  color: var(--accent-primary);
-  background: #FFFFFF;
-  border: 1px solid var(--border-subtle);
+  color: #0F0F0F; /* Explicit dark text */
+  background: #FAF6EE; /* Soft cream background */
+  border: 1px solid #D1C9BC;
   border-radius: var(--radius-full);
   cursor: pointer;
   white-space: nowrap;
@@ -519,9 +519,9 @@ body.preset-violet {
 }
 
 .action-chip:hover {
-  background: var(--accent-primary);
-  color: #FFFFFF !important;
-  border-color: var(--accent-primary);
+  background: #1C1C1E; /* Dark background on hover */
+  color: #FFFFFF !important; /* White text on hover */
+  border-color: #1C1C1E;
   transform: translateY(-1px);
 }
 
@@ -547,9 +547,9 @@ body.preset-violet {
 }
 
 .action-chip-date {
-  background: #FFFFFF !important;
-  border: 1px solid var(--border-subtle) !important;
-  color: var(--text-primary) !important;
+  background: #FAF6EE !important; /* Soft cream background */
+  border: 1px solid #D1C9BC !important;
+  color: #0F0F0F !important; /* Explicit dark text */
   padding: 10px 20px;
   border-radius: 20px;
   cursor: pointer;
@@ -560,15 +560,25 @@ body.preset-violet {
 }
 
 .action-chip-date:hover {
-  background: var(--accent-primary) !important;
-  color: #FFFFFF !important;
-  border-color: var(--accent-primary) !important;
+  background: #1C1C1E !important; /* Dark background on hover */
+  color: #FFFFFF !important; /* White text on hover */
+  border-color: #1C1C1E !important;
   transform: translateY(-1.5px);
-  box-shadow: 0 4px 12px rgba(95, 125, 97, 0.2) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .action-chip-date:active {
   transform: translateY(0);
+}
+
+/* Reusable class for inputs with light backgrounds */
+.input-light {
+  background: var(--bg-surface) !important;
+  color: #0F0F0F !important;
+  border: 1px solid #D1C9BC !important;
+}
+.input-light::placeholder {
+  color: #7A7670 !important;
 }
 
 /* Override to restore light text inside nested dark containers (moved down for specificity) */

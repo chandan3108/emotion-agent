@@ -379,14 +379,14 @@ export default function SpicyGamePage() {
         <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
           <input
             type="text"
+            className="input-light"
             placeholder="Send a message..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
             style={{
               flex: 1, padding: "12px 18px", borderRadius: 8,
-              background: "var(--bg-surface)", border: "1px solid var(--border-subtle)",
-              color: "var(--text-primary)", fontSize: "0.8125rem",
+              fontSize: "0.8125rem",
             }}
           />
           <button

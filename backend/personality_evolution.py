@@ -1000,7 +1000,7 @@ RULES:
         if not api_key:
             return None
         
-        REFLECTION_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+        REFLECTION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
         system_msg = "You are a psychological state analysis system. Analyze conversations and return JSON with metric updates. Be nuanced - understand sarcasm, jokes, and context. Return ONLY valid JSON."
         
         try:

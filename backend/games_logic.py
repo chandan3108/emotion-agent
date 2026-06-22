@@ -139,9 +139,9 @@ async def call_groq(prompt: str, temperature: float = 0.8, max_tokens: int = 250
     if not api_key:
         return ""
     
-    # Primary: Llama 3.3 70B (better at complex instructions & creative dialogue)
-    # Fallback: 8B instant (if 70B fails or rate-limits)
-    models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    # Primary: Scout 17B (better at complex instructions & creative dialogue)
+    # Fallback: 8B instant (if Scout fails or rate-limits)
+    models = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
     
     for model_id in models:
         payload = {
@@ -519,6 +519,12 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
     if not api_key:
         return await call_groq_fallback(messages, temperature, max_tokens)
 
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "Emotion Agent Rem"
+    }
+
     payload = {
         "model": "gryphe/mythomax-l2-13b",
         "messages": messages,
@@ -529,11 +535,7 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "http://localhost:3000",
-                    "X-Title": "Emotion Agent Rem"
-                },
+                headers=headers,
                 json=payload
             )
             if resp.status_code == 200:
@@ -541,10 +543,13 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
             
             # If insufficient credits, try free uncensored models
             if resp.status_code == 402 or "credits" in resp.text.lower():
-                print("[OPENROUTER] Insufficient credits. Trying free uncensored Dolphin/Hermes models...")
+                print("[OPENROUTER] Insufficient credits. Trying free uncensored models...")
                 free_models = [
+                    "google/gemma-4-26b-a4b-it:free",
+                    "nvidia/nemotron-3-super-120b-a12b:free",
+                    "google/gemma-4-31b-it:free",
                     "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-                    "nousresearch/hermes-3-llama-3.1-405b:free"
+                    "nousresearch/hermes-3-llama-3.1-405b:free",
                 ]
                 for free_model in free_models:
                     print(f"[OPENROUTER FREE FALLBACK] Attempting with model: {free_model}")
@@ -553,23 +558,28 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
                     try:
                         resp_free = await client.post(
                             "https://openrouter.ai/api/v1/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {api_key}",
-                                "HTTP-Referer": "http://localhost:3000",
-                                "X-Title": "Emotion Agent Rem"
-                            },
+                            headers=headers,
                             json=free_payload
                         )
                         if resp_free.status_code == 200:
-                            print(f"[OPENROUTER FREE FALLBACK] Success with model: {free_model}")
-                            return resp_free.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                            content = resp_free.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                            if content:
+                                print(f"[OPENROUTER FREE FALLBACK] Success with model: {free_model}")
+                                return content
+                            else:
+                                print(f"[OPENROUTER FREE FALLBACK] Empty response from {free_model}")
                         else:
-                            print(f"[OPENROUTER FREE FALLBACK] Error {resp_free.status_code} for {free_model}: {resp_free.text}")
+                            print(f"[OPENROUTER FREE FALLBACK] Error {resp_free.status_code} for {free_model}: {resp_free.text[:150]}")
                     except Exception as e_free:
                         print(f"[OPENROUTER FREE FALLBACK] Connection error for {free_model}: {e_free}")
+                
+                # All free models failed — return user-facing message instead of falling through to censored models
+                print("[OPENROUTER] All free uncensored models failed. NOT falling through to censored Groq/Gemini.")
+                return "mmh, the spicy servers are all busy right now... try again in a sec? 💋"
             else:
-                print(f"[OPENROUTER] Error {resp.status_code}: {resp.text}")
+                print(f"[OPENROUTER] Error {resp.status_code}: {resp.text[:150]}")
             
+            # Non-credit errors (500, 503, etc.) — try Groq/Gemini as last resort
             return await call_groq_fallback(messages, temperature, max_tokens)
     except Exception as e:
         print(f"[OPENROUTER] Connection error: {e}")

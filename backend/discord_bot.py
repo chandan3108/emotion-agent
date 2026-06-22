@@ -1572,7 +1572,7 @@ HF_TOKEN = GROQ_API_KEY  # Alias for compatibility
 # Primary → Mid-tier → Lightweight
 MODEL_CASCADE = [
     {"id": "llama-3.3-70b-versatile", "label": "70B", "wait_before": 0},
-    {"id": "llama-3.1-70b-versatile", "label": "3.1-70B", "wait_before": 0},
+    {"id": "meta-llama/llama-4-scout-17b-16e-instruct", "label": "Scout 17B", "wait_before": 0},
     {"id": "llama-3.1-8b-instant", "label": "8B", "wait_before": 0},
 ]
 
@@ -2820,6 +2820,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         if not primary_success or (status and status >= 400):
             print(f"[CASCADE] Primary model ({MODEL_ID}) failed, rate-limited, or timed out. Triggering cascade fallbacks...")
             cascade_success = False
+            cascade_errors = []
             for fallback in MODEL_CASCADE:
                 if fallback["id"] == MODEL_ID:
                     continue  # Skip the model that just failed
@@ -2845,13 +2846,17 @@ async def generate_response(core: CognitiveCore, user_message: str,
                             cascade_success = True
                             break
                         else:
-                            print(f"[CASCADE] {label} failed with status: {retry_resp.status_code}")
+                            err_msg = f"status {retry_resp.status_code}: {retry_resp.text[:150]}"
+                            print(f"[CASCADE] {label} failed with {err_msg}")
+                            cascade_errors.append((label, err_msg))
                 except Exception as e:
-                    print(f"[CASCADE] {label} failed or timed out: {type(e).__name__} ({e})")
+                    err_msg = f"exception {type(e).__name__} ({e})"
+                    print(f"[CASCADE] {label} failed or timed out: {err_msg}")
+                    cascade_errors.append((label, err_msg))
                     continue
             
             if not cascade_success:
-                print(f"[CASCADE] All models failed or timed out.")
+                print(f"[CASCADE] All models failed or timed out. Errors: {cascade_errors}")
                 # Return rate limited status so caller/chat endpoint handles it
                 if return_processing_result:
                     return ("__RATE_LIMITED__", {"body": body, "system_msg": system_msg, "history": history})
@@ -3048,7 +3053,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
                 retry_history.append({"role": "assistant", "content": text if text else "(empty)"})  # Show what it tried
                 retry_history.append({"role": "user", "content": "(System: your previous response was empty after processing. Reply with actual dialogue, no *actions* or *italics*. Just speak normally.)"})
                 # Use fallback model for retry to avoid hitting rate limits on primary
-                retry_model = "llama-3.1-8b-instant"
+                retry_model = "meta-llama/llama-4-scout-17b-16e-instruct"
                 async with httpx.AsyncClient(timeout=30) as retry_client:
                     retry_resp = await retry_client.post(
                         INFERENCE_URL,
@@ -3673,7 +3678,7 @@ Respond ONLY with JSON:
     
     try:
         api_key = os.environ.get('GROQ_API_KEY')
-        MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+        MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
         
         async with httpx.AsyncClient(timeout=10.0) as client:
             content = None
@@ -4015,7 +4020,7 @@ Respond ONLY with JSON:
 {{"favorites": {{}}, "experiences": {{}}, "preferences": {{}}, "user_facts": {{"snake_key": "Third person value"}}, "active_topic": "topic or null", "taught_knowledge": {{"topic_key": "what they explained"}}, "semantic_glue": {{"term": "meaning"}}}}"""
 
     # Scout 17B primary → 8B fallback for better extraction quality
-    EXTRACTION_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    EXTRACTION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
     
     try:
         api_key = os.environ.get('GROQ_API_KEY')
@@ -4048,6 +4053,7 @@ Respond ONLY with JSON:
             
             if not content:
                 print("[EXTRACTION] All models failed")
+                core.state["extraction_failures"] = core.state.get("extraction_failures", 0) + 1
                 return
             
             if "```" in content:

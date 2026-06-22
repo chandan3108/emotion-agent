@@ -710,7 +710,7 @@ export default function ChatPage() {
             padding: "8px 16px",
             borderRadius: 12,
             fontSize: "0.8125rem",
-            color: "var(--text-secondary)",
+            color: "#0F0F0F",
             display: "flex",
             alignItems: "center",
             gap: 8,
@@ -820,7 +820,7 @@ export default function ChatPage() {
                 top: -15,
                 left: 20,
                 background: "var(--accent-primary)",
-                color: "#fff",
+                color: "var(--bg-void)",
                 fontWeight: 700,
                 fontSize: "0.8125rem",
                 padding: "4px 18px",
@@ -834,7 +834,7 @@ export default function ChatPage() {
             </div>
             
             {/* Dialogue Text */}
-            <div style={{ fontSize: "1rem", lineHeight: 1.7, color: "var(--text-primary)", fontFamily: "var(--font-serif)" }}>
+            <div style={{ fontSize: "1rem", lineHeight: 1.7, color: "#0F0F0F", fontFamily: "var(--font-serif)" }}>
               {loading ? (
                 <div style={{ display: "flex", gap: 6, alignItems: "center", height: 28 }}>
                   <span style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>Rem is thinking...</span>
@@ -861,7 +861,7 @@ export default function ChatPage() {
             <input
               ref={inputRef}
               type="text"
-              className="input-field"
+              className="input-field input-light"
               placeholder="Type your reaction..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -869,11 +869,8 @@ export default function ChatPage() {
               autoComplete="off"
               style={{
                 flex: 1,
-                background: "var(--bg-surface)",
-                border: "1px solid var(--border-subtle)",
                 borderRadius: 12,
-                padding: "12px 20px",
-                color: "var(--text-primary)"
+                padding: "12px 20px"
               }}
             />
             <button
@@ -2265,17 +2262,15 @@ export default function ChatPage() {
                 <div>
                   <input
                     type="text"
+                    className="input-light"
                     placeholder="Search Rem's memories..."
                     value={memoryQuery}
                     onChange={(e) => setMemoryQuery(e.target.value)}
                     style={{
                       width: "100%",
                       padding: "10px 14px",
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border-subtle)",
                       borderRadius: 10,
                       fontSize: "0.8125rem",
-                      color: "var(--text-primary)",
                       outline: "none",
                       transition: "border-color 0.2s ease"
                     }}

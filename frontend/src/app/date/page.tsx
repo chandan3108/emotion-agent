@@ -817,7 +817,7 @@ export default function DatePage() {
                     top: -15,
                     left: 20,
                     background: "var(--accent-primary)",
-                    color: "#fff",
+                    color: "var(--bg-void)",
                     fontWeight: 700,
                     fontSize: "0.8125rem",
                     padding: "4px 18px",

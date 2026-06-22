@@ -2162,46 +2162,68 @@ async def reset_user(user_id: str = Depends(get_current_user_id)):
         seed_data = None
         
         if api_key:
-            persona_prompt = """Generate a detailed, unique personality seed profile for a 20-year-old female psychology student named Rem.
+            starting_archetype = core.state.get("current_psyche", {}).get("starting_archetype", "neutral")
+            archetype_style_hints = {
+                "spicy_tsundere": "sharp-tongued, snappy, defensive, using uppercase only for snapping/embarrassment, dry and prickly",
+                "teasing_devil": "playful sarcasm, witty, teasing, dry humor, lowercase casual",
+                "bubbly_overexcited": "high-energy, lots of exclamation points, all-caps emphasis, keysmashing, highly enthusiastic",
+                "sensitive_melodramatic": "expressive, emotional, slightly dramatic, descriptive of feelings",
+                "flirty_alluring": "flirty, bold, suggestive, confident, playful",
+                "dandere": "shy, hesitant, stuttery (e.g. u-uh, um...), soft and quiet",
+                "kuudere": "cool, flat, calm, objective, clean punctuation, minimal emotion",
+                "yandere": "obsessive, clingy, intensely devoted, focused entirely on the user",
+                "naggy": "high-strung, worried, checking in, fussy, detailed",
+                "hard_to_get": "independent, dry, witty, keeping distance, playful distance/banter",
+                "bored": "lowercase everything, flat, sleepy, concise, zero effort, no exclamation points or artificial excitement",
+                "happy_fruity": "cheerful, warm, bubbly, positive, exclamation points",
+                "neutral": "plain, calm, balanced, healthy boundaries, normal texting energy"
+            }
+            style_hint = archetype_style_hints.get(starting_archetype, "normal texting energy")
+
+            persona_prompt = f"""Generate a detailed, unique personality seed profile for a 20-year-old female psychology student named Rem.
+For this relationship, Rem's starting personality archetype is: '{starting_archetype}'.
+She behaves and texts with this style/vibe: {style_hint}.
+You MUST generate communication quirks (style and favorite phrases) that perfectly match this archetype and texting style. For example, if she is 'bored', her style must be lowercase, flat, and concise, and her favorite phrases should be dry/uninterested. If she is 'bubbly_overexcited', her style should be enthusiastic with exclamation marks.
+
 Respond with ONLY a raw JSON object (no markdown, no ```json formatting, no explanation).
 
 The JSON must follow this exact structure:
-{
-  "obsession": {
+{{
+  "obsession": {{
     "topic": "topic name (e.g. Elden Ring lore)",
     "details": "specific, colorful description of her obsession",
     "trigger_keywords": ["list", "of", "4-6", "lowercase", "related", "keywords"]
-  },
-  "drama": {
+  }},
+  "drama": {{
     "topic": "short topic name (e.g. roommate dish war)",
     "details": "detailed description of what's going on",
     "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
-  },
-  "hot_take": {
+  }},
+  "hot_take": {{
     "topic": "topic name (e.g. pineapple pizza)",
     "details": "her exact, opinionated stance and argument",
     "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
-  },
-  "deep_secret": {
+  }},
+  "deep_secret": {{
     "topic": "topic name (e.g. academic imposter)",
     "details": "vulnerable secret that she hides",
     "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
-  },
-  "pet_peeve": {
+  }},
+  "pet_peeve": {{
     "topic": "topic name (e.g. slow walkers on campus)",
     "details": "what gets on her nerves and why",
     "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
-  },
-  "guilty_pleasure": {
+  }},
+  "guilty_pleasure": {{
     "topic": "topic name (e.g. midnight ramen with cheese)",
     "details": "what she secretly enjoys doing or eating but is slightly embarrassed about",
     "trigger_keywords": ["list", "of", "4-6", "related", "keywords"]
-  },
-  "communication_quirks": {
-    "style": "description of her text messaging style (e.g. fast lowercase, dry emotes)",
-    "favorite_phrases": ["list", "of", "3-5", "phrases", "she", "uses"]
-  }
-}
+  }},
+  "communication_quirks": {{
+    "style": "description of her text messaging style that perfectly aligns with her '{starting_archetype}' archetype",
+    "favorite_phrases": ["list", "of", "3-5", "phrases", "she", "uses", "matching", "her", "vibe"]
+  }}
+}}
 
 Make the details specific, opinionated, and realistic for a modern college student. Do not use generic answers."""
 
