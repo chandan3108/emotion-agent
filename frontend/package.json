@@ -17,6 +17,7 @@
     "three": "^0.184.0"
   },
   "devDependencies": {
+    "@next/swc-darwin-arm64": "^14.2.33",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -27,8 +28,5 @@
     "eslint-config-next": "16.0.5",
     "tailwindcss": "^4",
     "typescript": "^5"
-  },
-  "optionalDependencies": {
-    "@next/swc-darwin-arm64": "^16.2.9"
   }
 }

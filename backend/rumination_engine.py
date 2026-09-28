@@ -156,7 +156,7 @@ Be authentic to your personality. Don't be dramatic. Some sessions have nothing 
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}"},
                     json={
-                        "model": "llama-3.1-8b-instant",
+                        "model": "qwen/qwen3.8-27b",
                         "messages": [
                             {"role": "system", "content": "You are a reflection system for an AI character. Return ONLY valid JSON."},
                             {"role": "user", "content": prompt}

@@ -14,7 +14,7 @@ from .constitutional_reasoning import ConstitutionalReasoner
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 HF_TOKEN = GROQ_API_KEY  # Alias for compatibility
-MODEL_ID = os.environ.get("MODEL_ID", "llama-3.1-8b-instant")
+MODEL_ID = os.environ.get("FAST_MODEL_ID", os.environ.get("MODEL_ID", "qwen/qwen3.8-27b"))
 INFERENCE_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 

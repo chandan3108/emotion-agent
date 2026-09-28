@@ -1007,8 +1007,8 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
             session_row.updated_at = datetime.now(timezone.utc)
         db.commit()
         
-        # Fetch last 11 messages of this session from DB to build history context
-        db_history = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).limit(11).all()
+        # Fetch last 30 messages of this session from DB to build deep conversational history
+        db_history = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).limit(30).all()
         db_history = list(reversed(db_history))
         
         for m in db_history:
@@ -1131,14 +1131,35 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
         multiplier = 2.0
 
     delay = delay * multiplier
-    delay = min(delay, 5.0)  # Cap at 5s to avoid freezing the UI experience too long
+    # Latency optimization: Do NOT block server with asyncio.sleep!
+    # The frontend handles typing indicators dynamically between burst bubbles.
 
-    print(f"[CHAT DELAY] Simulating typing delay of {delay:.2f}s (activity: {current_activity}, multiplier: {multiplier})")
-    await asyncio.sleep(delay)
+    # Fire background task (async summary + diary generation + entity sync)
+    async def _async_background_work():
+        try:
+            await _generate_conversation_summary(core, message_history)
+        except Exception:
+            pass
+        try:
+            from .diary import DiarySystem
+            diary = DiarySystem(core.state)
+            if len(message_history) >= 4:
+                trust_val = core.psyche.psyche.get("trust", 0.5) if hasattr(core.psyche, "psyche") else getattr(core.psyche, "trust", 0.5)
+                entry = await diary.maybe_write_entry(
+                    reflection_data={"conversation_summary": f"Recent conversation with user about: {user_msg_content[:100]}"},
+                    relationship_phase=core.xp_system.current_phase,
+                    trust=trust_val,
+                    user_name=core.state.get("user_name"),
+                    xp_total=core.xp_system.total_xp
+                )
+                if entry:
+                    core._save_state()
+                    print(f"[DIARY] Automated session entry logged!")
+        except Exception as diary_err:
+            print(f"[DIARY ASYNC ERROR] {diary_err}")
 
-    # Fire background task (same as Discord's handle_dm)
     try:
-        asyncio.create_task(_generate_conversation_summary(core, message_history))
+        asyncio.create_task(_async_background_work())
     except Exception:
         pass
 
@@ -1166,11 +1187,19 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
     hurt_val = round(current_psyche.get("hurt", 0.0), 2)
     anger_val = round(current_psyche.get("anger", 0.0), 2)
 
-    # Compute split reply parts for natural double-texting experience
-    try:
-        from .human_messaging import smart_split
-        parts = smart_split(response_text)
-    except Exception:
+    # Compute split reply parts for natural burst double-texting experience
+    parts = []
+    if "|||" in response_text:
+        parts = [p.strip() for p in response_text.split("|||") if p.strip()]
+    elif "\n\n" in response_text:
+        parts = [p.strip() for p in response_text.split("\n\n") if p.strip()]
+    else:
+        try:
+            from .human_messaging import smart_split
+            parts = smart_split(response_text)
+        except Exception:
+            parts = [response_text]
+    if not parts:
         parts = [response_text]
 
     # Populate roleplay, schedule and plans
@@ -2232,7 +2261,7 @@ Make the details specific, opinionated, and realistic for a modern college stude
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}"},
                     json={
-                        "model": "llama-3.1-8b-instant",
+                        "model": "qwen/qwen3.8-27b",
                         "messages": [{"role": "user", "content": persona_prompt}],
                         "max_tokens": 400,
                         "temperature": 1.1,
@@ -2436,7 +2465,7 @@ async def _trigger_check_in_if_needed(core: CognitiveCore):
                 mood = core.psyche.get_named_mood_state()
                 
                 prompt = {
-                    "model": "llama-3.1-8b-instant",
+                    "model": "qwen/qwen3.8-27b",
                     "messages": [
                         {
                             "role": "system",

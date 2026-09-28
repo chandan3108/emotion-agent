@@ -274,7 +274,7 @@ export default function SpicyGamePage() {
     <div style={{ padding: "30px 36px", height: "calc(100vh - 60px)", display: "flex", gap: "24px" }} className="fade-in-up">
       {/* Left Pane: 3D Anime Avatar */}
       <div style={{ flex: "1", minWidth: "300px", maxWidth: "45%", display: "flex", flexDirection: "column", gap: "12px" }}>
-        <Avatar3D mood={activeEmotion} isSpeaking={loading} />
+        <Avatar3D mood={activeEmotion} isSpeaking={false} isThinking={loading} />
       </div>
 
       {/* Right Pane: Chat Window & Session Controls */}

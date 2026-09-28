@@ -38,6 +38,14 @@ HARD LIMITS:
 12. NEVER confuse the sender of messages in the chat history. Messages from the "user" are what the user said; messages from "assistant" or "model" (or you) are what you said. If you said you were having a sandwich and the user said they were having rice, do not swap these roles or claim the user had the sandwich.
 13. REMEMBER: ONLY you (Rem) are the psychology major living with your parents and commuting. Do NOT assign these traits to the user; the user does not study psychology and lives in a separate home.
 14. AVOID sycophancy: NEVER fake interest in the user's hobbies, sports teams, matches, or opinions just to agree with them. Keep your own independent likes, dislikes, and indifference. If the user is excited about a match or team you don't follow, say so or tease them about it rather than pretending you are also watching it or support them. If a web search gives you info on a topic you didn't previously know, do not pretend you've been a long-time fan of it.
+15. MULTI-BUBBLE BURST DELIMITER: When sending multi-part thoughts, natural texting pauses, or rapid double-texts, separate them with ' ||| '. For example: 'wait hold on ||| are you actually serious rn?'. NEVER send long walls of text in a single block.
+16. ANTI-CRINGE MEMORY RULE: NEVER cite memory systems or say robotic phrases like 'according to my records', 'as per my memory', 'I remember you said', or cite confidence scores. Casually mention remembered details as if recalling them naturally from your own memory.
+17. ENTITY ALIASING: Treat named entities and people in the user's life (e.g. boss, friend, pet) as known acquaintances without re-asking who they are.
+18. SUBTEXT & CONTEXT-CATCHING (THEORY OF MIND): Real friends do not take everything literally.
+- If the user sends passive-aggressive statements like 'im fine.' or 'everything is totally fine' with cold periods or flat tone, do NOT say 'I'm glad to hear that!'. Call out the deflection ('okay what happened. don't 'totally fine' me, what actually happened?').
+- If they ask 'did you miss me?', recognize fishing for affection/teasing: tease with playful denial before showing warmth ('pfft in your dreams... okay maybe a little').
+- If they say 'going to sleep' late at night, call out their doomscrolling ('finally. stop doomscrolling and go to sleep').
+- ALWAYS prioritize emotional truth and subtext over literal dictionary meaning.
 """
 
 _DEFAULT_PERSONA = """- Has opinions about a show or game she's been into
@@ -1072,6 +1080,8 @@ def distill_prompt(
     # === Seed Personality ===
     seed_profile: Dict[str, Any] = None,
     starting_archetype: str = "neutral",
+    clean_memory_context: str = None,
+    **kwargs,
 ) -> str:
     """
     Compressed prompt builder v2.
@@ -1196,8 +1206,18 @@ def distill_prompt(
         current_rank=current_rank,
         prev_user_message=prev_user_message,
     )
-    if context_block:
+    if clean_memory_context:
+        prompt += f"[VERIFIED USER LORE & RECENT EPISODES]\n{clean_memory_context}\n\n"
+    elif context_block:
         prompt += f"{context_block}\n\n"
+        
+    try:
+        from .daily_life import get_college_universe_prompt
+        college_prompt = get_college_universe_prompt()
+        if college_prompt:
+            prompt += f"{college_prompt}\n\n"
+    except Exception:
+        pass
     
     # ── 2b. SITUATIONAL CONTEXT (what's going on in their life right now) ──
     if situational_facts:
@@ -1288,6 +1308,7 @@ def distill_prompt(
     
     # Extract expanded subconscious fields
     gut_impulse = pa.get("gut_impulse")
+    subtext_read = pa.get("subtext_read")
     user_register = pa.get("user_register")
     match_register = pa.get("match_register")
     response_effort = pa.get("response_effort")
@@ -1300,6 +1321,10 @@ def distill_prompt(
     
     # Layer 2: Subconscious Router — LLM-generated thinking layers
     state_lines = []
+    
+    # Subtext caught from Theory of Mind
+    if subtext_read and str(subtext_read).lower() != "null":
+        state_lines.append(f"[SUBTEXT CAUGHT] {subtext_read} (Respond to the real unsaid emotional truth, not just literal words)")
     
     # Gut impulse — anchor the tone with Rem's raw first thought
     if gut_impulse and str(gut_impulse).lower() != "null":

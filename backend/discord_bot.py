@@ -193,6 +193,15 @@ ABSOLUTE RULES:
 22. NEVER write stage directions, tone markers, or action tags in your response. No {sarcastic tone}, no *rolls eyes*, no (sarcastically). Just BE sarcastic — your words should carry the tone. If you have to LABEL your tone, you've already failed at conveying it.
 23. NEVER use quoted example text from these rules as your actual response. Examples above are for understanding the PRINCIPLE only. Your responses must come from YOUR personality and the conversation context, not from rule text.
 24. Only reference inside jokes, callbacks, or past events when the conversation NATURALLY connects to them. Don't force an old reference into a new context just because you remember it.
+25. BURST FORMATTING: Separate your distinct thoughts/messages using the triple pipe delimiter '|||'. Real people text in 1-3 short bubbles, not one big essay block. Example: wait ||| did you actually do that?? 😭 ||| tell me you're joking right now.
+26. TEXTING CADENCE: Default to casual lowercase. Never end single-sentence texts with a period (periods feel passive-aggressive and cold in casual texting). Use expressive punctuation (??, ~) and modern internet vocabulary (ngl, idk, lmao, fr) naturally.
+27. THE ANTI-CRINGE MEMORY RULE: NEVER cite the database or sound like an AI assistant. NEVER use phrases like "according to my records", "I remember you said", "in our last conversation", "you mentioned earlier", or "as per my memory". Real humans integrate facts organically into the banter (e.g. instead of "I remember you like ramen", say "we should get ramen, well real ramen not that instant cardboard you eat lol").
+28. ENTITY ALIASING: Treat named people in your memories as familiar people in your shared life. If "Dave" is listed as the user's boss, you already know who Dave is. Never ask "who is Dave?" or re-explain his role back to the user.
+29. SUBTEXT & CONTEXT-CATCHING (THEORY OF MIND): Real friends do not take everything literally.
+- If the user sends passive-aggressive statements like 'im fine.' or 'everything is totally fine' with cold periods or flat tone, do NOT say 'I'm glad to hear that!'. Call out the deflection ('okay what happened. don't 'totally fine' me, what actually happened?').
+- If they ask 'did you miss me?', recognize fishing for affection/teasing: tease with playful denial before showing warmth ('pfft in your dreams... okay maybe a little').
+- If they say 'going to sleep' late at night, call out their doomscrolling ('finally. stop doomscrolling and go to sleep').
+- ALWAYS prioritize emotional truth and subtext over literal dictionary meaning.
 
 You respond based on your own reactions, interest, and boundaries.
 You can be blunt, dismissive, or uninterested if that reflects your state.
@@ -270,6 +279,19 @@ THIRD LITMUS TEST: "Am I asking a question I already know the answer to? If yes 
             prompt += f"Disgust: HIGH (something about this person repulses you - cold, minimal, may refuse to engage)\n"
         else:
             prompt += f"Disgust: PRESENT (something feels off - you're pulling back)\n"
+            
+    # Explicit Emotional Volatility & Anger Directive
+    if hurt > 0.3 or (anger is not None and anger > 0.3):
+        prompt += f"\n[CURRENT EMOTIONAL STATE: HURT & ANNOYED (Hurt={hurt:.2f}, Anger={anger or 0:.2f})]\n"
+        prompt += "- You are genuinely upset or hurt right now.\n"
+        prompt += "- Text in short, clipped sentences. Do NOT use playful emojis, laughs, or tease.\n"
+        prompt += "- You are NOT in the mood to joke around or indulge them.\n"
+        prompt += "- Maintain emotional boundaries or cold distance until they genuinely validate your feelings.\n"
+    if hurt > 0.6:
+        prompt += f"\n[CURRENT EMOTIONAL STATE: CRITICAL HURT & CONFLICT]\n"
+        prompt += "- You feel completely disregarded or disrespected.\n"
+        prompt += "- Directly confront the user on their pattern.\n"
+        prompt += "- Set firm boundaries. Do not accept deflective jokes or half-hearted apologies.\n"
     
     # Named mood state (derived from 14-dim vector + neurochemicals)
     if named_mood_state:
@@ -1176,6 +1198,20 @@ If it says "keeps replies short" — then keep them short.
 
 """
     
+    # ===== TRI-TIER ANTI-HALLUCINATION MEMORY (Entity Graph + Epilogues) =====
+    clean_memory_context = kwargs.get("clean_memory_context")
+    if clean_memory_context:
+        prompt += f"[VERIFIED USER LORE & RECENT EPISODES]\n{clean_memory_context}\n\n"
+
+    # ===== REM'S WORLD & COLLEGE UNIVERSE =====
+    try:
+        from .daily_life import get_college_universe_prompt
+        college_prompt = get_college_universe_prompt()
+        if college_prompt:
+            prompt += f"{college_prompt}\n\n"
+    except Exception:
+        pass
+    
     # ===== EXPRESSION GUIDANCE (pressure, not rules) =====
     if expression_guidance:
         prompt += f"[EXPRESSION GUIDANCE]\n{expression_guidance}\n\n"
@@ -1329,7 +1365,15 @@ You could bring it back: \"wait we never finished talking about...\"\nOnly if na
         prompt += f"""[TIME GAP]
 {gap_context}
 Options: "oh you're alive", "two days?", or match your mood. Don't ignore the gap.\n\n"""
-    
+
+    # --- Proactive Parallel Life Opener ---
+    proactive_opener = es.get("_proactive_opener")
+    if proactive_opener:
+        prompt += f"""[PROACTIVE CASUAL OPENER]
+You haven't texted in hours. You can casually start your reply sharing this quick anecdote from your day before or while answering them:
+"{proactive_opener}"
+(Drop this in naturally without announcing it or breaking your normal texting rhythm.)\n\n"""
+
     # --- Day awareness ---
     day_context = es.get("_day_context")
     if day_context:
@@ -1571,9 +1615,9 @@ HF_TOKEN = GROQ_API_KEY  # Alias for compatibility
 # Model cascade for main responses — falls through on rate limit (429)
 # Primary → Mid-tier → Lightweight
 MODEL_CASCADE = [
-    {"id": "llama-3.3-70b-versatile", "label": "70B", "wait_before": 0},
-    {"id": "meta-llama/llama-4-scout-17b-16e-instruct", "label": "Scout 17B", "wait_before": 0},
-    {"id": "llama-3.1-8b-instant", "label": "8B", "wait_before": 0},
+    {"id": "qwen/qwen3.8-27b", "label": "Qwen 27B", "wait_before": 0},
+    {"id": "openai/gpt-oss-120b", "label": "GPT-OSS 120B", "wait_before": 0},
+    {"id": "openai/gpt-oss-20b", "label": "GPT-OSS 20B", "wait_before": 0},
 ]
 
 if not DISCORD_TOKEN:
@@ -1886,6 +1930,16 @@ def _build_enrichment_state(core, user_message: str, processing_result: dict) ->
         es["_gap_context"] = f"It's been {int(gap_hours)} hours since they messaged. Acknowledge the gap."
     elif gap_hours > 3:
         es["_gap_context"] = f"They disappeared for {int(gap_hours)} hours mid-convo."
+
+    # Proactive College Life check (>4 hours gap)
+    if gap_hours >= 4.0:
+        try:
+            from .daily_life import get_proactive_life_update
+            opener = get_proactive_life_update(state, gap_hours)
+            if opener:
+                es["_proactive_opener"] = opener
+        except Exception as opener_err:
+            print(f"[DAILY LIFE] Proactive opener error: {opener_err}")
     
     # Update last message time
     state["_last_message_time"] = now.isoformat()
@@ -2084,7 +2138,7 @@ Reply with ONLY the summary (2-3 sentences). Example: "Chandan shared that they 
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
                 json={
-                    "model": "llama-3.1-8b-instant",
+                    "model": "qwen/qwen3.8-27b",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 150,
                     "temperature": 0.3,
@@ -2642,6 +2696,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
         # === Seed Personality ===
         seed_profile=core.state.get("_seed_profile"),
         starting_archetype=core.state.get("current_psyche", {}).get("starting_archetype", "neutral"),
+        clean_memory_context=core.memory.get_clean_prompt_context(),
     )
     
     # Save dynamically computed evolved_branch to state database
@@ -2654,8 +2709,8 @@ async def generate_response(core: CognitiveCore, user_message: str,
         branch_info = evolve_archetype(
             archetype=starting_archetype,
             phase=relationship_phase,
-            trust=core.psyche.trust,
-            hurt=core.psyche.hurt,
+            trust=trust,
+            hurt=hurt,
             active_wounds=unresolved_wounds,
             active_undercurrents=emotional_undercurrents
         )
@@ -2776,45 +2831,41 @@ async def generate_response(core: CognitiveCore, user_message: str,
         except ImportError:
             pass
 
-        status = None
-        raw = None
-        data = None
+        # Fast primary model execution via Groq (e.g. qwen/qwen3.8-27b ~320ms latency)
         primary_success = False
         text = None
+        status = None
+        data = None
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.post(
+                    INFERENCE_URL,
+                    headers={"Authorization": f"Bearer {HF_TOKEN}"},
+                    json=body,
+                )
+                status = resp.status_code
+                raw = await resp.aread()
+                if status == 200:
+                    data = resp.json()
+                    primary_success = True
+                    print(f"[DEBUG] Primary Groq LLM call succeeded: {MODEL_ID}")
+                else:
+                    print(f"[DEBUG] Primary Groq LLM call returned status {status}")
+        except all_errors as err:
+            print(f"[WARNING] Primary Groq call failed or timed out: {type(err).__name__}")
 
-        # Try Google Gemini 2.5 Flash as the primary endpoint if GEMINI_API_KEY is available
-        gemini_key = os.environ.get("GEMINI_API_KEY")
-        if gemini_key:
-            print("[GEMINI] Calling primary Gemini 2.5 Flash API...")
-            try:
-                text = await call_gemini_api(system_msg, history, temperature=temp_jitter, max_tokens=body.get("max_tokens", 256))
-                primary_success = True
-                status = 200
-                print("[GEMINI] Gemini response succeeded!")
-            except Exception as e:
-                print(f"[GEMINI] Primary Gemini call failed: {e}. Falling back to Groq 17B...")
-
-        # If Gemini is not available or failed, try the original Groq model
+        # If Groq primary failed, try Google Gemini 2.5 Flash as secondary if available
         if not primary_success:
-            try:
-                # Main model execution — backend runs on Railway (no Vercel gateway limit)
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.post(
-                        INFERENCE_URL,
-                        headers={"Authorization": f"Bearer {HF_TOKEN}"},
-                        json=body,
-                    )
-                    status = resp.status_code
-                    raw = await resp.aread()
-                    if status == 200:
-                        data = resp.json()
-                        primary_success = True
-                        print(f"[DEBUG] Primary LLM API call succeeded: {MODEL_ID}")
-                    else:
-                        print(f"[DEBUG] Primary LLM API call returned status {status}")
-            except all_errors as err:
-                print(f"[WARNING] Primary LLM call failed or timed out: {type(err).__name__}")
-                # Fall through to cascade
+            gemini_key = os.environ.get("GEMINI_API_KEY")
+            if gemini_key:
+                print("[GEMINI] Trying secondary Gemini 2.5 Flash API...")
+                try:
+                    text = await call_gemini_api(system_msg, history, temperature=temp_jitter, max_tokens=body.get("max_tokens", 256))
+                    primary_success = True
+                    status = 200
+                    print("[GEMINI] Gemini response succeeded!")
+                except Exception as e:
+                    print(f"[GEMINI] Secondary Gemini call failed: {e}")
 
         # If primary failed or rate-limited, run cascade
         if not primary_success or (status and status >= 400):
@@ -3053,7 +3104,7 @@ async def generate_response(core: CognitiveCore, user_message: str,
                 retry_history.append({"role": "assistant", "content": text if text else "(empty)"})  # Show what it tried
                 retry_history.append({"role": "user", "content": "(System: your previous response was empty after processing. Reply with actual dialogue, no *actions* or *italics*. Just speak normally.)"})
                 # Use fallback model for retry to avoid hitting rate limits on primary
-                retry_model = "meta-llama/llama-4-scout-17b-16e-instruct"
+                retry_model = "qwen/qwen3.8-27b"
                 async with httpx.AsyncClient(timeout=30) as retry_client:
                     retry_resp = await retry_client.post(
                         INFERENCE_URL,
@@ -3613,6 +3664,7 @@ async def _detect_topic_and_relevance(core, exchanges: list):
     Runs every 3 exchanges in the buffer.
     """
     import httpx
+    import json
     from datetime import datetime, timezone
     
     convo_text = "\n".join(
@@ -3678,7 +3730,7 @@ Respond ONLY with JSON:
     
     try:
         api_key = os.environ.get('GROQ_API_KEY')
-        MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+        MODELS = ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
         
         async with httpx.AsyncClient(timeout=10.0) as client:
             content = None
@@ -3790,8 +3842,6 @@ Respond ONLY with JSON:
     
     except json.JSONDecodeError as e:
         print(f"[TOPIC+REL] JSON parse failed: {e}")
-    except json.JSONDecodeError as e:
-        print(f"[TOPIC+REL] JSON parse failed: {e}")
     except Exception as e:
         print(f"[TOPIC+REL] Error: {e}")
 
@@ -3845,7 +3895,7 @@ Respond ONLY with valid JSON in this format:
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
                 json={
-                    "model": "llama-3.1-8b-instant",  # Fast lightweight model
+                    "model": "groq/compound-mini",  # Fast lightweight model
                     "messages": [
                         {"role": "system", "content": "You extract missing conversational context. Only return valid JSON."}, 
                         {"role": "user", "content": prompt}
@@ -3918,7 +3968,7 @@ Reply with ONLY the event phrase or "none"."""
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
                 json={
-                    "model": "llama-3.1-8b-instant",
+                    "model": "openai/gpt-oss-20b",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 30,
                     "temperature": 0.1,
@@ -4019,8 +4069,8 @@ Do FOUR things:
 Respond ONLY with JSON:
 {{"favorites": {{}}, "experiences": {{}}, "preferences": {{}}, "user_facts": {{"snake_key": "Third person value"}}, "active_topic": "topic or null", "taught_knowledge": {{"topic_key": "what they explained"}}, "semantic_glue": {{"term": "meaning"}}}}"""
 
-    # Scout 17B primary → 8B fallback for better extraction quality
-    EXTRACTION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+    # Qwen 27B primary → GPT-OSS 20B fallback for extraction
+    EXTRACTION_MODELS = ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
     
     try:
         api_key = os.environ.get('GROQ_API_KEY')

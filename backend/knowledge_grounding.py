@@ -17,7 +17,7 @@ from .rate_limiter import global_rate_limiter
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
 # Use the small fast model for classification
-CLASSIFIER_MODEL = os.environ.get("MODEL_ID", "llama-3.1-8b-instant")
+CLASSIFIER_MODEL = os.environ.get("FAST_MODEL_ID", "groq/compound-mini")
 INFERENCE_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 

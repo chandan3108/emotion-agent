@@ -195,7 +195,7 @@ Write ONLY the diary entry, nothing else."""
                     INFERENCE_URL,
                     headers={"Authorization": f"Bearer {api_key}"},
                     json={
-                        "model": "llama-3.1-8b-instant",
+                        "model": "qwen/qwen3.8-27b",
                         "messages": [{"role": "user", "content": prompt}],
                         "max_tokens": 150,
                         "temperature": 0.85,
@@ -329,7 +329,7 @@ SUMMARY: [Your 1-sentence memory summary here]"""
                         "https://api.groq.com/openai/v1/chat/completions",
                         headers={"Authorization": f"Bearer {api_key}"},
                         json={
-                            "model": "llama-3.1-8b-instant",
+                            "model": "qwen/qwen3.8-27b",
                             "messages": [{"role": "user", "content": prompt}],
                             "max_tokens": 250,
                             "temperature": 0.8,
@@ -474,7 +474,7 @@ Write ONLY the diary entry, nothing else."""
                         "https://api.groq.com/openai/v1/chat/completions",
                         headers={"Authorization": f"Bearer {api_key}"},
                         json={
-                            "model": "llama-3.1-8b-instant",
+                            "model": "qwen/qwen3.8-27b",
                             "messages": [{"role": "user", "content": prompt}],
                             "max_tokens": 150,
                             "temperature": 0.8,

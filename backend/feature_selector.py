@@ -15,7 +15,7 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 HF_TOKEN = GROQ_API_KEY  # Alias for compatibility
-MODEL_ID = os.getenv("MODEL_ID", "llama-3.1-8b-instant")
+MODEL_ID = os.getenv("FAST_MODEL_ID", os.getenv("MODEL_ID", "qwen/qwen3.8-27b"))
 INFERENCE_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
@@ -200,7 +200,7 @@ Be selective - don't include everything. Focus on what matters for this specific
                     INFERENCE_URL,
                     headers={"Authorization": f"Bearer {HF_TOKEN}"},
                     json={
-                        "model": MODEL_ID or "llama-3.1-8b-instant",
+                        "model": MODEL_ID or "qwen/qwen3.8-27b",
                         "messages": [{"role": "user", "content": system_prompt}],
                         "max_tokens": 200,
                         "temperature": 0.3,

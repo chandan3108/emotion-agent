@@ -467,21 +467,31 @@ export default function ChatPage() {
 
       if (res.reply_parts && res.reply_parts.length > 1) {
         for (let i = 0; i < res.reply_parts.length; i++) {
+          const bubbleText = res.reply_parts[i];
+          // Dynamic typing delay based on length (feels like authentic human typing)
+          const typingDelay = Math.min(1400, Math.max(400, bubbleText.length * 25));
+          setLoading(true);
+          await new Promise((resolve) => setTimeout(resolve, typingDelay));
+          
           const partMsg: Message = {
             role: "assistant",
-            content: res.reply_parts[i],
+            content: bubbleText,
             timestamp: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, partMsg]);
+          setLoading(false);
+
           if (i < res.reply_parts.length - 1) {
-            setLoading(true);
-            await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 800));
+            await new Promise((resolve) => setTimeout(resolve, 350 + Math.random() * 250));
           }
         }
       } else {
+        const bubbleText = res.reply || "";
+        const typingDelay = Math.min(1200, Math.max(400, bubbleText.length * 20));
+        await new Promise((resolve) => setTimeout(resolve, typingDelay));
         const remMsg: Message = {
           role: "assistant",
-          content: res.reply,
+          content: bubbleText,
           timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, remMsg]);

@@ -14,8 +14,8 @@ from .context_manager import get_context_manager
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 HF_TOKEN = GROQ_API_KEY  # Alias for compatibility
 # Use Groq API - fast and free
-# Using llama-3.1-8b-instant - smaller, faster, separate token limit
-MODEL_ID = os.environ.get("MODEL_ID", "llama-3.3-70b-versatile")
+# Using openai/gpt-oss-120b - flagship open weights model on Groq
+MODEL_ID = os.environ.get("MODEL_ID", "openai/gpt-oss-120b")
 INFERENCE_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 router = APIRouter()

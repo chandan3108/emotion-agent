@@ -66,7 +66,7 @@ class IdentityMemory:
 
 
 class MemorySystem:
-    """Manages all memory tiers with temporal decay."""
+    """Manages all memory tiers with anti-hallucination guarantees and entity supersession."""
     
     def __init__(self, state: Dict[str, Any], user_id: str = ""):
         self.state = state
@@ -77,15 +77,20 @@ class MemorySystem:
             "episodic": [],
             "identity": [],
             "learned_facts": [],
-            "morals": []
+            "morals": [],
+            "entity_graph": {},
+            "session_chapters": [],
+            "unresolved_loops": []
         })
+        self.memory.setdefault("entity_graph", {})
+        self.memory.setdefault("session_chapters", [])
+        self.memory.setdefault("unresolved_loops", [])
     
-    # ========== Short-Term Memory ==========
+    # ========== Short-Term Memory (STM) ==========
     
     def add_stm(self, content: str, emotion_vector: Dict[str, float], 
                 perception_output: Dict[str, Any], topic: str = None, is_date: Optional[bool] = None):
-        """Add entry to STM (circular buffer, max 20 entries)."""
-        # Calculate emotional weight from emotion vector
+        """Add entry to STM (circular buffer, max 50 verbatim entries)."""
         emotional_weight = max(emotion_vector.values()) if emotion_vector else 0.0
         
         if is_date is None:
@@ -104,29 +109,33 @@ class MemorySystem:
         stm = self.memory.get("stm", [])
         stm.append(asdict(entry))
         
-        # Keep only last 20 entries (circular buffer)
-        if len(stm) > 20:
-            stm = stm[-20:]
+        # Keep last 50 entries for conversational continuity (no 5-message amnesia)
+        if len(stm) > 50:
+            stm = stm[-50:]
         
         self.memory["stm"] = stm
     
     def get_stm(self, decay: bool = True, filter_date: Optional[bool] = None) -> List[Dict[str, Any]]:
-        """Get STM entries, optionally applying decay and date filtering."""
+        """Get STM entries. Preserves active conversation history."""
         now = datetime.now(timezone.utc)
-        
-        # Decay ALL stm first
         all_stm = self.memory.get("stm", [])
+        
+        if not decay:
+            if filter_date is not None:
+                return [m for m in all_stm if m.get("is_date", False) == filter_date]
+            return all_stm
+            
         decayed_all = []
         for entry in all_stm:
             entry_time = datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
             if entry_time.tzinfo is None:
                 entry_time = entry_time.replace(tzinfo=timezone.utc)
             delta_hours = (now - entry_time).total_seconds() / 3600
-            if delta_hours < 8.0:
+            # Keep turns from last 24 hours so returning to conversation isn't wiped clean
+            if delta_hours < 24.0:
                 decayed_all.append(entry)
         self.memory["stm"] = decayed_all
         
-        # Now apply filtering on the decayed set
         if filter_date is not None:
             return [m for m in decayed_all if m.get("is_date", False) == filter_date]
         return decayed_all
@@ -800,6 +809,159 @@ Be selective. Only include memories that genuinely add value to the current conv
             formatted.append(f"[{i}] {mem_type}: {content} (Topic: {topic})")
         return "\n".join(formatted)
     
+    # ========== Anti-Hallucination Entity Graph & Session Chapters ==========
+
+    def upsert_entity(self, category: str, key: str, value: str, notes: str = "", sentiment: str = "") -> Dict[str, Any]:
+        """
+        Upsert an entity into the Entity Graph with active supersession.
+        When a key is updated, older conflicting entries are superseded to prevent hallucinations.
+        Categories: People, Preferences, Work_Life, Inside_Jokes, Goals
+        """
+        entity_graph = self.memory.setdefault("entity_graph", {})
+        norm_cat = category.strip().capitalize()
+        norm_key = key.strip().lower().replace(" ", "_")
+        full_key = f"{norm_cat}.{norm_key}"
+        
+        now = datetime.now(timezone.utc).isoformat()
+        old_entry = entity_graph.get(full_key)
+        
+        entry = {
+            "category": norm_cat,
+            "key": norm_key,
+            "value": value.strip(),
+            "notes": notes.strip(),
+            "sentiment": sentiment.strip(),
+            "updated_at": now,
+            "status": "active"
+        }
+        
+        if old_entry and old_entry.get("value") != value.strip():
+            entry["previous_value"] = old_entry.get("value")
+            print(f"[ENTITY GRAPH SUPERSEDE] {full_key}: '{old_entry.get('value')}' -> '{value}'")
+        else:
+            print(f"[ENTITY GRAPH UPSERT] {full_key} = '{value}'")
+            
+        entity_graph[full_key] = entry
+        self.memory["entity_graph"] = entity_graph
+        return entry
+
+    def get_active_entities(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Get all active non-superseded entities grouped by category."""
+        entity_graph = self.memory.get("entity_graph", {})
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for full_key, item in entity_graph.items():
+            if item.get("status") == "active":
+                cat = item.get("category", "General")
+                grouped.setdefault(cat, []).append(item)
+        return grouped
+
+    def add_session_chapter(self, title: str, narrative: str, emotional_shift: str = "", unresolved_loop: str = "") -> Dict[str, Any]:
+        """
+        Add a coherent narrative session chapter (Episodic Memory).
+        Stored as complete text — never truncated to 100 chars.
+        """
+        chapters = self.memory.setdefault("session_chapters", [])
+        now = datetime.now(timezone.utc).isoformat()
+        chapter = {
+            "chapter_id": f"chap_{int(datetime.now(timezone.utc).timestamp())}",
+            "timestamp": now,
+            "title": title.strip(),
+            "narrative": narrative.strip(),
+            "emotional_shift": emotional_shift.strip(),
+            "unresolved_loop": unresolved_loop.strip()
+        }
+        chapters.append(chapter)
+        # Keep last 15 chapters
+        if len(chapters) > 15:
+            chapters = chapters[-15:]
+        self.memory["session_chapters"] = chapters
+        
+        # Also log open loop if provided
+        if unresolved_loop.strip():
+            self.add_unresolved_loop(unresolved_loop.strip())
+            
+        print(f"[SESSION CHAPTER] '{title}' logged: {narrative[:80]}...")
+        return chapter
+
+    def get_recent_chapters(self, limit: int = 3) -> List[Dict[str, Any]]:
+        """Get the most recent episodic session chapters."""
+        chapters = self.memory.get("session_chapters", [])
+        return chapters[-limit:]
+
+    def add_unresolved_loop(self, task: str, target_time: str = "", notes: str = "") -> None:
+        """Register an unresolved open loop for proactive check-in."""
+        loops = self.memory.setdefault("unresolved_loops", [])
+        now = datetime.now(timezone.utc).isoformat()
+        # Avoid duplicate loops
+        for l in loops:
+            if l.get("task", "").lower() == task.strip().lower() and l.get("status") == "pending":
+                l["updated_at"] = now
+                return
+        loops.append({
+            "task": task.strip(),
+            "target_time": target_time.strip(),
+            "notes": notes.strip(),
+            "status": "pending",
+            "created_at": now
+        })
+        self.memory["unresolved_loops"] = loops
+        print(f"[OPEN LOOP LOGGED] {task}")
+
+    def resolve_loop(self, task_substring: str) -> bool:
+        """Mark an unresolved loop as resolved."""
+        loops = self.memory.get("unresolved_loops", [])
+        resolved = False
+        for l in loops:
+            if task_substring.lower() in l.get("task", "").lower() and l.get("status") == "pending":
+                l["status"] = "resolved"
+                l["resolved_at"] = datetime.now(timezone.utc).isoformat()
+                resolved = True
+                print(f"[OPEN LOOP RESOLVED] {l.get('task')}")
+        self.memory["unresolved_loops"] = loops
+        return resolved
+
+    def get_unresolved_loops(self) -> List[Dict[str, Any]]:
+        """Get all pending open loops."""
+        loops = self.memory.get("unresolved_loops", [])
+        return [l for l in loops if l.get("status") == "pending"]
+
+    def get_clean_prompt_context(self) -> str:
+        """
+        Format the Anti-Hallucination Tri-Tier Memory into natural markdown
+        bullets for LLM prompt injection WITHOUT robotic metadata.
+        """
+        blocks = []
+        
+        # 1. Active Entities
+        grouped = self.get_active_entities()
+        if grouped:
+            blocks.append("ESTABLISHED USER FACTS & LORE (Verified):")
+            for cat, items in grouped.items():
+                bullets = []
+                for it in items:
+                    val = it.get("value", "")
+                    notes = f" ({it['notes']})" if it.get("notes") else ""
+                    bullets.append(f"  • {it['key'].replace('_', ' ').title()}: {val}{notes}")
+                if bullets:
+                    blocks.append(f"[{cat.upper()}]\n" + "\n".join(bullets))
+                    
+        # 2. Recent Session Chapters (Episodic)
+        recent_chaps = self.get_recent_chapters(limit=3)
+        if recent_chaps:
+            blocks.append("RECENT SHARED EPISODES & CONVERSATION HISTORY:")
+            for c in recent_chaps:
+                blocks.append(f"  • {c.get('title', 'Past Conversation')}: {c.get('narrative', '')}")
+                
+        # 3. Unresolved Loops (Temporal Bridge)
+        pending_loops = self.get_unresolved_loops()
+        if pending_loops:
+            blocks.append("UNRESOLVED TOPICS TO FOLLOW UP ON:")
+            for l in pending_loops[:3]:
+                t = f" [Scheduled: {l['target_time']}]" if l.get("target_time") else ""
+                blocks.append(f"  • {l['task']}{t}")
+                
+        return "\n\n".join(blocks)
+
     def get_memory_hierarchy(self) -> Dict[str, Any]:
         """Get current memory hierarchy state."""
         return self.memory
@@ -807,4 +969,5 @@ Be selective. Only include memories that genuinely add value to the current conv
     def update_state_memory(self, state: Dict[str, Any]):
         """Update state with current memory hierarchy."""
         state["memory_hierarchy"] = self.memory
+
 

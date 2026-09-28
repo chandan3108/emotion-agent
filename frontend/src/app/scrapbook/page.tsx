@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPostcards, getAchievements, getCookbook, type PostcardEntry } from "@/lib/gameApi";
+import { getPostcards, getAchievements, getCookbook, getDiary, type PostcardEntry, type DiaryEntry } from "@/lib/gameApi";
 
 export default function ScrapbookPage() {
   const [postcards, setPostcards] = useState<PostcardEntry[]>([]);
   const [unlocked, setUnlocked] = useState<string[]>([]);
   const [cookbook, setCookbook] = useState<any[]>([]);
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
-  const [activeSubTab, setActiveSubTab] = useState<"dates" | "cookbook">("dates");
+  const [activeSubTab, setActiveSubTab] = useState<"dates" | "cookbook" | "diary">("dates");
 
   useEffect(() => {
     // Parse query parameter for initial tab
@@ -18,15 +19,18 @@ export default function ScrapbookPage() {
       const tab = params.get("tab");
       if (tab === "cookbook") {
         setActiveSubTab("cookbook");
+      } else if (tab === "diary") {
+        setActiveSubTab("diary");
       }
     }
 
     Promise.all([
       getPostcards(),
       getAchievements(),
-      getCookbook().catch(() => ({ cookbook: [] }))
+      getCookbook().catch(() => ({ cookbook: [] })),
+      getDiary().catch(() => ({ entries: [], total_entries: 0, access_level: "Discovery" }))
     ])
-      .then(([pcRes, achRes, cbRes]) => {
+      .then(([pcRes, achRes, cbRes, diaryRes]) => {
         if (pcRes && pcRes.postcards) {
           setPostcards(pcRes.postcards);
         }
@@ -35,6 +39,9 @@ export default function ScrapbookPage() {
         }
         if (cbRes && cbRes.cookbook) {
           setCookbook(cbRes.cookbook);
+        }
+        if (diaryRes && diaryRes.entries) {
+          setDiaryEntries(diaryRes.entries);
         }
       })
       .catch((err) => {
@@ -419,6 +426,34 @@ export default function ScrapbookPage() {
                 </div>
               </div>
             </button>
+
+            <button
+              onClick={() => setActiveSubTab("diary")}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 16px",
+                borderRadius: 8,
+                border: "1px solid " + (activeSubTab === "diary" ? "var(--accent-primary)" : "var(--border-subtle)"),
+                background: activeSubTab === "diary" ? "rgba(151,117,250,0.08)" : "transparent",
+                color: activeSubTab === "diary" ? "var(--text-primary)" : "var(--text-muted)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                textAlign: "left"
+              }}
+            >
+              <span style={{ fontSize: "1.25rem" }}>📖</span>
+              <div style={{ flex: 1 }}>
+                <div>Rem&apos;s Secret Diary</div>
+                <div style={{ fontSize: "0.6875rem", fontWeight: 400, color: "var(--text-muted)", marginTop: 2 }}>
+                  {diaryEntries.length} entries • Private
+                </div>
+              </div>
+            </button>
           </div>
 
           <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 16, fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
@@ -426,7 +461,9 @@ export default function ScrapbookPage() {
             <p style={{ fontStyle: "italic", marginTop: 4 }}>
               {activeSubTab === "dates" 
                 ? "these postcards are memories from when we actually went somewhere. don't lose them." 
-                : "the recipes we made. some of them are actual food, others are just... disasters."}
+                : activeSubTab === "cookbook"
+                ? "the recipes we made. some of them are actual food, others are just... disasters."
+                : "you're really not supposed to read this. if you do, don't mention it to me."}
             </p>
           </div>
         </div>
@@ -534,7 +571,7 @@ export default function ScrapbookPage() {
                 </div>
               )}
             </>
-          ) : (
+          ) : activeSubTab === "cookbook" ? (
             cookbook.length === 0 ? (
               <div className="fade-in-up" style={{ textAlign: "center", padding: "80px 20px" }}>
                 <div style={{ fontSize: "3rem", marginBottom: 16, opacity: 0.3 }}>🍳</div>
@@ -653,6 +690,186 @@ export default function ScrapbookPage() {
                 ))}
               </div>
             )
+          ) : (
+            /* Rem's Secret Diary View */
+            <div className="fade-in-up">
+              {/* Header Banner */}
+              <div style={{
+                marginBottom: 28,
+                background: "linear-gradient(135deg, rgba(151, 117, 250, 0.08) 0%, rgba(225, 48, 108, 0.05) 100%)",
+                borderRadius: "var(--radius-md)",
+                padding: "20px 24px",
+                border: "1px solid rgba(151, 117, 250, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 16,
+                boxShadow: "0 0 24px rgba(151, 117, 250, 0.08)"
+              }}>
+                <div>
+                  <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>📖</span> Rem&apos;s Secret Journal
+                  </div>
+                  <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: 4 }}>
+                    Uncensored late-night reflections, unspoken reactions, and what she secretly thinks about you.
+                  </p>
+                </div>
+                <div style={{
+                  fontSize: "0.6875rem",
+                  padding: "6px 12px",
+                  borderRadius: 20,
+                  background: "rgba(151, 117, 250, 0.15)",
+                  border: "1px solid rgba(151, 117, 250, 0.3)",
+                  color: "#d0bfff",
+                  fontWeight: 600,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase"
+                }}>
+                  🔒 Confidential • Unfiltered
+                </div>
+              </div>
+
+              {diaryEntries.length === 0 ? (
+                <div className="glass-panel" style={{
+                  padding: "60px 20px",
+                  textAlign: "center",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px dashed var(--border-subtle)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12
+                }}>
+                  <div style={{ fontSize: "2.5rem", opacity: 0.6 }}>🌙</div>
+                  <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                    No diary entries written yet
+                  </div>
+                  <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", maxWidth: 420, lineHeight: 1.6 }}>
+                    Rem writes in her private journal after deep late-night conversations or date milestones. Chat with her more and check back soon!
+                  </p>
+                </div>
+              ) : (
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                  gap: 24
+                }}>
+                  {diaryEntries.map((entry, idx) => {
+                    const entryDate = new Date(entry.timestamp);
+                    const formattedDate = !isNaN(entryDate.getTime())
+                      ? entryDate.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric"
+                        }) + " • " + entryDate.toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit"
+                        })
+                      : "Late Night";
+
+                    return (
+                      <div
+                        key={idx}
+                        className="glass-panel"
+                        style={{
+                          borderRadius: 16,
+                          padding: "22px 24px",
+                          border: "1px solid rgba(151, 117, 250, 0.18)",
+                          background: "linear-gradient(145deg, rgba(26, 26, 46, 0.75) 0%, rgba(18, 18, 32, 0.85) 100%)",
+                          backdropFilter: "blur(16px)",
+                          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35), 0 0 16px rgba(151, 117, 250, 0.05)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 14,
+                          position: "relative",
+                          overflow: "hidden",
+                          transition: "all 0.25s ease"
+                        }}
+                      >
+                        {/* Subtle top neon ambient bar */}
+                        <div style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: 2,
+                          background: "linear-gradient(90deg, var(--accent-primary), var(--accent-tertiary), transparent)"
+                        }} />
+
+                        {/* Card Meta Header */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.6875rem" }}>
+                          <span style={{
+                            color: "var(--accent-primary)",
+                            fontWeight: 600,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase"
+                          }}>
+                            {formattedDate}
+                          </span>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            {entry.has_milestone && (
+                              <span style={{
+                                padding: "2px 8px",
+                                borderRadius: 10,
+                                background: "rgba(255, 183, 77, 0.15)",
+                                border: "1px solid rgba(255, 183, 77, 0.3)",
+                                color: "#ffb74d",
+                                fontSize: "0.625rem",
+                                fontWeight: 600
+                              }}>
+                                ⭐ Milestone
+                              </span>
+                            )}
+                            <span style={{
+                              padding: "2px 8px",
+                              borderRadius: 10,
+                              background: "rgba(151, 117, 250, 0.12)",
+                              border: "1px solid rgba(151, 117, 250, 0.25)",
+                              color: "#d0bfff",
+                              fontSize: "0.625rem",
+                              fontWeight: 600
+                            }}>
+                              {entry.phase || "Discovery"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Journal Content */}
+                        <div style={{
+                          fontFamily: "var(--font-caveat), 'Caveat', cursive",
+                          fontSize: "1.375rem",
+                          lineHeight: 1.45,
+                          color: "#f1f1fc",
+                          flex: 1,
+                          padding: "4px 0"
+                        }}>
+                          &ldquo;{entry.content}&rdquo;
+                        </div>
+
+                        {/* Card Footer */}
+                        <div style={{
+                          borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+                          paddingTop: 10,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          fontSize: "0.625rem",
+                          color: "var(--text-muted)"
+                        }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <span>🔒</span> private diary
+                          </span>
+                          <span style={{ fontStyle: "italic" }}>
+                            entry #{diaryEntries.length - idx}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

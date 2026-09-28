@@ -139,9 +139,9 @@ async def call_groq(prompt: str, temperature: float = 0.8, max_tokens: int = 250
     if not api_key:
         return ""
     
-    # Primary: Scout 17B (better at complex instructions & creative dialogue)
-    # Fallback: 8B instant (if Scout fails or rate-limits)
-    models = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+    # Primary: Qwen 3.8 27B (fast, reliable instruction following & strict JSON mode)
+    # Fallback: Groq Compound & Compound Mini
+    models = ["qwen/qwen3.8-27b", "groq/compound", "groq/compound-mini"]
     
     for model_id in models:
         payload = {
@@ -488,7 +488,7 @@ async def call_groq_fallback(messages: List[Dict], temperature: float, max_token
     if not groq_key:
         return await call_gemini_fallback(messages, temperature, max_tokens)
     payload = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-120b",
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": temperature,
@@ -525,21 +525,43 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
         "X-Title": "Emotion Agent Rem"
     }
 
-    payload = {
-        "model": "gryphe/mythomax-l2-13b",
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-    }
+    # Uncensored Model Matrix (High EQ, Uncensored, Low Cost)
+    preferred_model = os.environ.get("OPENROUTER_MODEL")
+    models_to_try = [
+        preferred_model,
+        "sao10k/l3.3-euryale-70b",
+        "mistralai/mistral-small-24b-instruct-2501",
+        "neversleep/llama-3.1-lumimaid-8b",
+        "eva-unit-01/eva-qwen-2.5-32b",
+        "gryphe/mythomax-l2-13b",
+    ]
+    models_to_try = [m for m in models_to_try if m]
+
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=payload
-            )
-            if resp.status_code == 200:
-                return resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            for model_id in models_to_try:
+                payload = {
+                    "model": model_id,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+                try:
+                    resp = await client.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers=headers,
+                        json=payload
+                    )
+                    if resp.status_code == 200:
+                        content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                        if content:
+                            return content
+                    elif resp.status_code == 402 or "credits" in resp.text.lower():
+                        break  # No credits, jump to free models
+                    else:
+                        print(f"[OPENROUTER] Model {model_id} returned {resp.status_code}, trying next uncensored model...")
+                except Exception as err:
+                    print(f"[OPENROUTER] Model {model_id} connection error: {err}")
             
             # If insufficient credits, try free uncensored models
             if resp.status_code == 402 or "credits" in resp.text.lower():

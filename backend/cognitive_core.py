@@ -1543,6 +1543,7 @@ memories, parallel_life, emotional_state, knowledge_holes, sparks, enrichment, r
 Return ONLY valid JSON:
 {{
   "user_seems": "one line — how they seem emotionally (read between lines)",
+  "subtext_read": "Identify unsaid subtext, sarcasm, deflection, or fishing. E.g. 'im fine.' = passive-aggressive withdrawal, 'did you miss me?' = fishing for affection/teasing, late-night text = doomscrolling. null if straightforward.",
   "user_openness": "guarded|neutral|open|vulnerable",
   "conversation_energy": "low|medium|high",
   "emotional_vibe": "playful|warm|vulnerable|tense|neutral",
@@ -1572,10 +1573,10 @@ Return ONLY valid JSON:
             if not api_key:
                 return None
             
-            # 70B primary, 8B fallback
+            # Qwen 27B primary, GPT-OSS 20B fallback
             models = [
-                ("llama-3.3-70b-versatile", 500, 0.5),
-                ("llama-3.1-8b-instant", 400, 0.4),
+                ("qwen/qwen3.8-27b", 500, 0.5),
+                ("openai/gpt-oss-20b", 400, 0.4),
             ]
             
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -1731,8 +1732,8 @@ Summary:"""
             if not api_key:
                 return
             
-            # Scout 17B primary → 8B fallback for better summarization
-            SUMMARY_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+            # Qwen 27B primary → Compound Mini fallback for better summarization
+            SUMMARY_MODELS = ["qwen/qwen3.8-27b", "groq/compound-mini"]
             summary = None
             
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -1888,8 +1889,8 @@ Empty arrays [] if nothing worth extracting."""
             if not api_key:
                 return
             
-            # Scout 17B primary → 8B fallback
-            CONSOLIDATION_MODELS = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+            # Qwen 27B primary → Compound Mini fallback
+            CONSOLIDATION_MODELS = ["qwen/qwen3.8-27b", "groq/compound-mini"]
             content = None
             
             async with httpx.AsyncClient(timeout=20.0) as client:
@@ -2061,7 +2062,7 @@ Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slan
                         "https://api.groq.com/openai/v1/chat/completions",
                         headers={"Authorization": f"Bearer {api_key}"},
                         json={
-                            "model": "llama-3.1-8b-instant",
+                            "model": "qwen/qwen3.8-27b",
                             "messages": [{"role": "user", "content": enrichment_prompt}],
                             "max_tokens": 300,
                             "temperature": 0.3,

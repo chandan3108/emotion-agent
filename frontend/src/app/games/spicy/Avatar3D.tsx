@@ -8,9 +8,10 @@ import { VRMLoaderPlugin, VRMUtils, VRM } from "@pixiv/three-vrm";
 interface Avatar3DProps {
   mood: string;
   isSpeaking: boolean;
+  isThinking?: boolean;
 }
 
-export default function Avatar3D({ mood, isSpeaking }: Avatar3DProps) {
+export default function Avatar3D({ mood, isSpeaking, isThinking = false }: Avatar3DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -18,6 +19,7 @@ export default function Avatar3D({ mood, isSpeaking }: Avatar3DProps) {
   // Keep track of current properties using refs to avoid recreating the Three.js context on prop changes
   const moodRef = useRef<string>(mood);
   const isSpeakingRef = useRef<boolean>(isSpeaking);
+  const isThinkingRef = useRef<boolean>(isThinking);
 
   useEffect(() => {
     moodRef.current = mood;
@@ -26,6 +28,10 @@ export default function Avatar3D({ mood, isSpeaking }: Avatar3DProps) {
   useEffect(() => {
     isSpeakingRef.current = isSpeaking;
   }, [isSpeaking]);
+
+  useEffect(() => {
+    isThinkingRef.current = isThinking;
+  }, [isThinking]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -273,12 +279,16 @@ export default function Avatar3D({ mood, isSpeaking }: Avatar3DProps) {
         }
 
         // --- 6c. Mouse cursor head & eye tracking ---
-        // LookAtTarget follows mouse projected coordinates
-        lookAtTarget.position.set(mouse.x * 3.0, mouse.y * 3.0 + 1.45, 2.0);
+        // LookAtTarget follows mouse projected coordinates or drifts up when thinking
+        if (isThinkingRef.current) {
+          lookAtTarget.position.set(0.35, 1.45 + 0.35, 2.0);
+        } else {
+          lookAtTarget.position.set(mouse.x * 3.0, mouse.y * 3.0 + 1.45, 2.0);
+        }
 
-        // Turn head and neck slightly towards the cursor direction
-        const targetHeadY = mouse.x * 0.28; // head turning limits
-        const targetHeadX = -mouse.y * 0.18; // head nodding limits
+        // Turn head and neck slightly towards cursor or contemplation angle
+        const targetHeadY = isThinkingRef.current ? 0.08 : mouse.x * 0.28; // head turning limits
+        const targetHeadX = isThinkingRef.current ? -0.05 : -mouse.y * 0.18; // head nodding limits
 
         // Lerp for smooth head movement
         headState.y += (targetHeadY - headState.y) * 0.05;
@@ -336,7 +346,7 @@ export default function Avatar3D({ mood, isSpeaking }: Avatar3DProps) {
             rotation: eulerToQuaternionArray(
               headState.x + Math.sin(time * 0.8) * 0.015,
               headState.y + Math.cos(time * 0.5) * 0.015,
-              Math.sin(time * 0.4) * 0.01 // Soft head tilt
+              (isThinkingRef.current ? -0.06 : 0.0) + Math.sin(time * 0.4) * 0.01 // Soft head tilt when thinking
             )
           },
           neck: {
@@ -377,7 +387,11 @@ export default function Avatar3D({ mood, isSpeaking }: Avatar3DProps) {
 
         // --- 6e. Smooth Expression Interpolation ---
         const targetMood = moodRef.current.toLowerCase();
-        const targetExprs = moodToExpressions[targetMood] || moodToExpressions.neutral;
+        let targetExprs = moodToExpressions[targetMood] || moodToExpressions.neutral;
+        if (isThinkingRef.current) {
+          // Thoughtful expression blend shape override while generating response
+          targetExprs = { neutral: 0.35, relaxed: 0.35, surprised: 0.15, happy: 0.0, sad: 0.0, angry: 0.0 };
+        }
 
         if (targetMood !== lastLoggedMood) {
           console.log(`[AVATAR 3D] Active expression mood changed to: "${targetMood}". Preset:`, targetExprs);
@@ -433,39 +447,68 @@ export default function Avatar3D({ mood, isSpeaking }: Avatar3DProps) {
         vrmModel.expressionManager?.setValue("cheek" as any, bVal);
         vrmModel.expressionManager?.setValue("Cheek" as any, bVal);
 
-        // --- 6f. Mouth Lip-Sync Visemes (Speeches & Dialogues) ---
-        if (isSpeakingRef.current) {
-          // Speak viseme cycles
-          const mouthOpenSpeed = 12.0;
-          const aaVal = 0.4 + Math.sin(time * mouthOpenSpeed) * 0.4;
-          const ohVal = 0.1 + Math.sin(time * mouthOpenSpeed * 0.7) * 0.2;
+        // --- 6f. Real-Time Web Audio FFT & Audio-Driven Lip-Sync ---
+        let aaVal = 0.0;
+        let ohVal = 0.0;
+        let eeVal = 0.0;
+        let ihVal = 0.0;
 
-          // Write both VRM 1.0 (aa, oh) and VRM 0.0 (a, o, A, O)
-          vrmModel.expressionManager?.setValue("aa", aaVal);
-          vrmModel.expressionManager?.setValue("a" as any, aaVal);
-          vrmModel.expressionManager?.setValue("A" as any, aaVal);
+        const globalAnalyser = typeof window !== "undefined" ? (window as any).__remAudioAnalyser as AnalyserNode | undefined : undefined;
 
-          vrmModel.expressionManager?.setValue("oh", ohVal);
-          vrmModel.expressionManager?.setValue("o" as any, ohVal);
-          vrmModel.expressionManager?.setValue("O" as any, ohVal);
-          
-          vrmModel.expressionManager?.setValue("ih", 0.0);
-          vrmModel.expressionManager?.setValue("i" as any, 0.0);
-          vrmModel.expressionManager?.setValue("I" as any, 0.0);
-        } else {
-          // Clear mouth visemes
-          vrmModel.expressionManager?.setValue("aa", 0.0);
-          vrmModel.expressionManager?.setValue("a" as any, 0.0);
-          vrmModel.expressionManager?.setValue("A" as any, 0.0);
-          
-          vrmModel.expressionManager?.setValue("oh", 0.0);
-          vrmModel.expressionManager?.setValue("o" as any, 0.0);
-          vrmModel.expressionManager?.setValue("O" as any, 0.0);
-          
-          vrmModel.expressionManager?.setValue("ih", 0.0);
-          vrmModel.expressionManager?.setValue("i" as any, 0.0);
-          vrmModel.expressionManager?.setValue("I" as any, 0.0);
+        if (globalAnalyser) {
+          const freqData = new Uint8Array(globalAnalyser.frequencyBinCount);
+          globalAnalyser.getByteFrequencyData(freqData);
+
+          // Sample low-mid frequencies (vowels 250Hz - 650Hz) -> 'aa', 'oh'
+          let lowMidSum = 0;
+          const lowMidStart = Math.floor((250 / 22050) * freqData.length);
+          const lowMidEnd = Math.floor((650 / 22050) * freqData.length);
+          for (let i = lowMidStart; i <= lowMidEnd && i < freqData.length; i++) {
+            lowMidSum += freqData[i];
+          }
+          const lowMidAvg = lowMidSum / Math.max(1, (lowMidEnd - lowMidStart + 1) * 255);
+
+          // Sample high-mid frequencies (formants 1200Hz - 2600Hz) -> 'ee', 'ih'
+          let highMidSum = 0;
+          const highMidStart = Math.floor((1200 / 22050) * freqData.length);
+          const highMidEnd = Math.floor((2600 / 22050) * freqData.length);
+          for (let i = highMidStart; i <= highMidEnd && i < freqData.length; i++) {
+            highMidSum += freqData[i];
+          }
+          const highMidAvg = highMidSum / Math.max(1, (highMidEnd - highMidStart + 1) * 255);
+
+          if (lowMidAvg > 0.04 || highMidAvg > 0.04) {
+            aaVal = Math.min(1.0, lowMidAvg * 2.2);
+            ohVal = Math.min(0.8, lowMidAvg * 1.5);
+            eeVal = Math.min(0.9, highMidAvg * 2.0);
+            ihVal = Math.min(0.7, highMidAvg * 1.4);
+          }
+        } else if (isSpeakingRef.current) {
+          // Natural speech envelope modulation when speaking without direct audio stream
+          const mouthOpenSpeed = 14.0;
+          const speechPulse = (Math.sin(time * mouthOpenSpeed) + Math.cos(time * 7.5) * 0.5 + 1.0) / 2.5;
+          aaVal = Math.max(0.0, Math.min(0.85, speechPulse * 0.75));
+          ohVal = Math.max(0.0, Math.min(0.65, (Math.sin(time * 9.0) + 1.0) * 0.3));
+          eeVal = Math.max(0.0, Math.min(0.5, (Math.cos(time * 11.0) + 1.0) * 0.25));
+          ihVal = Math.max(0.0, Math.min(0.4, (Math.sin(time * 13.0) + 1.0) * 0.2));
         }
+
+        // Apply visemes with VRM 1.0 and VRM 0.0 naming
+        vrmModel.expressionManager?.setValue("aa", aaVal);
+        vrmModel.expressionManager?.setValue("a" as any, aaVal);
+        vrmModel.expressionManager?.setValue("A" as any, aaVal);
+
+        vrmModel.expressionManager?.setValue("oh", ohVal);
+        vrmModel.expressionManager?.setValue("o" as any, ohVal);
+        vrmModel.expressionManager?.setValue("O" as any, ohVal);
+
+        vrmModel.expressionManager?.setValue("ee" as any, eeVal);
+        vrmModel.expressionManager?.setValue("e" as any, eeVal);
+        vrmModel.expressionManager?.setValue("E" as any, eeVal);
+
+        vrmModel.expressionManager?.setValue("ih", ihVal);
+        vrmModel.expressionManager?.setValue("i" as any, ihVal);
+        vrmModel.expressionManager?.setValue("I" as any, ihVal);
 
         // --- 6g. Apply bone and expression updates ---
         vrmModel.update(delta);

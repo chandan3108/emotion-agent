@@ -13,7 +13,7 @@ if [ -z "$GROQ_API_KEY" ]; then
 fi
 
 echo "🚀 Starting Emotion Agent backend..."
-echo "   Model: ${MODEL_ID:-meta-llama/llama-4-scout-17b-16e-instruct}"
+echo "   Model: ${MODEL_ID:-openai/gpt-oss-120b}"
 
 # Activate venv if present
 if [ -d "backend/venv" ]; then
