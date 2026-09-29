@@ -23,7 +23,7 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "Rem — Your AI Companion",
+  title: "REM — Your AI Companion",
   description: "A relationship that evolves, remembers, and grows with you.",
 };
 

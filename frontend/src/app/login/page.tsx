@@ -159,7 +159,7 @@ export default function LoginPage() {
             color: "#FFF",
             marginBottom: "8px",
           }}>
-            Rem
+            REM
           </h1>
           <p style={{
             fontSize: "0.85rem",
@@ -169,7 +169,7 @@ export default function LoginPage() {
             textTransform: "uppercase",
             letterSpacing: "0.08em",
           }}>
-            {isRegister ? "Begin the journey" : "Reconnect with Rem"}
+            {isRegister ? "Begin the journey" : "Reconnect with REM"}
           </p>
         </div>
 

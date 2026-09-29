@@ -33,6 +33,25 @@ function cleanMessageContent(text: string): string {
   return cleaned.trim();
 }
 
+function expandBurstMessages(msgs: Message[]): Message[] {
+  if (!Array.isArray(msgs)) return [];
+  const expanded: Message[] = [];
+  for (const msg of msgs) {
+    if (msg.role === "assistant" && msg.content && msg.content.includes("|||")) {
+      const parts = msg.content.split("|||").map((p) => p.trim()).filter(Boolean);
+      for (const part of parts) {
+        expanded.push({
+          ...msg,
+          content: part,
+        });
+      }
+    } else {
+      expanded.push(msg);
+    }
+  }
+  return expanded;
+}
+
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -152,7 +171,7 @@ export default function ChatPage() {
       setToast("Sending to Memory Vault...");
       const res = await bookmarkMemory(content, role);
       if (res.success) {
-        setToast("Rem will remember this!");
+        setToast("REM will remember this!");
         if (drawerOpen && drawerTab === 'vault') {
           fetchMemoryData();
         }
@@ -269,7 +288,7 @@ export default function ChatPage() {
           setActiveSessionId(res.active_session_id);
           const msgRes = await getMessages(res.active_session_id);
           if (msgRes && msgRes.messages) {
-            setMessages(msgRes.messages);
+            setMessages(expandBurstMessages(msgRes.messages));
           }
         } else if (res.sessions.length > 0) {
           handleSwitchSession(res.sessions[0].id);
@@ -315,7 +334,7 @@ export default function ChatPage() {
         setActiveSessionId(sessionId);
         const msgRes = await getMessages(sessionId);
         if (msgRes && msgRes.messages) {
-          setMessages(msgRes.messages);
+          setMessages(expandBurstMessages(msgRes.messages));
         } else {
           setMessages([]);
         }
@@ -348,7 +367,7 @@ export default function ChatPage() {
             if (listRes.active_session_id) {
               setActiveSessionId(listRes.active_session_id);
               const msgRes = await getMessages(listRes.active_session_id);
-              setMessages(msgRes?.messages || []);
+              setMessages(expandBurstMessages(msgRes?.messages || []));
             } else {
               handleSwitchSession(listRes.sessions[0].id);
             }
@@ -412,7 +431,7 @@ export default function ChatPage() {
   }, [loading]);
 
   const clearHistory = useCallback(async () => {
-    if (window.confirm("Are you sure you want to completely reset Rem's memory and chat history? This cannot be undone.")) {
+    if (window.confirm("Are you sure you want to completely reset REM's memory and chat history? This cannot be undone.")) {
       try {
         setMessages([]);
         localStorage.removeItem(STORAGE_KEY);
@@ -425,7 +444,7 @@ export default function ChatPage() {
         setFuturePlans([]);
         setHurt(0.0);
         setAnger(0.0);
-        setToast("Rem has been reset to a fresh start!");
+        setToast("REM has been reset to a fresh start!");
       } catch (err: any) {
         setToast(`Error resetting: ${err.message || err}`);
       } finally {
@@ -496,9 +515,15 @@ export default function ChatPage() {
         session_id: activeSessionId || undefined
       });
 
-      if (res.reply_parts && res.reply_parts.length > 1) {
-        for (let i = 0; i < res.reply_parts.length; i++) {
-          const bubbleText = res.reply_parts[i];
+      const rawParts = (res.reply_parts && res.reply_parts.length > 1)
+        ? res.reply_parts
+        : (res.reply && res.reply.includes("|||")
+            ? res.reply.split("|||").map((p) => p.trim()).filter(Boolean)
+            : [res.reply || ""]);
+
+      if (rawParts.length > 1) {
+        for (let i = 0; i < rawParts.length; i++) {
+          const bubbleText = rawParts[i];
           // Dynamic typing delay based on length (feels like authentic human typing)
           const typingDelay = Math.min(1400, Math.max(400, bubbleText.length * 25));
           setLoading(true);
@@ -512,12 +537,12 @@ export default function ChatPage() {
           setMessages((prev) => [...prev, partMsg]);
           setLoading(false);
 
-          if (i < res.reply_parts.length - 1) {
+          if (i < rawParts.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 350 + Math.random() * 250));
           }
         }
       } else {
-        const bubbleText = res.reply || "";
+        const bubbleText = rawParts[0] || "";
         const typingDelay = Math.min(1200, Math.max(400, bubbleText.length * 20));
         await new Promise((resolve) => setTimeout(resolve, typingDelay));
         const remMsg: Message = {
@@ -806,7 +831,7 @@ export default function ChatPage() {
             />
           </div>
           <span style={{ fontSize: "0.6875rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-            Rem's Presence
+            REM's Presence
           </span>
         </div>
 
@@ -878,14 +903,14 @@ export default function ChatPage() {
                 textTransform: "uppercase"
               }}
             >
-              Rem
+              REM
             </div>
             
             {/* Dialogue Text */}
             <div style={{ fontSize: "1rem", lineHeight: 1.7, color: "#0F0F0F", fontFamily: "var(--font-serif)" }}>
               {loading ? (
                 <div style={{ display: "flex", gap: 6, alignItems: "center", height: 28 }}>
-                  <span style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>Rem is thinking...</span>
+                  <span style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>REM is thinking...</span>
                 </div>
               ) : (
                 parseDialogue(cleanMessageContent(lastReply))
@@ -1055,7 +1080,7 @@ export default function ChatPage() {
                   color: "var(--text-primary)"
                 }}
               >
-                Rem
+                REM
               </h2>
               {roleplay?.active ? (
                 <span
@@ -1531,10 +1556,11 @@ export default function ChatPage() {
 
             {(() => {
               const elements: React.ReactNode[] = [];
-              messages.forEach((msg, i) => {
+              const displayMessages = expandBurstMessages(messages);
+              displayMessages.forEach((msg, i) => {
                 const showDateSeparator = i === 0 || 
-                  (msg.timestamp && messages[i - 1]?.timestamp && 
-                   new Date(msg.timestamp).toDateString() !== new Date(messages[i - 1].timestamp).toDateString());
+                  (msg.timestamp && displayMessages[i - 1]?.timestamp && 
+                   new Date(msg.timestamp).toDateString() !== new Date(displayMessages[i - 1].timestamp).toDateString());
                 
                 if (showDateSeparator && msg.timestamp) {
                   const getDayLabel = (isoString: string) => {

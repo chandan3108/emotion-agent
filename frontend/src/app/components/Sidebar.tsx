@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: "◐" },
   { href: "/diary", label: "Diary", icon: "◉" },
   { href: "/scrapbook", label: "Scrapbook", icon: "▤" },
-  { href: "/secrets", label: "Rem's Secrets", icon: "✦" },
+  { href: "/secrets", label: "REM's Secrets", icon: "✦" },
   { href: "/timeline", label: "Timeline", icon: "◆" },
   { href: "/stats", label: "Stats", icon: "◇" },
   { href: "/mind", label: "Mind", icon: "✶" },
@@ -109,7 +109,7 @@ export function Sidebar() {
                 transition: "opacity 0.2s ease"
               }}
             >
-              Rem
+              REM
             </h1>
           )}
         </div>

@@ -2606,11 +2606,21 @@ async def get_messages(session_id: Optional[str] = None, user_id: str = Depends(
         if db_msgs:
             messages = []
             for m in db_msgs:
-                messages.append(MessageEntry(
-                    role=m.role,
-                    content=m.content,
-                    timestamp=m.timestamp.replace(tzinfo=timezone.utc).isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
-                ))
+                ts = m.timestamp.replace(tzinfo=timezone.utc).isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
+                if m.role == "assistant" and m.content and "|||" in m.content:
+                    parts = [p.strip() for p in m.content.split("|||") if p.strip()]
+                    for p in parts:
+                        messages.append(MessageEntry(
+                            role=m.role,
+                            content=p,
+                            timestamp=ts
+                        ))
+                else:
+                    messages.append(MessageEntry(
+                        role=m.role,
+                        content=m.content,
+                        timestamp=ts
+                    ))
             return MessagesResponse(messages=messages)
             
         stm = core.memory.get_stm(decay=False, filter_date=False)
@@ -2621,11 +2631,21 @@ async def get_messages(session_id: Optional[str] = None, user_id: str = Depends(
                 continue
             ts = m.get("timestamp", datetime.now(timezone.utc).isoformat())
             if content.startswith("[Rem] "):
-                messages.append(MessageEntry(
-                    role="assistant",
-                    content=content[6:],
-                    timestamp=ts,
-                ))
+                rem_text = content[6:]
+                if "|||" in rem_text:
+                    parts = [p.strip() for p in rem_text.split("|||") if p.strip()]
+                    for p in parts:
+                        messages.append(MessageEntry(
+                            role="assistant",
+                            content=p,
+                            timestamp=ts,
+                        ))
+                else:
+                    messages.append(MessageEntry(
+                        role="assistant",
+                        content=rem_text,
+                        timestamp=ts,
+                    ))
             elif content.startswith("[User] "):
                 messages.append(MessageEntry(
                     role="user",

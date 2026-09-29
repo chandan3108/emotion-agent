@@ -37,7 +37,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         letterSpacing: "0.15em",
         textTransform: "uppercase"
       }}>
-        ◈ Rem System / Authenticating...
+        ◈ REM System / Authenticating...
       </div>
     );
   }
