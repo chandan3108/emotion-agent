@@ -5,16 +5,16 @@ import { usePathname } from "next/navigation";
  
 const NAV_ITEMS = [
   { href: "/", label: "Chat", icon: "◈" },
-  { href: "/date", label: "Date Mode", icon: "🎭" },
-  { href: "/games", label: "Mini-Games", icon: "🎮" },
+  { href: "/date", label: "Date Mode", icon: "◬" },
+  { href: "/games", label: "Mini-Games", icon: "⊞" },
   { href: "/dashboard", label: "Overview", icon: "◐" },
   { href: "/diary", label: "Diary", icon: "◉" },
-  { href: "/scrapbook", label: "Scrapbook", icon: "📸" },
-  { href: "/secrets", label: "Rem's Secrets", icon: "🫦" },
+  { href: "/scrapbook", label: "Scrapbook", icon: "▤" },
+  { href: "/secrets", label: "Rem's Secrets", icon: "✦" },
   { href: "/timeline", label: "Timeline", icon: "◆" },
   { href: "/stats", label: "Stats", icon: "◇" },
-  { href: "/mind", label: "Mind", icon: "✦" },
-  { href: "/settings", label: "Settings", icon: "⚙" },
+  { href: "/mind", label: "Mind", icon: "✶" },
+  { href: "/settings", label: "Settings", icon: "⊙" },
 ];
  
 export function Sidebar() {
@@ -226,7 +226,7 @@ export function Sidebar() {
                 fontSize: "0.875rem"
               }}
             >
-              📅
+              ▤
             </button>
             <button
               onClick={() => {
@@ -253,7 +253,7 @@ export function Sidebar() {
                 fontSize: "0.875rem"
               }}
             >
-              🧠
+              ◇
             </button>
           </div>
         ) : (
@@ -281,7 +281,7 @@ export function Sidebar() {
                   transition: "all 0.2s ease"
                 }}
               >
-                📅 Plans
+                Plans
               </button>
               <button
                 onClick={() => {
@@ -305,7 +305,7 @@ export function Sidebar() {
                   transition: "all 0.2s ease"
                 }}
               >
-                🧠 Vault
+                Vault
               </button>
             </div>
  

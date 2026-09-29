@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { sendChat, getXP, getSchedule, getIdentity, getPlans, addPlan, deletePlan, getMemory, bookmarkMemory, resetUser, getMessages, getSessions, startNewSession, switchSession, deleteSession, renameSession, type ChatResponse, type XPData } from "@/lib/gameApi";
+import { sendChat, getXP, getSchedule, getIdentity, getPersonality, getPlans, addPlan, deletePlan, getMemory, bookmarkMemory, resetUser, getMessages, getSessions, startNewSession, switchSession, deleteSession, renameSession, type ChatResponse, type XPData } from "@/lib/gameApi";
 
 interface Message {
   role: "user" | "assistant";
@@ -42,9 +42,15 @@ export default function ChatPage() {
   const [currentActivity, setCurrentActivity] = useState<string | null>(null);
   const [hurt, setHurt] = useState(0.0);
   const [anger, setAnger] = useState(0.0);
-  // Cognitive visibility state
-  const [neurochem, setNeurochem] = useState<Record<string, number> | null>(null);
-  const [moodLabel, setMoodLabel] = useState<string | null>(null);
+  // Cognitive visibility state — baseline active on page load
+  const [neurochem, setNeurochem] = useState<Record<string, number>>({
+    dopamine: 0.55,
+    serotonin: 0.60,
+    oxytocin: 0.50,
+    cortisol: 0.25,
+    adrenaline: 0.40,
+  });
+  const [moodLabel, setMoodLabel] = useState<string | null>("calm");
   const [subtextCaught, setSubtextCaught] = useState<string | null>(null);
   const [innerMonologue, setInnerMonologue] = useState<string | null>(null);
   const [showMonologue, setShowMonologue] = useState(false);
@@ -206,6 +212,25 @@ export default function ChatPage() {
           if (res.relationship.anger !== undefined) {
             setAnger(prev => prev === res.relationship.anger ? prev : res.relationship.anger);
           }
+        }
+      })
+      .catch(() => {});
+
+    getPersonality()
+      .then((data: any) => {
+        if (data?.psyche?.neurochem) {
+          setNeurochem({
+            dopamine: data.psyche.neurochem.dopamine ?? 0.55,
+            serotonin: data.psyche.neurochem.serotonin ?? 0.60,
+            oxytocin: data.psyche.neurochem.oxytocin ?? 0.50,
+            cortisol: data.psyche.neurochem.cortisol ?? 0.25,
+            adrenaline: data.psyche.neurochem.endorphins ?? 0.40,
+          });
+        }
+        if (data?.psyche?.named_mood) {
+          const m = data.psyche.named_mood;
+          const moodStr = typeof m === "string" ? m : m.mood || m.state || m.label || "calm";
+          if (moodStr) setMoodLabel(moodStr);
         }
       })
       .catch(() => {});
