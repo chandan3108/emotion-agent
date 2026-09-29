@@ -128,9 +128,29 @@ def _clean_game_response(text: str) -> str:
     # Strip plain-text think prefix
     text = re.sub(r'^(?:think(?:ing)?)\s*[-—:]\s*', '', text, flags=re.IGNORECASE)
     
-    # Clean <text>...</text> tags but keep their contents
+    # Strip <text>...</text> tags but keep their contents
     text = re.sub(r'<text>(.*?)</text>', r'\1', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'</?text>', '', text, flags=re.IGNORECASE)
+
+    # Strip reasoning scratchpads/monologues leaked by reasoning models (e.g. Nemotron, DeepSeek, GPT-OSS)
+    paragraphs = text.strip().split("\n\n")
+    cleaned_paras = []
+    meta_prefixes = (
+        "okay, the user", "the user just said", "the user sent", "the user is",
+        "hmm", "thinking process", "i need to", "i should", "*checks rules*",
+        "wait—", "wait,", "rem's personality", "since i was already", "rule #",
+        "checks rules", "as per the mood directive", "environmental scaffolding"
+    )
+    for p in paragraphs:
+        p_strip = p.strip()
+        p_low = p_strip.lower()
+        if any(p_low.startswith(mp) for mp in meta_prefixes):
+            continue
+        cleaned_paras.append(p_strip)
+
+    if cleaned_paras:
+        text = "\n\n".join(cleaned_paras)
+        
     return text.strip()
 
 
@@ -487,30 +507,35 @@ async def call_groq_fallback(messages: List[Dict], temperature: float, max_token
     groq_key = os.environ.get("GROQ_API_KEY")
     if not groq_key:
         return await call_gemini_fallback(messages, temperature, max_tokens)
-    payload = {
-        "model": "openai/gpt-oss-120b",
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-    }
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {groq_key}"},
-                json=payload
-            )
-            if resp.status_code == 200:
-                raw_content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                return _clean_game_response(raw_content)
-            else:
-                print(f"[GROQ FALLBACK ERROR] Status {resp.status_code}: {resp.text}")
-    except Exception as e:
-        print(f"[GROQ FALLBACK ERROR] {e}")
+    
+    # Try Qwen 3.8 27B first (clean roleplayer), then GPT-OSS
+    for model_name in ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"]:
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {groq_key}"},
+                    json=payload
+                )
+                if resp.status_code == 200:
+                    raw_content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                    cleaned = _clean_game_response(raw_content)
+                    if cleaned:
+                        return cleaned
+                else:
+                    print(f"[GROQ FALLBACK ERROR] {model_name} status {resp.status_code}: {resp.text[:100]}")
+        except Exception as e:
+            print(f"[GROQ FALLBACK ERROR] {model_name}: {e}")
     return await call_gemini_fallback(messages, temperature, max_tokens)
 
 
-async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_tokens: int = 300) -> str:
+async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_tokens: int = 350) -> str:
     """
     Call OpenRouter API for uncensored roleplay.
     Falls back to free uncensored models if key lacks credits, then Groq/Gemini.
@@ -554,8 +579,9 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
                     )
                     if resp.status_code == 200:
                         content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                        if content:
-                            return content
+                        cleaned = _clean_game_response(content)
+                        if cleaned:
+                            return cleaned
                     elif resp.status_code == 402 or "credits" in resp.text.lower():
                         break  # No credits, jump to free models
                     else:
@@ -563,15 +589,16 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
                 except Exception as err:
                     print(f"[OPENROUTER] Model {model_id} connection error: {err}")
             
-            # If insufficient credits, try free uncensored models
+            # If insufficient credits, try currently active free uncensored models
             if resp.status_code == 402 or "credits" in resp.text.lower():
-                print("[OPENROUTER] Insufficient credits. Trying free uncensored models...")
+                print("[OPENROUTER] Insufficient credits. Trying active free models...")
                 free_models = [
-                    "google/gemma-4-26b-a4b-it:free",
-                    "nvidia/nemotron-3-super-120b-a12b:free",
+                    "qwen/qwen3.8-27b:free",
                     "google/gemma-4-31b-it:free",
-                    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-                    "nousresearch/hermes-3-llama-3.1-405b:free",
+                    "google/gemma-4-26b-a4b-it:free",
+                    "nvidia/nemotron-3.5-lightning:free",
+                    "inclusionai/ling-3.0-flash-sante:free",
+                    "nvidia/nemotron-3-super-120b-a12b:free",
                 ]
                 for free_model in free_models:
                     print(f"[OPENROUTER FREE FALLBACK] Attempting with model: {free_model}")
@@ -585,24 +612,25 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
                         )
                         if resp_free.status_code == 200:
                             content = resp_free.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                            if content:
+                            cleaned = _clean_game_response(content)
+                            if cleaned:
                                 print(f"[OPENROUTER FREE FALLBACK] Success with model: {free_model}")
-                                return content
-                            else:
-                                print(f"[OPENROUTER FREE FALLBACK] Empty response from {free_model}")
+                                return cleaned
                         else:
                             print(f"[OPENROUTER FREE FALLBACK] Error {resp_free.status_code} for {free_model}: {resp_free.text[:150]}")
                     except Exception as e_free:
                         print(f"[OPENROUTER FREE FALLBACK] Connection error for {free_model}: {e_free}")
                 
-                # All free models failed — return user-facing message instead of falling through to censored models
-                print("[OPENROUTER] All free uncensored models failed. NOT falling through to censored Groq/Gemini.")
-                return "mmh, the spicy servers are all busy right now... try again in a sec? 💋"
+                # If all free OpenRouter models fail, fall through to Groq Qwen
+                print("[OPENROUTER] Free OpenRouter models failed. Calling Groq fallback...")
+                return await call_groq_fallback(messages, temperature, max_tokens)
             else:
                 print(f"[OPENROUTER] Error {resp.status_code}: {resp.text[:150]}")
             
-            # Non-credit errors (500, 503, etc.) — try Groq/Gemini as last resort
             return await call_groq_fallback(messages, temperature, max_tokens)
+    except Exception as e:
+        print(f"[OPENROUTER] Connection error: {e}")
+        return await call_groq_fallback(messages, temperature, max_tokens)
     except Exception as e:
         print(f"[OPENROUTER] Connection error: {e}")
         return await call_groq_fallback(messages, temperature, max_tokens)
@@ -1067,6 +1095,7 @@ Rules:
 6. CRITICAL: Never repeat identical physical actions, descriptions, or specific word patterns from your previous responses. Keep your physical expressions and dialogue highly diverse and fresh on every turn.
 7. Maintain logical continuity between actions: ensure your physical proximity, stance, and movements flow naturally and logically from the previous turn's actions (e.g. do not teleport, reset positions, or change physical states abruptly without describing the transition).
 8. Respect user identity: the user's name is {pref_name_val} and gender identity is {gender_val_str}. Never misgender the user or refer to them with incorrect pronouns (e.g., do not call them a girl unless their gender identity is female).
+9. CRITICAL OUTPUT CONSTRAINT: Output ONLY Rem's direct spoken dialogue and physical action narration (*action*). NEVER output your inner thoughts, planning, reasoning, rule-checks, scratchpads, or meta-commentary under any circumstances. Start immediately in-character without preamble.
 """
 
     # Prepare messages payload
@@ -1079,7 +1108,7 @@ Rules:
         
     messages.append({"role": "user", "content": user_message})
     
-    reply = await call_openrouter(messages, temperature=0.95, max_tokens=220)
+    reply = await call_openrouter(messages, temperature=0.95, max_tokens=350)
     return _clean_game_response(reply) if reply else "..."
 
 

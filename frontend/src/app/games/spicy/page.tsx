@@ -4,9 +4,37 @@ import { useState, useRef, useEffect } from "react";
 import { startSpicy, chatSpicy, endSpicy } from "@/lib/gameApi";
 import Avatar3D from "./Avatar3D";
 
-const formatMessage = (content: string) => {
+const cleanSpicyContent = (content: string) => {
   if (!content) return "";
-  const parts = content.split("*");
+  let text = content;
+  // Strip complete <think> blocks
+  text = text.replace(/<(v?think)>[\s\S]*?<\/\1>/gi, "");
+  text = text.replace(/<(v?think)>[\s\S]*$/gi, "");
+  text = text.replace(/<\/(v?think)>/gi, "");
+
+  // Strip reasoning/scratchpads if any leaked by thinking models
+  const paras = text.split("\n\n");
+  const cleaned: string[] = [];
+  const metaPrefixes = [
+    "okay, the user", "the user just said", "the user sent", "the user is",
+    "hmm", "thinking process", "i need to", "i should", "*checks rules*",
+    "wait—", "wait,", "rem's personality", "since i was already", "rule #",
+    "checks rules", "as per the mood directive", "environmental scaffolding"
+  ];
+  for (const p of paras) {
+    const pl = p.trim().toLowerCase();
+    if (metaPrefixes.some(mp => pl.startsWith(mp))) {
+      continue;
+    }
+    cleaned.push(p.trim());
+  }
+  return cleaned.length > 0 ? cleaned.join("\n\n") : text;
+};
+
+const formatMessage = (content: string) => {
+  const cleaned = cleanSpicyContent(content);
+  if (!cleaned) return "";
+  const parts = cleaned.split("*");
   return parts.map((part, index) => {
     if (index % 2 === 1) {
       return (
@@ -28,6 +56,7 @@ export default function SpicyGamePage() {
   const [selectedMood, setSelectedMood] = useState("Flirty & Affectionate");
   const [unlockedSecret, setUnlockedSecret] = useState<any>(null);
   const [showSecretModal, setShowSecretModal] = useState(false);
+  const [showAvatar, setShowAvatar] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -272,13 +301,15 @@ export default function SpicyGamePage() {
 
   return (
     <div style={{ padding: "30px 36px", height: "calc(100vh - 60px)", display: "flex", gap: "24px" }} className="fade-in-up">
-      {/* Left Pane: 3D Anime Avatar */}
-      <div style={{ flex: "1", minWidth: "300px", maxWidth: "45%", display: "flex", flexDirection: "column", gap: "12px" }}>
-        <Avatar3D mood={activeEmotion} isSpeaking={false} isThinking={loading} />
-      </div>
+      {/* Left Pane: 3D Anime Avatar (collapsible) */}
+      {showAvatar && (
+        <div style={{ flex: "1", minWidth: "300px", maxWidth: "45%", display: "flex", flexDirection: "column", gap: "12px", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)" }}>
+          <Avatar3D mood={activeEmotion} isSpeaking={false} isThinking={loading} />
+        </div>
+      )}
 
       {/* Right Pane: Chat Window & Session Controls */}
-      <div style={{ flex: "1.5", display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ flex: showAvatar ? "1.5" : "1", display: "flex", flexDirection: "column", height: "100%", width: "100%", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)" }}>
         {/* HUD Bar */}
         <div className="glass-panel" style={{ padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderColor: "var(--border-subtle)", background: "var(--bg-surface)", boxShadow: "0 2px 8px rgba(90, 85, 75, 0.03)" }}>
           <div>
@@ -286,12 +317,26 @@ export default function SpicyGamePage() {
               Unfiltered Sandbox
             </span>
             <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 500, marginTop: 1 }}>
-              🎭 {session.scenario} | 💗 {session.mood} | 👤 Mood: <span style={{ color: "var(--text-accent)", textTransform: "capitalize", fontWeight: 600 }}>{activeEmotion}</span>
+              {session.scenario} · {session.mood} · Mood: <span style={{ color: "var(--text-accent)", textTransform: "capitalize", fontWeight: 600 }}>{activeEmotion}</span>
             </div>
           </div>
           
-          {/* End / Destruct buttons */}
-          <div style={{ display: "flex", gap: 10 }}>
+          {/* Controls: 3D Avatar Toggle, Destruct, End */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button
+              onClick={() => setShowAvatar(prev => !prev)}
+              style={{
+                padding: "6px 14px", borderRadius: 6,
+                background: showAvatar ? "rgba(95, 125, 97, 0.12)" : "rgba(255, 255, 255, 0.06)",
+                border: "1px solid " + (showAvatar ? "rgba(95, 125, 97, 0.3)" : "var(--border-subtle)"),
+                color: showAvatar ? "var(--accent-primary)" : "var(--text-secondary)",
+                fontSize: "0.6875rem", fontWeight: 600,
+                cursor: "pointer", transition: "all 0.2s"
+              }}
+              title="Toggle 3D Avatar view"
+            >
+              {showAvatar ? "Hide 3D Avatar" : "Show 3D Avatar"}
+            </button>
             <button
               onClick={handleSelfDestruct}
               style={{
@@ -300,7 +345,7 @@ export default function SpicyGamePage() {
                 cursor: "pointer", transition: "all 0.2s"
               }}
             >
-              💥 Self-Destruct
+              Self-Destruct
             </button>
             <button
               onClick={handleEndSession}
