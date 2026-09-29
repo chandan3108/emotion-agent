@@ -513,7 +513,7 @@ export default function ChatPage() {
           ? `\n${Object.keys(res.new_unlocks).join(" · ")}`
           : "";
         setToast(
-          `◈ ${res.phase_transition.from} → ${res.phase_transition.to}${unlockText}`
+          `${res.phase_transition.from} → ${res.phase_transition.to}${unlockText}`
         );
         setTimeout(() => setToast(null), 5000);
       }
@@ -552,7 +552,7 @@ export default function ChatPage() {
       setInput(text);
       const errMsg: Message = {
         role: "assistant",
-        content: "⚠️ Message failed to send. Please check your connection or try again.",
+        content: "Message failed to send. Please check your connection or try again.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errMsg]);
@@ -740,7 +740,7 @@ export default function ChatPage() {
             boxShadow: "0 2px 8px rgba(90, 85, 75, 0.04)"
           }}
         >
-          <span>📍</span>
+          <span>loc:</span>
           <span>{roleplay?.location} — {roleplay?.activity}</span>
         </div>
 
@@ -969,7 +969,7 @@ export default function ChatPage() {
               e.currentTarget.style.background = "transparent";
             }}
           >
-            ☰
+            ≡
           </button>
 
           {/* Sessions Sidebar Toggle */}
@@ -1002,7 +1002,7 @@ export default function ChatPage() {
               e.currentTarget.style.background = "transparent";
             }}
           >
-            💬
+            ⊞
           </button>
 
           <div 
@@ -1049,7 +1049,7 @@ export default function ChatPage() {
                     letterSpacing: "0.05em",
                   }}
                 >
-                  🎭 Roleplay Active: {roleplay.activity} ({roleplay.location})
+                  Roleplay Active: {roleplay.activity} ({roleplay.location})
                 </span>
               ) : currentActivity ? (
                 <span
@@ -1065,9 +1065,7 @@ export default function ChatPage() {
                     gap: 4,
                   }}
                 >
-                  {currentActivity.toLowerCase().includes("sleep") ? "😴" : 
-                   currentActivity.toLowerCase().includes("study") || currentActivity.toLowerCase().includes("class") || currentActivity.toLowerCase().includes("college") ? "📚" :
-                   currentActivity.toLowerCase().includes("commute") || currentActivity.toLowerCase().includes("head") || currentActivity.toLowerCase().includes("drive") ? "🚗" : "✨"} {currentActivity}
+                  {currentActivity}
                 </span>
               ) : null}
             </div>
@@ -1175,7 +1173,7 @@ export default function ChatPage() {
               }}
             >
               {xp.streak_days > 0 && (
-                <span className="streak-flame" style={{ color: "var(--text-accent)" }}>🔥 {xp.streak_days}</span>
+                <span className="streak-flame" style={{ color: "var(--text-accent)" }}>{xp.streak_days}d streak</span>
               )}
               <span
                 className={`phase-badge phase-${xp.phase.toLowerCase()}`}
@@ -1234,7 +1232,7 @@ export default function ChatPage() {
           zIndex: 4,
         }}>
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span>🎭</span>
+            <span>RP</span>
             <span>Active Date Mode: <strong>{roleplay.activity}</strong> at <strong>{roleplay.location}</strong></span>
           </span>
           <button
@@ -1426,7 +1424,7 @@ export default function ChatPage() {
                               e.currentTarget.style.color = "var(--text-muted)";
                             }}
                           >
-                            ✏️
+                            ✎
                           </button>
                           
                           <button
@@ -1602,7 +1600,7 @@ export default function ChatPage() {
                           className="bookmark-btn"
                           title="Remember this message"
                         >
-                          🔖
+                          ⊹
                         </button>
                       )}
 
@@ -1653,7 +1651,7 @@ export default function ChatPage() {
                           className="bookmark-btn"
                           title="Remember this message"
                         >
-                          🔖
+                          ⊹
                         </button>
                       )}
                     </div>
@@ -1704,7 +1702,7 @@ export default function ChatPage() {
                   animation: "msgSlideIn 0.4s ease forwards",
                 }}
               >
-                <span style={{ fontSize: "0.6875rem" }}>🧠</span>
+                <span style={{ fontSize: "0.6875rem", fontWeight: 600 }}>*</span>
                 <span
                   style={{
                     fontSize: "0.6875rem",
@@ -1741,7 +1739,7 @@ export default function ChatPage() {
                   }}
                 >
                   <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                    💭 rem&apos;s inner thoughts
+                    rem&apos;s inner thoughts
                   </span>
                   <span style={{ fontSize: "0.5rem", color: "var(--text-muted)" }}>▼</span>
                 </button>
@@ -1778,7 +1776,7 @@ export default function ChatPage() {
                 }}
               >
                 <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                  💭 show inner thoughts
+                  show inner thoughts
                 </span>
                 <span style={{ fontSize: "0.5rem", color: "var(--text-muted)" }}>▶</span>
               </button>
@@ -1813,7 +1811,7 @@ export default function ChatPage() {
                 }}
               >
                 <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-                  💖 You are currently on a date with Rem. Talk to her in Date Mode!
+                  You are currently on a date with Rem. Talk to her in Date Mode!
                 </span>
                 <button
                   type="button"
@@ -2079,7 +2077,7 @@ export default function ChatPage() {
             {/* Drawer Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
-                {drawerTab === 'plans' ? "📅 Schedule & Plans" : "🧠 Memory Vault"}
+                {drawerTab === 'plans' ? "Schedule & Plans" : "Memory Vault"}
               </h3>
               <button
                 onClick={() => setDrawerOpen(false)}
@@ -2224,10 +2222,10 @@ export default function ChatPage() {
                               {plan.activity}
                             </div>
                             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 2 }}>
-                              📍 {plan.location}
+                              {plan.location}
                             </div>
                             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                              📅 {plan.date} ({plan.start} - {plan.end})
+                              {plan.date} ({plan.start} - {plan.end})
                             </div>
                           </div>
                           <button
@@ -2297,11 +2295,11 @@ export default function ChatPage() {
                         }}
                       >
                         <option value="">-- Choose Preset or Write Custom --</option>
-                        <option value="Cafe date">☕ Cafe Date (Soft Amber)</option>
-                        <option value="Korean BBQ date">🔥 Korean BBQ (Crimson)</option>
-                        <option value="Movie night">🍿 Movie Night (Indigo)</option>
-                        <option value="Study session">📚 Study Session (Emerald)</option>
-                        <option value="General hang out">✨ General Date (Violet)</option>
+                        <option value="Cafe date">Cafe Date (Soft Amber)</option>
+                        <option value="Korean BBQ date">Korean BBQ (Crimson)</option>
+                        <option value="Movie night">Movie Night (Indigo)</option>
+                        <option value="Study session">Study Session (Emerald)</option>
+                        <option value="General hang out">General Date (Violet)</option>
                       </select>
                       <input
                         type="text"
@@ -2555,7 +2553,7 @@ export default function ChatPage() {
                               }}
                             >
                               <div style={{ fontSize: "0.875rem", color: "var(--text-primary)", lineHeight: 1.4 }}>
-                                🔖 {entry.content}
+                                ⊹ {entry.content}
                               </div>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                                 <span style={{ 

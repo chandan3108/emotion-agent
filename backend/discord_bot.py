@@ -2733,12 +2733,11 @@ async def generate_response(core: CognitiveCore, user_message: str,
         print(f"[PROMPT] Distiller failed ({e}), falling back to legacy prompt")
         system_msg = build_phase_prompt(**_prompt_kwargs)
     
-    # Build message history - include the current user message
-    # Only last 12 messages for LLM context (STM summary covers older conversation)
+    # Build message history - 30 full conversational turns verbatim (up to 60 messages) as per Blueprint
     history = []
     from datetime import datetime, timezone as tz
     now_utc = datetime.now(tz.utc)
-    for m in message_history[-12:]:  # Last 12 messages — STM summary handles the rest
+    for m in message_history[-60:]:  # 30 full turns verbatim without 5/12 message amnesia
         role = "assistant" if m.get("role") == "assistant" else "user"
         content = m.get("content", "")
         # Add relative time label ONLY to user messages (not assistant — prevents LLM from mimicking the label)
@@ -3199,9 +3198,9 @@ async def generate_response(core: CognitiveCore, user_message: str,
         buf.append({"user": user_message, "rem": response_text})
         core.state["_self_fact_buffer"] = buf
         
-        # Also add Rem's response to STM so summaries capture both sides
+        # Also add Rem's response to STM verbatim (Tier 1 Working STM)
         core.memory.add_stm(
-            f"[Rem] {response_text[:200]}", {"valence": 0.0, "arousal": 0.0}, {},
+            f"[Rem] {response_text}", {"valence": 0.0, "arousal": 0.0}, {},
             topic=""
         )
         

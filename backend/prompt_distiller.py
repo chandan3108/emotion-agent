@@ -1208,7 +1208,7 @@ def distill_prompt(
     )
     if clean_memory_context:
         prompt += f"[VERIFIED USER LORE & RECENT EPISODES]\n{clean_memory_context}\n\n"
-    elif context_block:
+    if context_block:
         prompt += f"{context_block}\n\n"
         
     try:

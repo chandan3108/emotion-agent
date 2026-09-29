@@ -1012,8 +1012,23 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
             session_row.updated_at = datetime.now(timezone.utc)
         db.commit()
         
-        # Fetch last 30 messages of this session from DB to build deep conversational history
-        db_history = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).limit(30).all()
+        # Detect if there has been a long gap (>4 hours) since previous message to trigger an episodic chapter (Tier 2)
+        last_prior_msg = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).first()
+        if last_prior_msg and last_prior_msg.timestamp:
+            try:
+                prior_ts = last_prior_msg.timestamp.replace(tzinfo=timezone.utc) if getattr(last_prior_msg.timestamp, 'tzinfo', None) is None else last_prior_msg.timestamp
+                now_utc = datetime.now(timezone.utc)
+                gap_hrs = (now_utc - prior_ts).total_seconds() / 3600
+                if gap_hrs >= 4.0:
+                    print(f"[SESSION CHAPTER] >4h gap detected ({gap_hrs:.1f}h). Triggering automated episodic chapter...")
+                    prior_batch = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).limit(30).all()
+                    if len(prior_batch) >= 2:
+                        asyncio.create_task(_generate_and_save_session_chapter(core, list(reversed(prior_batch))))
+            except Exception as gap_e:
+                print(f"[SESSION GAP CHECK ERROR] {gap_e}")
+
+        # Fetch last 60 messages (30 full turns verbatim) of this session from DB to build deep conversational history
+        db_history = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).limit(60).all()
         db_history = list(reversed(db_history))
         
         for m in db_history:
@@ -1033,11 +1048,11 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
     except Exception as dbe:
         print(f"Failed to query/persist message database state (using fallback): {dbe}")
         db.rollback()
-        # Fallback to STM
+        # Fallback to STM (30 full turns)
         message_history = []
         is_date_active = core.state.get("_active_date_running", False)
         stm = core.memory.get_stm(decay=False, filter_date=is_date_active)
-        for m in stm[-11:]:
+        for m in stm[-60:]:
             content = m.get("content", "")
             if not content:
                 continue
@@ -1105,6 +1120,19 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
         if session_row:
             session_row.updated_at = datetime.now(timezone.utc)
         db.commit()
+
+        # Tier 1 Working STM: Record Rem's response verbatim to STM
+        try:
+            is_date_running = core.state.get("_active_date_running", False)
+            core.memory.add_stm(
+                f"[Rem] {response_text}",
+                {"valence": 0.0, "arousal": 0.0},
+                {},
+                topic="",
+                is_date=is_date_running
+            )
+        except Exception as stm_err:
+            print(f"[STM ADD REM ERROR] {stm_err}")
     except Exception as dbe:
         print(f"Failed to save assistant response: {dbe}")
         db.rollback()
@@ -3632,27 +3660,99 @@ async def court_submit_verdict(payload: CourtVerdictRequest, user_id: str = Depe
     )
 
 
-# Helper: forced conversation summary
+# ═════════════════════════════════════════════════════
+#  Tier 2 Episodic Memory: Narrative Session Chapters
+# ═════════════════════════════════════════════════════
+
+async def _generate_and_save_session_chapter(core, messages: List[Any]):
+    """
+    Tier 2 Episodic Memory: Automatically generate structured session chapters
+    with title, narrative, emotional_shift, and unresolved_loop.
+    Stored permanently in memory.py without truncation.
+    """
+    if not messages or len(messages) < 2:
+        return None
+        
+    convo_lines = []
+    for m in messages[-30:]:
+        role = getattr(m, 'role', None) or (m.get('role') if isinstance(m, dict) else 'user')
+        content = getattr(m, 'content', None) or (m.get('content') if isinstance(m, dict) else '')
+        if content:
+            convo_lines.append(f"{role}: {content}")
+            
+    if not convo_lines:
+        return None
+        
+    user_name = core.state.get("user_name", "User")
+    prompt = f"""You are Rem's episodic memory engine. Condense this completed conversation session between {user_name} and Rem into a structured episodic chapter.
+
+CONVERSATION:
+{"\n".join(convo_lines)}
+
+Return a JSON object with:
+{{
+  "title": "Short evocative title (3-6 words)",
+  "narrative": "2-3 sentence narrative recap of what transpired, what was felt, and what personal disclosures or jokes happened.",
+  "emotional_shift": "e.g. stressed -> comforted, curious -> playful, distant -> warm",
+  "unresolved_loop": "Any pending question, task, or promise mentioned that Rem should check in on later (or empty string if none)"
+}}
+Return JSON only."""
+
+    import os
+    import json
+    import httpx
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return None
+        
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": "qwen/qwen3.8-27b",
+                    "messages": [
+                        {"role": "system", "content": "You are an episodic memory engine. Output valid JSON only."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "max_tokens": 250,
+                    "temperature": 0.3,
+                }
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                import re as _re
+                match = _re.search(r'\{[\s\S]*\}', raw_text)
+                if match:
+                    parsed = json.loads(match.group())
+                    title = parsed.get("title", "Conversation Chapter")
+                    narrative = parsed.get("narrative", "")
+                    emotional_shift = parsed.get("emotional_shift", "")
+                    unresolved_loop = parsed.get("unresolved_loop", "")
+                    if narrative:
+                        chapter = core.memory.add_session_chapter(
+                            title=title,
+                            narrative=narrative,
+                            emotional_shift=emotional_shift,
+                            unresolved_loop=unresolved_loop
+                        )
+                        core._save_state()
+                        print(f"[SESSION CHAPTER CREATED] {title}: {narrative[:80]}...")
+                        return chapter
+    except Exception as e:
+        print(f"[SESSION CHAPTER ERROR] Failed to generate chapter: {e}")
+    return None
+
+
 async def _force_conversation_summary(core, db, session_id: str):
-    """Generate a summary of the active session before ending it."""
-    db_msgs = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.timestamp.desc()).limit(12).all()
+    """Generate a structured session chapter of the active session before ending or switching it."""
+    db_msgs = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.timestamp.desc()).limit(30).all()
     db_msgs = list(reversed(db_msgs))
     if not db_msgs:
         return
-        
-    message_history = []
-    for m in db_msgs:
-        message_history.append({
-            "role": m.role,
-            "content": m.content
-        })
-        
-    try:
-        from .discord_bot import _generate_conversation_summary
-        core.personality_evolution.interaction_count = core.state.get("_last_summary_at", 0) + 10
-        await _generate_conversation_summary(core, message_history)
-    except Exception as e:
-        print(f"Failed to generate transition summary: {e}")
+    await _generate_and_save_session_chapter(core, db_msgs)
 
 # Get or create active session id
 def _get_active_session_id(user_id: str, db) -> str:
@@ -3748,9 +3848,14 @@ async def switch_session(payload: SwitchSessionRequest, user_id: str = Depends(g
         if not sess:
             raise HTTPException(status_code=404, detail="Chat session not found")
             
+        old_active_id = core.state.get("active_session_id")
+        if old_active_id and old_active_id != payload.session_id:
+            await _force_conversation_summary(core, db, old_active_id)
+
         core.state["active_session_id"] = payload.session_id
         
-        db_msgs = db.query(ChatMessage).filter(ChatMessage.session_id == payload.session_id).order_by(ChatMessage.timestamp.desc()).limit(12).all()
+        # Load up to 60 messages (30 turns) verbatim into Working STM
+        db_msgs = db.query(ChatMessage).filter(ChatMessage.session_id == payload.session_id).order_by(ChatMessage.timestamp.desc()).limit(60).all()
         db_msgs = list(reversed(db_msgs))
         
         stm_entries = []

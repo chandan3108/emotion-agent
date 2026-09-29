@@ -763,13 +763,13 @@ class CognitiveCore:
             except Exception as e:
                 print(f"[WARNING] Light reflection error: {e}")
         
-        # Check for STM Summary (every 10 messages — independent of reflections)
-        if self.personality_evolution.should_summarize_stm():
-            try:
-                asyncio.create_task(self._run_stm_summary())
-                print(f"[STM SUMMARY] Triggered at interaction {self.personality_evolution.interaction_count}")
-            except Exception as e:
-                print(f"[WARNING] STM summary error: {e}")
+        # Blueprint Tier 1 Mandate: Zero telephone summarizer; verbatim 30 turns preserved
+        # Rolling STM destructive summarization is disabled to prevent memory hallucination loops
+        # if self.personality_evolution.should_summarize_stm():
+        #     try:
+        #         asyncio.create_task(self._run_stm_summary())
+        #     except Exception as e:
+        #         print(f"[WARNING] STM summary error: {e}")
         
         # Check for Memory Consolidation (every 20 messages — independent of reflections)
         if self.personality_evolution.should_consolidate_memory():
@@ -2006,6 +2006,25 @@ Empty arrays [] if nothing worth extracting."""
                     if identity_id:
                         existing_facts.append(fact)  # Add to existing to prevent intra-batch dupes
                         print(f"[MEMORY CONSOLIDATION] Stored identity: {fact}")
+                        
+                        # Tier 3: Upsert into Entity Graph with categorisation
+                        try:
+                            cat = "Personal"
+                            fact_low = fact.lower()
+                            if any(w in fact_low for w in ["boss", "manager", "friend", "sister", "brother", "mom", "mother", "dad", "father", "colleague"]):
+                                cat = "People"
+                            elif any(w in fact_low for w in ["job", "work", "career", "study", "major", "college", "school", "intern", "company"]):
+                                cat = "Work_Life"
+                            elif any(w in fact_low for w in ["love", "hate", "like", "favorite", "prefers", "dislike"]):
+                                cat = "Preferences"
+                            elif any(w in fact_low for w in ["want to", "goal", "dream", "plans to", "aspire"]):
+                                cat = "Goals"
+                                
+                            key_words = [w for w in fact_low.split() if w not in {"the", "a", "an", "is", "has", "studies", "works"}]
+                            entity_key = "_".join(key_words[:3]) or "user_fact"
+                            self.memory.upsert_entity(category=cat, key=entity_key, value=fact)
+                        except Exception as eg_err:
+                            print(f"[ENTITY GRAPH ERROR] Failed to upsert: {eg_err}")
             
             # Store episodic memories
             new_episodic = result.get("episodic_memories", [])
@@ -2092,15 +2111,20 @@ Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slan
                         if json_match:
                             enrichment = json.loads(json_match.group())
                             
-                            # Store contradictions
+                            # Store contradictions and ACTIVELY PURGE old contradicting facts (Tier 3)
                             contradictions = enrichment.get("contradictions", [])
                             if contradictions:
                                 existing_contradictions = self.state.get("_contradictions", [])
                                 for c in contradictions:
                                     if isinstance(c, dict) and c.get("old_fact"):
                                         existing_contradictions.append(c)
+                                        # Tier 3 Active Contradiction Purge:
+                                        old_f = c.get("old_fact", "")
+                                        new_f = c.get("new_fact", "")
+                                        if old_f:
+                                            self.memory.purge_contradiction(old_fact=old_f, new_fact=new_f)
                                 self.state["_contradictions"] = existing_contradictions[-5:]  # Keep last 5
-                                print(f"[ENRICHMENT] Found {len(contradictions)} contradiction(s)")
+                                print(f"[ENRICHMENT] Found and actively purged {len(contradictions)} contradiction(s)")
                             
                             # Update vocabulary
                             new_vocab = enrichment.get("vocabulary", [])
@@ -2115,7 +2139,7 @@ Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slan
                                 self.state["_user_vocabulary"] = sorted_vocab
                                 print(f"[ENRICHMENT] Vocabulary: {list(sorted_vocab.keys())}")
                             
-                            # Update inside jokes
+                            # Update inside jokes (both in state and in Entity Graph)
                             new_jokes = enrichment.get("inside_jokes", [])
                             if new_jokes:
                                 jokes = self.state.get("_inside_jokes", [])
@@ -2124,10 +2148,11 @@ Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slan
                                 for joke in new_jokes:
                                     if isinstance(joke, dict) and joke.get("label"):
                                         label = joke["label"].lower()
+                                        joke_desc = joke.get("description", label)
                                         if label not in existing_labels:
                                             jokes.append({
                                                 "label": joke["label"],
-                                                "description": joke.get("description", ""),
+                                                "description": joke_desc,
                                                 "created": now_iso,
                                                 "last_used": now_iso,
                                                 "use_count": 1,
@@ -2139,6 +2164,15 @@ Empty arrays if nothing found. Be strict — only REAL contradictions, REAL slan
                                                 if j.get("label", "").lower() == label:
                                                     j["last_used"] = now_iso
                                                     j["use_count"] = j.get("use_count", 0) + 1
+                                        # Also reflect into Entity Graph
+                                        try:
+                                            self.memory.upsert_entity(
+                                                category="Inside_Jokes",
+                                                key=label.replace(" ", "_"),
+                                                value=joke_desc
+                                            )
+                                        except Exception:
+                                            pass
                                 self.state["_inside_jokes"] = jokes[-8:]  # Keep last 8
                                 print(f"[ENRICHMENT] Inside jokes: {[j.get('label') for j in jokes]}")
                 

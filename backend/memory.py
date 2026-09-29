@@ -109,9 +109,9 @@ class MemorySystem:
         stm = self.memory.get("stm", [])
         stm.append(asdict(entry))
         
-        # Keep last 50 entries for conversational continuity (no 5-message amnesia)
-        if len(stm) > 50:
-            stm = stm[-50:]
+        # Keep last 60 entries (30 full conversational turns verbatim as per blueprint)
+        if len(stm) > 60:
+            stm = stm[-60:]
         
         self.memory["stm"] = stm
     
@@ -844,6 +844,42 @@ Be selective. Only include memories that genuinely add value to the current conv
         entity_graph[full_key] = entry
         self.memory["entity_graph"] = entity_graph
         return entry
+
+    def purge_contradiction(self, old_fact: str, new_fact: str = "") -> bool:
+        """
+        Active contradiction purge.
+        Removes or marks superseded any fact matching old_fact from identity memory,
+        and marks matching items in entity_graph as 'superseded' so the LLM never sees conflicting facts.
+        """
+        purged = False
+        old_fact_lower = old_fact.lower().strip()
+        
+        # 1. Purge from identity memory list
+        identity = self.memory.get("identity", [])
+        updated_identity = []
+        for item in identity:
+            fact_text = item.get("fact", "").lower().strip()
+            # If significant overlap or substring match
+            if old_fact_lower in fact_text or fact_text in old_fact_lower:
+                print(f"[CONTRADICTION PURGED FROM IDENTITY] '{item.get('fact')}' superseded by '{new_fact}'")
+                purged = True
+                continue
+            updated_identity.append(item)
+        self.memory["identity"] = updated_identity
+        
+        # 2. Mark superseded in entity_graph
+        entity_graph = self.memory.get("entity_graph", {})
+        for k, v in entity_graph.items():
+            val = str(v.get("value", "")).lower()
+            key_name = str(v.get("key", "")).lower().replace("_", " ")
+            if val in old_fact_lower or old_fact_lower in val or (key_name in old_fact_lower and len(key_name) > 3):
+                v["status"] = "superseded"
+                v["superseded_by"] = new_fact
+                v["superseded_at"] = datetime.now(timezone.utc).isoformat()
+                purged = True
+                print(f"[CONTRADICTION SUPERSEDED IN ENTITY GRAPH] {k} -> superseded by '{new_fact}'")
+        self.memory["entity_graph"] = entity_graph
+        return purged
 
     def get_active_entities(self) -> Dict[str, List[Dict[str, Any]]]:
         """Get all active non-superseded entities grouped by category."""
