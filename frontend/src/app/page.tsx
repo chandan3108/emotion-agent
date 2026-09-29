@@ -1055,21 +1055,6 @@ export default function ChatPage() {
             ⊞
           </button>
 
-          <div 
-            className={`rem-orb ${loading ? "typing" : ""}`} 
-            style={{ 
-              width: 36, 
-              height: 36,
-              "--orb-gradient": anger > 0.4 
-                ? "conic-gradient(from 0deg, #E55B5B, #A63434, #FFA1A1, #E55B5B)" 
-                : hurt > 0.4 
-                ? "conic-gradient(from 0deg, #6A85B8, #8FA0C0, #B8C7E0, #6A85B8)" 
-                : xp && ["Steady", "Deep", "Bonded"].includes(xp.phase)
-                ? "conic-gradient(from 0deg, #C08A3E, #B85C4B, #E5B26E, #C08A3E)"
-                : "conic-gradient(from 0deg, #5F7D61, #8AA38B, #B85C4B, #5F7D61)",
-              "--orb-speed": anger > 0.4 ? "1.5s" : hurt > 0.4 ? "7.0s" : xp && ["Steady", "Deep", "Bonded"].includes(xp.phase) ? "3.0s" : "4.5s"
-            } as React.CSSProperties} 
-          />
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <h2
@@ -1143,7 +1128,7 @@ export default function ChatPage() {
                   color: "var(--text-accent, #B85C4B)",
                   textTransform: "lowercase",
                   letterSpacing: "0.03em",
-                  fontStyle: "italic",
+                  fontWeight: 600,
                 }}
               >
                 {moodLabel}
