@@ -7,19 +7,22 @@ import Avatar3D from "./Avatar3D";
 const cleanSpicyContent = (content: string) => {
   if (!content) return "";
   let text = content;
-  // Strip complete <think> blocks
-  text = text.replace(/<(v?think)>[\s\S]*?<\/\1>/gi, "");
-  text = text.replace(/<(v?think)>[\s\S]*$/gi, "");
-  text = text.replace(/<\/(v?think)>/gi, "");
+  // Strip complete <think> and reasoning blocks
+  text = text.replace(/<(v?think|thought|scratchpad|reasoning|plan)>[\s\S]*?<\/\1>/gi, "");
+  text = text.replace(/<(v?think|thought|scratchpad|reasoning|plan)>[\s\S]*$/gi, "");
+  text = text.replace(/<\/(v?think|thought|scratchpad|reasoning|plan)>/gi, "");
 
   // Strip reasoning/scratchpads if any leaked by thinking models
   const paras = text.split("\n\n");
   const cleaned: string[] = [];
   const metaPrefixes = [
-    "okay, the user", "the user just said", "the user sent", "the user is",
-    "hmm", "thinking process", "i need to", "i should", "*checks rules*",
-    "wait—", "wait,", "rem's personality", "since i was already", "rule #",
-    "checks rules", "as per the mood directive", "environmental scaffolding"
+    "we must", "we need", "must be", "let's craft", "let’s craft", "let's count",
+    "let's write", "let's try", "let's make", "let's do", "let's generate",
+    "sentence ", "sentence 1", "sentence 2", "sentence 3", "step ", "draft:", "planning:",
+    "rule", "output only", "no extra text", "start immediately", "okay, the user",
+    "the user just", "the user sent", "the user is", "hmm", "thinking process",
+    "i need to", "i should", "*checks rules*", "wait—", "wait,", "rem's personality",
+    "since i was already", "checks rules", "as per the mood", "environmental scaffolding"
   ];
   for (const p of paras) {
     const pl = p.trim().toLowerCase();
@@ -311,14 +314,46 @@ export default function SpicyGamePage() {
       {/* Right Pane: Chat Window & Session Controls */}
       <div style={{ flex: showAvatar ? "1.5" : "1", display: "flex", flexDirection: "column", height: "100%", width: "100%", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)" }}>
         {/* HUD Bar */}
-        <div className="glass-panel" style={{ padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderColor: "var(--border-subtle)", background: "var(--bg-surface)", boxShadow: "0 2px 8px rgba(90, 85, 75, 0.03)" }}>
-          <div>
-            <span style={{ fontSize: "0.5625rem", textTransform: "uppercase", color: "var(--text-accent)", fontWeight: 700, letterSpacing: "0.05em" }}>
-              Unfiltered Sandbox
+        <div className="glass-panel" style={{ padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, borderColor: "var(--border-subtle)", background: "var(--bg-surface)", boxShadow: "0 2px 8px rgba(90, 85, 75, 0.03)", borderRadius: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+              Spicy Sandbox
             </span>
-            <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 500, marginTop: 1 }}>
-              {session.scenario} · {session.mood} · Mood: <span style={{ color: "var(--text-accent)", textTransform: "capitalize", fontWeight: 600 }}>{activeEmotion}</span>
-            </div>
+            {session.scenario && (
+              <span
+                style={{
+                  fontSize: "0.6875rem",
+                  padding: "4px 10px",
+                  borderRadius: 12,
+                  background: "rgba(184, 92, 75, 0.08)",
+                  color: "var(--text-accent)",
+                  border: "1px solid rgba(184, 92, 75, 0.2)",
+                  fontWeight: 600,
+                  maxWidth: 220,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={session.scenario}
+              >
+                {session.scenario}
+              </span>
+            )}
+            <span
+              style={{
+                fontSize: "0.6875rem",
+                padding: "4px 10px",
+                borderRadius: 12,
+                background: "rgba(95, 125, 97, 0.08)",
+                color: "var(--accent-primary)",
+                border: "1px solid rgba(95, 125, 97, 0.2)",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              Mood: {activeEmotion || session.mood || "Neutral"}
+            </span>
           </div>
           
           {/* Controls: 3D Avatar Toggle, Destruct, End */}

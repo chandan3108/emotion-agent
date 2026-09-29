@@ -132,14 +132,22 @@ def _clean_game_response(text: str) -> str:
     text = re.sub(r'<text>(.*?)</text>', r'\1', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'</?text>', '', text, flags=re.IGNORECASE)
 
+    # Strip thought and reasoning tags
+    text = re.sub(r'<(v?think|thought|scratchpad|reasoning|plan)>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<(v?think|thought|scratchpad|reasoning|plan)>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'</(v?think|thought|scratchpad|reasoning|plan)>', '', text, flags=re.IGNORECASE)
+
     # Strip reasoning scratchpads/monologues leaked by reasoning models (e.g. Nemotron, DeepSeek, GPT-OSS)
     paragraphs = text.strip().split("\n\n")
     cleaned_paras = []
     meta_prefixes = (
-        "okay, the user", "the user just said", "the user sent", "the user is",
-        "hmm", "thinking process", "i need to", "i should", "*checks rules*",
-        "wait—", "wait,", "rem's personality", "since i was already", "rule #",
-        "checks rules", "as per the mood directive", "environmental scaffolding"
+        "we must", "we need", "must be", "let's craft", "let’s craft", "let's count",
+        "let's write", "let's try", "let's make", "let's do", "let's generate",
+        "sentence ", "sentence 1", "sentence 2", "sentence 3", "step ", "draft:", "planning:",
+        "rule", "output only", "no extra text", "start immediately", "okay, the user",
+        "the user just", "the user sent", "the user is", "hmm", "thinking process",
+        "i need to", "i should", "*checks rules*", "wait—", "wait,", "rem's personality",
+        "since i was already", "checks rules", "as per the mood", "environmental scaffolding"
     )
     for p in paragraphs:
         p_strip = p.strip()
@@ -508,8 +516,8 @@ async def call_groq_fallback(messages: List[Dict], temperature: float, max_token
     if not groq_key:
         return await call_gemini_fallback(messages, temperature, max_tokens)
     
-    # Try Qwen 3.8 27B first (clean roleplayer), then GPT-OSS
-    for model_name in ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"]:
+    # Try Qwen 3.8 27B first (clean roleplayer), then Llama 3.3 70B & 8B
+    for model_name in ["qwen/qwen3.8-27b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
         payload = {
             "model": model_name,
             "messages": messages,
@@ -589,16 +597,14 @@ async def call_openrouter(messages: List[Dict], temperature: float = 0.9, max_to
                 except Exception as err:
                     print(f"[OPENROUTER] Model {model_id} connection error: {err}")
             
-            # If insufficient credits, try currently active free uncensored models
+            # If insufficient credits, try currently active free models
             if resp.status_code == 402 or "credits" in resp.text.lower():
                 print("[OPENROUTER] Insufficient credits. Trying active free models...")
                 free_models = [
+                    "meta-llama/llama-3.3-70b-instruct:free",
+                    "meta-llama/llama-3.1-8b-instruct:free",
+                    "mistralai/mistral-7b-instruct:free",
                     "qwen/qwen3.8-27b:free",
-                    "google/gemma-4-31b-it:free",
-                    "google/gemma-4-26b-a4b-it:free",
-                    "nvidia/nemotron-3.5-lightning:free",
-                    "inclusionai/ling-3.0-flash-sante:free",
-                    "nvidia/nemotron-3-super-120b-a12b:free",
                 ]
                 for free_model in free_models:
                     print(f"[OPENROUTER FREE FALLBACK] Attempting with model: {free_model}")
