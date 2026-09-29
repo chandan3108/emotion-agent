@@ -118,9 +118,8 @@ export default function DashboardPage() {
                 border: "1px solid rgba(253, 203, 110, 0.1)",
               }}
             >
-              <span style={{ fontSize: "0.875rem" }}>🔥</span>
-              <span style={{ fontWeight: 600, color: "#fdcb6e", fontSize: "0.8125rem" }}>
-                {xp.streak_days} day streak
+              <span style={{ fontWeight: 700, color: "var(--text-accent)", fontSize: "0.75rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                {xp.streak_days} {xp.streak_days === 1 ? "day" : "days"} streak
               </span>
             </div>
           )}

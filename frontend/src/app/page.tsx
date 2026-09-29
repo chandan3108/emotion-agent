@@ -1223,7 +1223,23 @@ export default function ChatPage() {
               }}
             >
               {xp.streak_days > 0 && (
-                <span className="streak-flame" style={{ color: "var(--text-accent)" }}>{xp.streak_days}d streak</span>
+                <span
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: "12px",
+                    fontSize: "0.6875rem",
+                    fontWeight: 700,
+                    background: "rgba(184, 92, 75, 0.08)",
+                    color: "var(--text-accent)",
+                    border: "1px solid rgba(184, 92, 75, 0.2)",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {xp.streak_days} {xp.streak_days === 1 ? "Day" : "Days"} Streak
+                </span>
               )}
               <span
                 className={`phase-badge phase-${xp.phase.toLowerCase()}`}
