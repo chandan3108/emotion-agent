@@ -2,19 +2,36 @@
  
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
- 
+import {
+  MessageSquare,
+  Heart,
+  Gamepad2,
+  LayoutDashboard,
+  BookOpen,
+  Images,
+  KeyRound,
+  History,
+  BarChart3,
+  Brain,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Archive
+} from "lucide-react";
+
 const NAV_ITEMS = [
-  { href: "/", label: "Chat", icon: "◈" },
-  { href: "/date", label: "Date Mode", icon: "◬" },
-  { href: "/games", label: "Mini-Games", icon: "⊞" },
-  { href: "/dashboard", label: "Overview", icon: "◐" },
-  { href: "/diary", label: "Diary", icon: "◉" },
-  { href: "/scrapbook", label: "Scrapbook", icon: "▤" },
-  { href: "/secrets", label: "REM's Secrets", icon: "✦" },
-  { href: "/timeline", label: "Timeline", icon: "◆" },
-  { href: "/stats", label: "Stats", icon: "◇" },
-  { href: "/mind", label: "Mind", icon: "✶" },
-  { href: "/settings", label: "Settings", icon: "⊙" },
+  { href: "/", label: "Chat", icon: MessageSquare },
+  { href: "/date", label: "Date Mode", icon: Heart },
+  { href: "/games", label: "Mini-Games", icon: Gamepad2 },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/diary", label: "Diary", icon: BookOpen },
+  { href: "/scrapbook", label: "Scrapbook", icon: Images },
+  { href: "/secrets", label: "REM's Secrets", icon: KeyRound },
+  { href: "/timeline", label: "Timeline", icon: History },
+  { href: "/stats", label: "Stats", icon: BarChart3 },
+  { href: "/mind", label: "Mind", icon: Brain },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
  
 export function Sidebar() {
@@ -141,7 +158,7 @@ export function Sidebar() {
             e.currentTarget.style.background = "transparent";
           }}
         >
-          {isCollapsed ? "▶" : "◀"}
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </div>
  
@@ -149,6 +166,7 @@ export function Sidebar() {
       <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
+          const IconComponent = item.icon;
           return (
             <a
               key={item.href}
@@ -169,8 +187,7 @@ export function Sidebar() {
             >
               <span
                 style={{
-                  fontSize: "0.875rem",
-                  opacity: isActive ? 1 : 0.6,
+                  opacity: isActive ? 1 : 0.65,
                   color: isActive ? "var(--accent-primary)" : "inherit",
                   display: "inline-flex",
                   alignItems: "center",
@@ -180,7 +197,7 @@ export function Sidebar() {
                   flexShrink: 0
                 }}
               >
-                {item.icon}
+                <IconComponent size={16} strokeWidth={1.8} />
               </span>
               {!isCollapsed && item.label}
             </a>
@@ -223,10 +240,9 @@ export function Sidebar() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "0.875rem"
               }}
             >
-              ▤
+              <Calendar size={14} strokeWidth={1.8} />
             </button>
             <button
               onClick={() => {
@@ -250,10 +266,9 @@ export function Sidebar() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "0.875rem"
               }}
             >
-              ◇
+              <Archive size={14} strokeWidth={1.8} />
             </button>
           </div>
         ) : (
