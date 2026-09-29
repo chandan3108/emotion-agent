@@ -182,39 +182,51 @@ Write a diary entry. Rules:
 - 2-4 sentences MAX
 - Write in lowercase, casual, like a real journal
 - Reference SPECIFIC things from the conversation, not vague emotions
+- If the exchange is merely a casual greeting (like 'hi', 'hey', 'okay hi') or has no real substance, reply with 'SKIP'
 - Be honest — if you're annoyed, say so. If you care, admit it reluctantly.
 - Don't use quotation marks around their words, paraphrase
 - Don't start with "dear diary" or the date
 - Use "{user_label}" to refer to them (not "the user")
 
-Write ONLY the diary entry, nothing else."""
+Write ONLY the diary entry or 'SKIP', nothing else."""
+
+        models = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+        active_api_key = os.environ.get("GROQ_API_KEY") or api_key
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(
-                    INFERENCE_URL,
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    json={
-                        "model": "qwen/qwen3.8-27b",
-                        "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 150,
-                        "temperature": 0.85,
-                    },
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    content = (
-                        data.get("choices", [{}])[0]
-                        .get("message", {})
-                        .get("content", "")
-                        .strip()
-                    )
-                    if content and len(content) > 10:
-                        return {
-                            "content": content,
-                            "mood": overall_interest,
-                            "has_milestone": bool(milestones),
-                        }
+                for model_id in models:
+                    try:
+                        resp = await client.post(
+                            INFERENCE_URL,
+                            headers={"Authorization": f"Bearer {active_api_key}"},
+                            json={
+                                "model": model_id,
+                                "messages": [{"role": "user", "content": prompt}],
+                                "max_tokens": 150,
+                                "temperature": 0.85,
+                            },
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            content = (
+                                data.get("choices", [{}])[0]
+                                .get("message", {})
+                                .get("content", "")
+                                .strip()
+                            )
+                            if not content or content.upper().startswith("SKIP"):
+                                print(f"[DIARY] Model {model_id} decided to SKIP entry (insufficient substance)")
+                                return None
+                            if len(content) > 10:
+                                return {
+                                    "content": content,
+                                    "mood": overall_interest,
+                                    "has_milestone": bool(milestones),
+                                }
+                    except Exception as model_err:
+                        print(f"[DIARY] Model {model_id} failed: {model_err}")
+                        continue
         except Exception as e:
             print(f"[DIARY] Generation failed: {e}")
 
@@ -222,16 +234,10 @@ Write ONLY the diary entry, nothing else."""
 
     def _fallback_entry(
         self, summary: str, phase: str, user_name: Optional[str]
-    ) -> Dict[str, Any]:
-        """Fallback entry when LLM unavailable."""
-        label = user_name or "them"
-        # Simple extraction from summary
-        short = summary[:120].lower().rstrip(".")
-        return {
-            "content": f"talked to {label} today. {short}. not sure what to think yet.",
-            "mood": "neutral",
-            "has_milestone": False,
-        }
+    ) -> Optional[Dict[str, Any]]:
+        """Fallback entry when LLM is unavailable — skips if low substance instead of logging robotic text."""
+        # Never log debug prefixes like 'recent conversation with user about:'
+        return None
 
     # ═══════════════════════════════════════════════════════════
     # Access Control (Phase-Gated)

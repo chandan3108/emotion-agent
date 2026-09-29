@@ -1174,20 +1174,48 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
         except Exception:
             pass
         try:
-            from .diary import DiarySystem
-            diary = DiarySystem(core.state)
-            if len(message_history) >= 4:
-                trust_val = core.psyche.psyche.get("trust", 0.5) if hasattr(core.psyche, "psyche") else getattr(core.psyche, "trust", 0.5)
-                entry = await diary.maybe_write_entry(
-                    reflection_data={"conversation_summary": f"Recent conversation with user about: {user_msg_content[:100]}"},
-                    relationship_phase=core.xp_system.current_phase,
-                    trust=trust_val,
-                    user_name=core.state.get("user_name"),
-                    xp_total=core.xp_system.total_xp
-                )
-                if entry:
-                    core._save_state()
-                    print(f"[DIARY] Automated session entry logged!")
+            # Check if there is enough conversational depth to consider writing a diary entry
+            # Filter out casual one-word greetings and low-substance small talk
+            trivial_greetings = {
+                "hi", "hii", "hiii", "hey", "heyy", "hello", "okay hi", "okay hii", "okayy hi",
+                "sup", "yo", "gm", "gn", "what's up", "whats up", "ok", "okay", "cool", "yeah", "lol", "haha"
+            }
+            cleaned_msg = user_msg_content.strip().lower().rstrip("!.?")
+
+            # Only consider diary reflection after multiple turns and when not a bare greeting
+            if len(message_history) >= 6 and cleaned_msg not in trivial_greetings and len(user_msg_content.strip()) >= 15:
+                # Add delay so Groq rate limiter / burst concurrency is avoided after live response
+                await asyncio.sleep(2.0)
+
+                # Build real multi-turn conversation context from recent exchanges
+                recent_turns = []
+                total_chars = 0
+                for m in message_history[-6:]:
+                    role = "User" if m.get("role") == "user" else "Rem"
+                    content = m.get("content", "").strip()
+                    if content:
+                        recent_turns.append(f"{role}: {content}")
+                        total_chars += len(content)
+
+                # Only proceed if the dialogue has genuine substance (> 80 characters of dialogue)
+                if total_chars >= 80:
+                    conv_context = "\n".join(recent_turns)
+                    from .diary import DiarySystem
+                    diary = DiarySystem(core.state)
+                    trust_val = core.psyche.psyche.get("trust", 0.5) if hasattr(core.psyche, "psyche") else getattr(core.psyche, "trust", 0.5)
+                    entry = await diary.maybe_write_entry(
+                        reflection_data={
+                            "conversation_summary": conv_context,
+                            "user_evaluation": core.state.get("_conversation_summary", "")
+                        },
+                        relationship_phase=core.xp_system.current_phase,
+                        trust=trust_val,
+                        user_name=core.state.get("user_name"),
+                        xp_total=core.xp_system.total_xp
+                    )
+                    if entry:
+                        core._save_state()
+                        print(f"[DIARY] Automated session entry logged!")
         except Exception as diary_err:
             print(f"[DIARY ASYNC ERROR] {diary_err}")
 
