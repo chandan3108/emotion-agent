@@ -18,6 +18,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, router]);
 
+  useEffect(() => {
+    const handleExtensionError = (event: ErrorEvent) => {
+      if (
+        (event.filename && (event.filename.includes("chrome-extension://") || event.filename.includes("moz-extension://"))) ||
+        (event.error?.stack && (event.error.stack.includes("chrome-extension://") || event.error.stack.includes("moz-extension://")))
+      ) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("error", handleExtensionError, true);
+    return () => window.removeEventListener("error", handleExtensionError, true);
+  }, []);
+
   // If path is login, we don't guard it
   if (pathname === "/login") {
     return <>{children}</>;
