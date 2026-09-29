@@ -42,6 +42,12 @@ export default function ChatPage() {
   const [currentActivity, setCurrentActivity] = useState<string | null>(null);
   const [hurt, setHurt] = useState(0.0);
   const [anger, setAnger] = useState(0.0);
+  // Cognitive visibility state
+  const [neurochem, setNeurochem] = useState<Record<string, number> | null>(null);
+  const [moodLabel, setMoodLabel] = useState<string | null>(null);
+  const [subtextCaught, setSubtextCaught] = useState<string | null>(null);
+  const [innerMonologue, setInnerMonologue] = useState<string | null>(null);
+  const [showMonologue, setShowMonologue] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [activeRankUp, setActiveRankUp] = useState<{
     from_rank: number;
@@ -531,6 +537,13 @@ export default function ChatPage() {
       if (res.future_plans) {
         setFuturePlans(res.future_plans);
       }
+
+      // Cognitive visibility updates
+      if (res.neurochem) setNeurochem(res.neurochem);
+      if (res.mood_label) setMoodLabel(res.mood_label);
+      setSubtextCaught(res.subtext_caught || null);
+      setInnerMonologue(res.inner_monologue || null);
+      if (res.inner_monologue) setShowMonologue(true);
 
       getXP().then(setXp).catch(() => {});
       fetchPlansAndSchedule();
@@ -1071,9 +1084,66 @@ export default function ChatPage() {
             >
               {loading ? "thinking" : "listening"}
             </span>
+            {moodLabel && !loading && (
+              <span
+                style={{
+                  fontSize: "0.5625rem",
+                  padding: "2px 8px",
+                  borderRadius: 10,
+                  background: "rgba(184, 92, 75, 0.1)",
+                  border: "1px solid rgba(184, 92, 75, 0.2)",
+                  color: "var(--text-accent, #B85C4B)",
+                  textTransform: "lowercase",
+                  letterSpacing: "0.03em",
+                  fontStyle: "italic",
+                }}
+              >
+                {moodLabel}
+              </span>
+            )}
           </div>
         </div>
 
+        {/* Neurochem Mini-Bars */}
+        {neurochem && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 12px" }}>
+            {[
+              { key: "dopamine", label: "DA", color: "#E5B26E" },
+              { key: "serotonin", label: "SER", color: "#8AA38B" },
+              { key: "oxytocin", label: "OXY", color: "#B88AD4" },
+              { key: "cortisol", label: "COR", color: "#E55B5B" },
+              { key: "adrenaline", label: "ADR", color: "#5BA8E5" },
+            ].map(({ key, label, color }) => (
+              <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <div
+                  style={{
+                    width: 4,
+                    height: 24,
+                    borderRadius: 2,
+                    background: "rgba(255,255,255,0.06)",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      width: "100%",
+                      height: `${Math.round((neurochem[key] || 0) * 100)}%`,
+                      background: color,
+                      borderRadius: 2,
+                      transition: "height 0.6s ease",
+                    }}
+                  />
+                </div>
+                <span style={{ fontSize: "0.4375rem", color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {/* Clear chat button */}
           {mounted && messages.length > 0 && (
@@ -1616,6 +1686,102 @@ export default function ChatPage() {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Subtext Caught Indicator */}
+            {subtextCaught && !loading && (
+              <div
+                style={{
+                  alignSelf: "flex-start",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 12px",
+                  borderRadius: 8,
+                  background: "rgba(184, 92, 75, 0.06)",
+                  border: "1px solid rgba(184, 92, 75, 0.12)",
+                  marginTop: -4,
+                  animation: "msgSlideIn 0.4s ease forwards",
+                }}
+              >
+                <span style={{ fontSize: "0.6875rem" }}>🧠</span>
+                <span
+                  style={{
+                    fontSize: "0.6875rem",
+                    color: "var(--text-accent, #B85C4B)",
+                    fontStyle: "italic",
+                    opacity: 0.8,
+                  }}
+                >
+                  subtext caught: {subtextCaught.length > 80 ? subtextCaught.slice(0, 80) + "…" : subtextCaught}
+                </span>
+              </div>
+            )}
+
+            {/* Inner Monologue Block */}
+            {innerMonologue && showMonologue && !loading && (
+              <div
+                style={{
+                  alignSelf: "flex-start",
+                  maxWidth: "70%",
+                  animation: "msgSlideIn 0.5s ease forwards",
+                }}
+              >
+                <button
+                  onClick={() => setShowMonologue(prev => !prev)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 0",
+                    marginBottom: 4,
+                  }}
+                >
+                  <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    💭 rem&apos;s inner thoughts
+                  </span>
+                  <span style={{ fontSize: "0.5rem", color: "var(--text-muted)" }}>▼</span>
+                </button>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: "rgba(138, 163, 139, 0.06)",
+                    border: "1px dashed rgba(138, 163, 139, 0.2)",
+                    fontSize: "0.8125rem",
+                    color: "var(--text-secondary)",
+                    fontStyle: "italic",
+                    lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {innerMonologue}
+                </div>
+              </div>
+            )}
+            {innerMonologue && !showMonologue && !loading && (
+              <button
+                onClick={() => setShowMonologue(true)}
+                style={{
+                  alignSelf: "flex-start",
+                  background: "none",
+                  border: "1px solid rgba(138, 163, 139, 0.15)",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  padding: "4px 10px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  💭 show inner thoughts
+                </span>
+                <span style={{ fontSize: "0.5rem", color: "var(--text-muted)" }}>▶</span>
+              </button>
             )}
 
             <div ref={messagesEndRef} />

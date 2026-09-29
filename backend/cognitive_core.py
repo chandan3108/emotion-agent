@@ -357,6 +357,13 @@ class CognitiveCore:
             "ambiguity": enhanced_understanding.get("ambiguity_resolution", {})
         })
         
+        # Store perception for API visibility (subtext, intent, etc.)
+        self.state["_last_perception"] = {
+            "subtext": perception.get("subtext", ""),
+            "intent": perception.get("intent", "chat"),
+            "sincerity": perception.get("sincerity", 0.7),
+        }
+        
         events = understanding.get("events", [])
         
         # Stage 3: Conflict Detection & Lifecycle
@@ -521,6 +528,13 @@ class CognitiveCore:
             life_triggers=_life_triggers,
             situational_facts=self.state.get("_situational_facts", []),
         )
+        
+        # Store subconscious output for API visibility (inner monologue)
+        if pre_assessment and isinstance(pre_assessment, dict):
+            self.state["_last_subconscious"] = {
+                "inner_monologue": pre_assessment.get("inner_monologue", ""),
+                "thought": pre_assessment.get("thought", ""),
+            }
         
         # Fallback: keep hardcoded ToM/intentions as backup if LLM call fails
         if not pre_assessment:

@@ -416,6 +416,11 @@ class ChatResponse(BaseModel):
     schedule: Optional[List[Dict[str, Any]]] = None
     future_plans: Optional[List[Dict[str, Any]]] = None
     streak_days: int = 0
+    # New cognitive visibility fields
+    neurochem: Optional[Dict[str, float]] = None
+    mood_label: Optional[str] = None
+    subtext_caught: Optional[str] = None
+    inner_monologue: Optional[str] = None
 
 
 class LinkRequest(BaseModel):
@@ -1218,6 +1223,51 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
     full_schedule = core.state.get("_daily_schedule", {}).get("schedule", [])
     future_plans = core.state.get("_future_plans", [])
 
+    # Extract cognitive visibility data
+    neurochem_data = None
+    mood_label = None
+    subtext_caught = None
+    inner_monologue_text = None
+
+    try:
+        neurochem_data = {
+            "dopamine": round(core.psyche.neurochem.get("da", 0.5), 2),
+            "cortisol": round(core.psyche.neurochem.get("cort", 0.3), 2),
+            "oxytocin": round(core.psyche.neurochem.get("oxy", 0.5), 2),
+            "serotonin": round(core.psyche.neurochem.get("ser", 0.5), 2),
+            "adrenaline": round(core.psyche.neurochem.get("endo", 0.5), 2),
+        }
+    except Exception:
+        pass
+
+    try:
+        named_mood_state = core.psyche.get_named_mood_state()
+        if named_mood_state:
+            # get_named_mood_state returns a dict like {"mood": "playful", ...}
+            mood_label = named_mood_state.get("mood") or named_mood_state.get("state") or str(named_mood_state)
+            if isinstance(mood_label, dict):
+                mood_label = mood_label.get("label", "neutral")
+    except Exception:
+        pass
+
+    # Pull subtext from the last pipeline perception (stored during processing)
+    try:
+        last_perception = core.state.get("_last_perception", {})
+        raw_subtext = last_perception.get("subtext", "")
+        if raw_subtext and isinstance(raw_subtext, str) and len(raw_subtext.strip()) > 3:
+            subtext_caught = raw_subtext.strip()
+    except Exception:
+        pass
+
+    # Pull inner monologue from the last subconscious think output
+    try:
+        last_subconscious = core.state.get("_last_subconscious", {})
+        raw_mono = last_subconscious.get("inner_monologue", "") or last_subconscious.get("thought", "")
+        if raw_mono and isinstance(raw_mono, str) and len(raw_mono.strip()) > 5:
+            inner_monologue_text = raw_mono.strip()
+    except Exception:
+        pass
+
     # Save the updated state to persist consumed notifications, rank, XP and mood changes
     try:
         core._save_state()
@@ -1240,7 +1290,11 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
         roleplay=roleplay_data,
         schedule=full_schedule,
         future_plans=future_plans,
-        streak_days=core.xp_system.streak_days
+        streak_days=core.xp_system.streak_days,
+        neurochem=neurochem_data,
+        mood_label=mood_label,
+        subtext_caught=subtext_caught,
+        inner_monologue=inner_monologue_text,
     )
 
 

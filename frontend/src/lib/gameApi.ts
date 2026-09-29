@@ -138,6 +138,11 @@ export interface ChatResponse {
   roleplay?: { active: boolean; activity: string; location: string } | null;
   schedule?: any[];
   future_plans?: any[];
+  // Cognitive visibility
+  neurochem?: Record<string, number> | null;
+  mood_label?: string | null;
+  subtext_caught?: string | null;
+  inner_monologue?: string | null;
 }
 
 
