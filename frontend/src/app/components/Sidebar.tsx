@@ -103,16 +103,28 @@ export function Sidebar() {
         {/* Logo & Toggle Header */}
       <div 
         style={{ 
-          padding: "4px 8px", 
-          marginBottom: 20, 
+          padding: isCollapsed ? "0" : "4px 8px", 
+          marginBottom: 16, 
           display: "flex", 
+          flexDirection: isCollapsed ? "column" : "row",
           alignItems: "center", 
           justifyContent: isCollapsed ? "center" : "space-between",
-          gap: 10,
-          position: "relative"
+          gap: isCollapsed ? 10 : 10,
+          position: "relative",
+          width: "100%",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div 
+          onClick={isCollapsed ? toggleCollapse : undefined}
+          title={isCollapsed ? "Expand Sidebar" : undefined}
+          style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            gap: 10,
+            cursor: isCollapsed ? "pointer" : "default",
+          }}
+        >
           <div className="rem-orb" style={{ width: 28, height: 28, flexShrink: 0 }} />
           {!isCollapsed && (
             <h1
@@ -136,8 +148,8 @@ export function Sidebar() {
           onClick={toggleCollapse}
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           style={{
-            background: "transparent",
-            border: "none",
+            background: isCollapsed ? "rgba(255,255,255,0.03)" : "transparent",
+            border: isCollapsed ? "1px solid var(--border-subtle)" : "none",
             color: "var(--text-muted)",
             cursor: "pointer",
             fontSize: "0.8125rem",
@@ -145,17 +157,19 @@ export function Sidebar() {
             alignItems: "center",
             justifyContent: "center",
             padding: 4,
-            borderRadius: 4,
+            width: isCollapsed ? 28 : "auto",
+            height: isCollapsed ? 24 : "auto",
+            borderRadius: 6,
             transition: "all 0.2s ease",
             alignSelf: "center",
           }}
           onMouseOver={(e) => {
             e.currentTarget.style.color = "var(--text-primary)";
-            e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.06)";
           }}
           onMouseOut={(e) => {
             e.currentTarget.style.color = "var(--text-muted)";
-            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.background = isCollapsed ? "rgba(255,255,255,0.03)" : "transparent";
           }}
         >
           {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
