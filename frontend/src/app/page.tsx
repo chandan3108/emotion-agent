@@ -557,9 +557,12 @@ export default function ChatPage() {
     setLoading(true);
 
     let streamTokensReceived = false;
+    let bubbleIndex = 0;
+    const queuedBubbles: string[] = [];
+    let currentQueuedBubble = "";
 
     try {
-      // Step 1: Zero-Latency SSE Streaming (<350ms TTFT)
+      // Step 1: Zero-Latency SSE Streaming (<350ms TTFT) with Human-Paced Burst Sequencing
       await sendChatStream(
         {
           message: text,
@@ -571,36 +574,77 @@ export default function ChatPage() {
               streamTokensReceived = true;
               setLoading(false);
             }
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.role === "assistant") {
-                return [...prev.slice(0, -1), { ...last, content: last.content + tok }];
-              } else {
-                return [...prev, { role: "assistant", content: tok, timestamp: new Date().toISOString() }];
-              }
-            });
+            if (bubbleIndex === 0) {
+              // First bubble streams in real time for instant TTFT (<350ms)
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.role === "assistant") {
+                  return [...prev.slice(0, -1), { ...last, content: last.content + tok }];
+                } else {
+                  return [...prev, { role: "assistant", content: tok, timestamp: new Date().toISOString() }];
+                }
+              });
+            } else {
+              // Subsequent burst bubbles are buffered so they appear one after another
+              currentQueuedBubble += tok;
+            }
           },
           onBubbleBoundary: () => {
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", content: "", timestamp: new Date().toISOString() },
-            ]);
+            if (bubbleIndex === 0) {
+              bubbleIndex++;
+            } else {
+              if (currentQueuedBubble.trim()) {
+                queuedBubbles.push(currentQueuedBubble.trim());
+                currentQueuedBubble = "";
+              }
+              bubbleIndex++;
+            }
           },
-          onDone: (res: ChatResponse) => {
-            setLoading(false);
+          onDone: async (res: ChatResponse) => {
+            if (currentQueuedBubble.trim()) {
+              queuedBubbles.push(currentQueuedBubble.trim());
+              currentQueuedBubble = "";
+            }
+
+            // Fallback: If no stream tokens were received at all, deliver full response sequentially
             if (!streamTokensReceived && res.reply) {
               const rawParts = (res.reply_parts && res.reply_parts.length > 1)
                 ? res.reply_parts
                 : (res.reply.includes("|||")
                     ? res.reply.split("|||").map((p) => p.trim()).filter(Boolean)
                     : [res.reply]);
-              rawParts.forEach((part) => {
+              for (let i = 0; i < rawParts.length; i++) {
+                const bubbleText = rawParts[i];
+                const delay = Math.min(1200, Math.max(450, bubbleText.length * 20));
+                setLoading(true);
+                await new Promise((r) => setTimeout(r, delay));
                 setMessages((prev) => [
                   ...prev,
-                  { role: "assistant", content: part, timestamp: new Date().toISOString() },
+                  { role: "assistant", content: bubbleText, timestamp: new Date().toISOString() },
                 ]);
-              });
+                setLoading(false);
+                if (i < rawParts.length - 1) {
+                  await new Promise((r) => setTimeout(r, 250 + Math.random() * 200));
+                }
+              }
+            } else if (queuedBubbles.length > 0) {
+              // Deliver remaining burst bubbles sequentially with typing indicator & natural delay
+              for (let i = 0; i < queuedBubbles.length; i++) {
+                const bubbleText = queuedBubbles[i];
+                const delay = Math.min(1300, Math.max(500, bubbleText.length * 22));
+                setLoading(true);
+                await new Promise((r) => setTimeout(r, delay));
+                setMessages((prev) => [
+                  ...prev,
+                  { role: "assistant", content: bubbleText, timestamp: new Date().toISOString() },
+                ]);
+                setLoading(false);
+                if (i < queuedBubbles.length - 1) {
+                  await new Promise((r) => setTimeout(r, 250 + Math.random() * 200));
+                }
+              }
             }
+            setLoading(false);
             applyChatResponseMetadata(res);
           },
           onError: (err: any) => {

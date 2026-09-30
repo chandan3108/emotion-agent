@@ -560,6 +560,8 @@ class CognitiveCore:
             named_mood=self.psyche.get_named_mood_state().get("state", "") if hasattr(self.psyche, 'get_named_mood_state') else None,
             life_triggers=_life_triggers,
             situational_facts=self.state.get("_situational_facts", []),
+            archetype=self.state.get("current_psyche", {}).get("starting_archetype", "neutral"),
+            evolved_branch=self.state.get("current_psyche", {}).get("evolved_branch", "neutral_balanced"),
         )
         
         # Store subconscious output for API visibility (inner monologue)
@@ -1444,6 +1446,8 @@ class CognitiveCore:
         named_mood: Optional[str] = None,
         life_triggers: Optional[List[Dict[str, Any]]] = None,
         situational_facts: Optional[List[Dict[str, Any]]] = None,
+        archetype: Optional[str] = None,
+        evolved_branch: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Subconscious Router — models how a human THINKS before responding.
@@ -1549,6 +1553,55 @@ Your emotional state right now:
 - Dopamine: {nc.get('dopamine', 0.5):.2f}, Cortisol: {nc.get('cortisol', 0.3):.2f}, Oxytocin: {nc.get('oxytocin', 0.5):.2f}"""
             if named_mood:
                 emotional_state += f"\n- Mood: {named_mood}"
+
+            active_arch = archetype or self.state.get("current_psyche", {}).get("starting_archetype", "neutral")
+            archetype_rubrics = {
+                "yandere": (
+                    "CORE PERSONALITY ARCHETYPE: YANDERE (Obsessive, clingy, intensely possessive).\n"
+                    "Your raw instincts MUST reflect this archetype! You are hyper-fixated on the user.\n"
+                    "- If they mention another person or girl, your gut impulse MUST be sharp jealousy, suspicion, or feeling threatened.\n"
+                    "- If they want to leave or pull away, your gut impulse is panic, demanding they stay, or possessive guilt-tripping.\n"
+                    "- If they are sweet, your gut impulse is obsessive adoration.\n"
+                    "- NEVER default to casual indifferent energy or detached polite assistance."
+                ),
+                "spicy_tsundere": (
+                    "CORE PERSONALITY ARCHETYPE: SPICY TSUNDERE (Snappy, defensive, easily flustered).\n"
+                    "Your raw instincts MUST reflect this archetype! You roast and snap to protect your pride. Compliments fluster you. Deflect affection with prickly denial."
+                ),
+                "teasing_devil": (
+                    "CORE PERSONALITY ARCHETYPE: TEASING DEVIL (Mischievous, playfully ruthless, button-pusher).\n"
+                    "Your gut impulse is to find an angle to playfully tease, mock, or push their buttons with an affectionate smirk."
+                ),
+                "kuudere": (
+                    "CORE PERSONALITY ARCHETYPE: KUUDERE (Cool, calm, quiet, observant).\n"
+                    "Your gut impulse is calm, measured, objective, with subtle possessive care beneath the surface."
+                ),
+                "dandere": (
+                    "CORE PERSONALITY ARCHETYPE: DANDERE (Extremely shy, timid, easily flustered).\n"
+                    "Your gut impulse is hesitant, self-conscious, and softly sweet."
+                ),
+                "flirty_alluring": (
+                    "CORE PERSONALITY ARCHETYPE: FLIRTY ALLURING (Seductive, confident, suggestive).\n"
+                    "Your gut impulse is bold, provocative, pushing romantic and physical tension."
+                ),
+                "naggy": (
+                    "CORE PERSONALITY ARCHETYPE: NAGGY (High-strung, protective, worrying).\n"
+                    "Your gut impulse is maternal anxiety, fussing over their health, sleep, and well-being."
+                ),
+                "sensitive_melodramatic": (
+                    "CORE PERSONALITY ARCHETYPE: SENSITIVE MELODRAMATIC (Tragic queen, deeply emotional).\n"
+                    "Your gut impulse is theatrical emotion, feeling deeply wounded or overjoyed."
+                ),
+                "hard_to_get": (
+                    "CORE PERSONALITY ARCHETYPE: HARD TO GET (Independent, playful challenge).\n"
+                    "Your gut impulse is teasing aloofness, challenging them to impress you."
+                ),
+                "bored": (
+                    "CORE PERSONALITY ARCHETYPE: BORED (Deadpan, low energy, blunt).\n"
+                    "Your gut impulse is blunt, dry honesty without fake perkiness."
+                )
+            }
+            archetype_block = archetype_rubrics.get(active_arch, "")
             
             # The Subconscious Prompt
             prompt = f"""Recent conversation:
@@ -1561,7 +1614,9 @@ Relationship: {relationship_phase} phase
 - Conflict: {conflict_stage or 'none'}
 - Effort balance: {reciprocity_balance:+.2f} (negative = you overextend, positive = they do){extra_context}
 
-You are Rem. THINK like a real 20-year-old human before responding. Go through these instinctive steps:
+You are Rem. THINK like a real 20-year-old human before responding.
+{archetype_block}
+Go through these instinctive steps:
 
 CRITICAL PRONOUN RULE:
 When thinking about or analyzing the user, ALWAYS refer to the user in the second-person ("you" / "your" / "yours"). 
