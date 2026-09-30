@@ -1110,16 +1110,15 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
     except HTTPException:
         raise
     except (asyncio.TimeoutError, Exception) as e:
-        print(f"[WEB CHAT] Pipeline timeout or error ({type(e).__name__}): triggering in-character fallback response")
-        fallbacks = [
-            "sorry, my signal was acting up for a sec. what were you saying?",
-            "ah sorry, i got a bit distracted. what was that again?",
-            "sorry, my phone glitched out. say that again?",
-            "sorry about that, my connection dropped. what did you say?",
-            "hey, sorry! had a brief lag on my end. could you repeat that?"
-        ]
-        import random
-        response_text = random.choice(fallbacks)
+        print(f"[WEB CHAT] Pipeline timeout or error ({type(e).__name__}): {e}")
+        try:
+            clean_db = SessionLocal()
+            clean_db.query(ChatMessage).filter(ChatMessage.id == db_user_msg.id).delete()
+            clean_db.commit()
+            clean_db.close()
+        except Exception:
+            pass
+        raise HTTPException(status_code=429, detail="Rate limit reached. Please wait before messaging again.")
 
     # Save Rem's response to database
     db = SessionLocal()
@@ -1485,14 +1484,16 @@ async def chat_stream(payload: ChatRequest, user_id: str = Depends(get_current_u
             return
 
         if not full_text:
-            fallbacks = [
-                "wait, what did you say? my connection glitched for a second",
-                "sorry, my phone lagged for a sec. what were you saying?",
-                "ah sorry, got a bit distracted. say that again?",
-                "sorry about that, lag on my end. what did you say?"
-            ]
-            full_text = random.choice(fallbacks)
-            yield f"data: {json.dumps({'type': 'token', 'token': full_text})}\n\n"
+            try:
+                clean_db = SessionLocal()
+                clean_db.query(ChatMessage).filter(ChatMessage.id == db_user_msg.id).delete()
+                clean_db.commit()
+                clean_db.close()
+            except Exception:
+                pass
+            print("[STREAM API] Stream finished with empty text. Yielding rate_limited event to UI!")
+            yield f"data: {json.dumps({'type': 'rate_limited', 'wait_seconds': 20, 'message': 'Rate limit reached. Please wait 20s.'})}\n\n"
+            return
 
         full_text = full_text.rstrip("| \n\r")
 

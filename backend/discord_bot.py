@@ -3718,6 +3718,15 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
                             rate_limit_wait = max(rate_limit_wait, int(float(retry_header)))
                         except Exception:
                             pass
+                    print(f"[STREAM ROUTING] Groq primary rate limited (429, retry-after={rate_limit_wait}s). Halting and emitting rate_limited event!")
+                    await resp.aclose()
+                    await client.aclose()
+                    yield {
+                        "type": "rate_limited",
+                        "wait_seconds": rate_limit_wait,
+                        "message": f"Rate limit reached. Please wait {rate_limit_wait}s."
+                    }
+                    return
                 print(f"[STREAM ROUTING] Groq returned status {resp.status_code}, cascading to fallbacks...")
                 await resp.aclose()
         except Exception as groq_err:
@@ -3869,14 +3878,14 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
     full_text = full_text.rstrip("| \n\r")
 
     if not full_text:
-        fallbacks = [
-            "wait, what did you say? my connection glitched for a second",
-            "sorry, my phone lagged for a sec. what were you saying?",
-            "ah sorry, got a bit distracted. say that again?",
-            "sorry about that, lag on my end. what did you say?"
-        ]
-        full_text = random.choice(fallbacks)
-        yield {"type": "token", "token": full_text}
+        wait_time = rate_limit_wait if rate_limit_hit else 20
+        print(f"[STREAM ROUTING] Stream finished with empty full_text. Emitting rate limit event ({wait_time}s) instead of fake fallback apology!")
+        yield {
+            "type": "rate_limited",
+            "wait_seconds": wait_time,
+            "message": f"Rate limit reached. Please wait {wait_time}s."
+        }
+        return
 
     try:
         stance = core.psyche.stance

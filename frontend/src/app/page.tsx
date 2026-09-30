@@ -1069,6 +1069,33 @@ export default function ChatPage() {
           </div>
 
           {/* Text Input Bar */}
+          {cooldownRemaining > 0 && (
+            <div
+              style={{
+                marginTop: 10,
+                background: "rgba(184, 92, 75, 0.16)",
+                border: "1px solid rgba(184, 92, 75, 0.4)",
+                color: "#B85C4B",
+                borderRadius: "10px",
+                padding: "8px 14px",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                boxShadow: "0 2px 10px rgba(184, 92, 75, 0.1)",
+                animation: "fadeIn 0.2s ease"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span>⏳</span>
+                <span>Rate limit cooldown active. Please wait:</span>
+              </div>
+              <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: "0.875rem" }}>
+                {cooldownRemaining}s
+              </span>
+            </div>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -1077,35 +1104,10 @@ export default function ChatPage() {
             style={{ 
               display: "flex", 
               gap: 10, 
-              marginTop: 14,
-              width: "100%",
-              position: "relative"
+              marginTop: 10,
+              width: "100%"
             }}
           >
-            {cooldownRemaining > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: -34,
-                  left: 0,
-                  background: "rgba(184, 92, 75, 0.18)",
-                  border: "1px solid rgba(184, 92, 75, 0.4)",
-                  color: "#B85C4B",
-                  borderRadius: "8px",
-                  padding: "4px 12px",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  backdropFilter: "blur(6px)",
-                  animation: "fadeIn 0.2s ease"
-                }}
-              >
-                <span>⏳ Rate limit cooldown:</span>
-                <span style={{ fontWeight: 700 }}>{cooldownRemaining}s</span>
-              </div>
-            )}
             <input
               ref={inputRef}
               type="text"
@@ -2060,38 +2062,50 @@ export default function ChatPage() {
                 </button>
               </div>
             ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSend();
-                }}
-                style={{ display: "flex", gap: 10, position: "relative" }}
-              >
+              <>
                 {cooldownRemaining > 0 && (
                   <div
                     style={{
-                      position: "absolute",
-                      top: -34,
-                      left: 0,
-                      background: "rgba(184, 92, 75, 0.18)",
+                      marginBottom: 10,
+                      background: "rgba(184, 92, 75, 0.16)",
                       border: "1px solid rgba(184, 92, 75, 0.4)",
-                      color: "var(--text-accent, #B85C4B)",
-                      borderRadius: "8px",
-                      padding: "4px 12px",
-                      fontSize: "0.75rem",
+                      color: "#e8806f",
+                      borderRadius: "10px",
+                      padding: "8px 14px",
+                      fontSize: "0.8125rem",
                       fontWeight: 600,
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
-                      backdropFilter: "blur(6px)",
-                      animation: "fadeIn 0.2s ease",
-                      zIndex: 10
+                      justifyContent: "space-between",
+                      boxShadow: "0 2px 10px rgba(184, 92, 75, 0.12)",
+                      animation: "fadeIn 0.2s ease"
                     }}
                   >
-                    <span>⏳ Rate limit cooldown:</span>
-                    <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{cooldownRemaining}s</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span>⏳</span>
+                      <span>Rate limit cooldown active. Please wait:</span>
+                    </div>
+                    <span
+                      style={{
+                        fontFamily: "monospace",
+                        fontWeight: 700,
+                        background: "rgba(184, 92, 75, 0.3)",
+                        padding: "3px 10px",
+                        borderRadius: 6,
+                        fontSize: "0.875rem"
+                      }}
+                    >
+                      {cooldownRemaining}s
+                    </span>
                   </div>
                 )}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSend();
+                  }}
+                  style={{ display: "flex", gap: 10 }}
+                >
                 <input
                   ref={inputRef}
                   type="text"
@@ -2116,7 +2130,8 @@ export default function ChatPage() {
                   {cooldownRemaining > 0 ? `${cooldownRemaining}s` : "↑"}
                 </button>
               </form>
-            )}
+            </>
+          )}
           </div>
         </div>
       </div>
