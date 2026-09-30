@@ -1096,12 +1096,21 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
             core, payload.message, message_history, return_processing_result=True
         )
         if response_text == "__RATE_LIMITED__":
-            raise asyncio.TimeoutError("Rate limited")
+            try:
+                clean_db = SessionLocal()
+                clean_db.query(ChatMessage).filter(ChatMessage.id == db_user_msg.id).delete()
+                clean_db.commit()
+                clean_db.close()
+            except Exception:
+                pass
+            raise HTTPException(status_code=429, detail="Rate limit reached. Please wait before messaging again.")
             
         if not response_text or response_text.startswith("⚠️"):
             raise ValueError(response_text or "No response generated")
+    except HTTPException:
+        raise
     except (asyncio.TimeoutError, Exception) as e:
-        print(f"[WEB CHAT] Pipeline timeout, rate limit, or error ({type(e).__name__}): triggering in-character fallback response")
+        print(f"[WEB CHAT] Pipeline timeout or error ({type(e).__name__}): triggering in-character fallback response")
         fallbacks = [
             "sorry, my signal was acting up for a sec. what were you saying?",
             "ah sorry, i got a bit distracted. what was that again?",
@@ -1455,6 +1464,18 @@ async def chat_stream(payload: ChatRequest, user_id: str = Depends(get_current_u
                 elif item_type == "done":
                     full_text = item.get("full_text", "")
                     processing_result = item.get("processing_result", {})
+                elif item_type == "rate_limited":
+                    wait_sec = item.get("wait_seconds", 20)
+                    msg = item.get("message", f"Rate limit reached. Please wait {wait_sec}s.")
+                    try:
+                        clean_db = SessionLocal()
+                        clean_db.query(ChatMessage).filter(ChatMessage.id == db_user_msg.id).delete()
+                        clean_db.commit()
+                        clean_db.close()
+                    except Exception as clean_err:
+                        print(f"[RATE LIMIT CLEANUP ERROR] {clean_err}")
+                    yield f"data: {json.dumps({'type': 'rate_limited', 'wait_seconds': wait_sec, 'message': msg})}\n\n"
+                    return
                 elif item_type == "error":
                     yield f"data: {json.dumps({'type': 'error', 'message': item.get('message', 'Error')})}\n\n"
                     return
@@ -1472,6 +1493,8 @@ async def chat_stream(payload: ChatRequest, user_id: str = Depends(get_current_u
             ]
             full_text = random.choice(fallbacks)
             yield f"data: {json.dumps({'type': 'token', 'token': full_text})}\n\n"
+
+        full_text = full_text.rstrip("| \n\r")
 
         # Save assistant message to database
         save_db = SessionLocal()
@@ -1567,14 +1590,17 @@ async def chat_stream(payload: ChatRequest, user_id: str = Depends(get_current_u
 
         # Bubble parts
         parts = []
+        full_text = full_text.rstrip("| \n\r")
         if "|||" in full_text:
-            parts = [p.strip() for p in full_text.split("|||") if p.strip()]
+            parts = [p.strip().rstrip("| \n\r") for p in full_text.split("|||") if p.strip()]
+        elif "||" in full_text:
+            parts = [p.strip().rstrip("| \n\r") for p in full_text.split("||") if p.strip()]
         elif "\n\n" in full_text:
             parts = [p.strip() for p in full_text.split("\n\n") if p.strip()]
         else:
             try:
                 from .human_messaging import smart_split
-                parts = smart_split(full_text)
+                parts = [p.rstrip("| \n\r") for p in smart_split(full_text) if p.strip()]
             except Exception:
                 parts = [full_text]
         if not parts:

@@ -3656,7 +3656,7 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
 
     base_body = {
         "messages": [{"role": "system", "content": system_msg}, *history],
-        "max_tokens": 256,
+        "max_tokens": 512,
         "temperature": temp_jitter,
         "top_p": 0.92,
         "frequency_penalty": freq_jitter,
@@ -3667,6 +3667,8 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
 
     client = httpx.AsyncClient(timeout=25.0)
     stream = None
+    rate_limit_hit = False
+    rate_limit_wait = 20
 
     # Step 1: OpenRouter dual-tier streaming
     if openrouter_key:
@@ -3684,6 +3686,8 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
                 stream = resp
                 print(f"[STREAM ROUTING] OpenRouter stream opened: {target_openrouter_model}")
             else:
+                if resp.status_code == 429:
+                    rate_limit_hit = True
                 print(f"[STREAM ROUTING] OpenRouter returned status {resp.status_code}, cascading to Groq...")
                 await resp.aclose()
         except Exception as or_err:
@@ -3706,6 +3710,14 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
                 stream = resp
                 print(f"[STREAM ROUTING] Groq stream opened: {MODEL_ID}")
             else:
+                if resp.status_code == 429:
+                    rate_limit_hit = True
+                    retry_header = resp.headers.get("retry-after")
+                    if retry_header:
+                        try:
+                            rate_limit_wait = max(rate_limit_wait, int(float(retry_header)))
+                        except Exception:
+                            pass
                 print(f"[STREAM ROUTING] Groq returned status {resp.status_code}, cascading to fallbacks...")
                 await resp.aclose()
         except Exception as groq_err:
@@ -3733,13 +3745,28 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
                     print(f"[STREAM ROUTING] Cascade fallback stream opened: {fallback['label']}")
                     break
                 else:
+                    if resp.status_code == 429:
+                        rate_limit_hit = True
+                        retry_header = resp.headers.get("retry-after")
+                        if retry_header:
+                            try:
+                                rate_limit_wait = max(rate_limit_wait, int(float(retry_header)))
+                            except Exception:
+                                pass
                     await resp.aclose()
             except Exception:
                 continue
 
     if stream is None:
         await client.aclose()
-        yield {"type": "error", "message": "All AI streaming providers unavailable"}
+        if rate_limit_hit:
+            yield {
+                "type": "rate_limited",
+                "wait_seconds": rate_limit_wait,
+                "message": f"Rate limit reached. Please wait {rate_limit_wait}s."
+            }
+        else:
+            yield {"type": "error", "message": "All AI streaming providers unavailable"}
         return
 
     # Process token stream and burst delimiters
@@ -3827,6 +3854,7 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
                     yield {"type": "token", "token": before}
                 yield {"type": "bubble_boundary"}
                 pipe_buffer = pipe_buffer.lstrip()
+            pipe_buffer = pipe_buffer.rstrip("| \n\r")
             if pipe_buffer:
                 yield {"type": "token", "token": pipe_buffer}
     finally:
@@ -3838,6 +3866,7 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
     if not is_roleplay:
         full_text = strip_roleplay_markers(full_text)
     full_text = _detect_and_fix_repetition(full_text)
+    full_text = full_text.rstrip("| \n\r")
 
     if not full_text:
         fallbacks = [

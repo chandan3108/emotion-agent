@@ -30,6 +30,8 @@ function cleanMessageContent(text: string): string {
   cleaned = cleaned.replace(/<\/(v?think)>/gi, "");
   cleaned = cleaned.replace(/<text>([\s\S]*?)<\/text>/gi, "$1");
   cleaned = cleaned.replace(/<\/?text>/gi, "");
+  cleaned = cleaned.replace(/[|\s]+$/g, "");
+  cleaned = cleaned.replace(/^[|\s]+/g, "");
   return cleaned.trim();
 }
 
@@ -37,8 +39,9 @@ function expandBurstMessages(msgs: Message[]): Message[] {
   if (!Array.isArray(msgs)) return [];
   const expanded: Message[] = [];
   for (const msg of msgs) {
-    if (msg.role === "assistant" && msg.content && msg.content.includes("|||")) {
-      const parts = msg.content.split("|||").map((p) => p.trim()).filter(Boolean);
+    if (msg.role === "assistant" && msg.content && (msg.content.includes("|||") || msg.content.includes("||"))) {
+      const delimiter = msg.content.includes("|||") ? "|||" : "||";
+      const parts = msg.content.split(delimiter).map((p) => cleanMessageContent(p)).filter(Boolean);
       for (const part of parts) {
         expanded.push({
           ...msg,
@@ -113,6 +116,21 @@ export default function ChatPage() {
   const [showDateOverlay, setShowDateOverlay] = useState(true);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setCooldownRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldownRemaining]);
 
   const fetchMemoryData = useCallback(() => {
     setMemoryLoading(true);
@@ -545,7 +563,7 @@ export default function ChatPage() {
   };
 
   const sendMessageToServer = async (text: string) => {
-    if (!text || loading) return;
+    if (!text || loading || cooldownRemaining > 0) return;
 
     const userMsg: Message = {
       role: "user",
@@ -557,6 +575,7 @@ export default function ChatPage() {
     setLoading(true);
 
     let streamTokensReceived = false;
+    let rateLimited = false;
     let bubbleIndex = 0;
     const queuedBubbles: string[] = [];
     let currentQueuedBubble = "";
@@ -611,10 +630,10 @@ export default function ChatPage() {
               const rawParts = (res.reply_parts && res.reply_parts.length > 1)
                 ? res.reply_parts
                 : (res.reply.includes("|||")
-                    ? res.reply.split("|||").map((p) => p.trim()).filter(Boolean)
-                    : [res.reply]);
+                    ? res.reply.split("|||").map((p) => cleanMessageContent(p)).filter(Boolean)
+                    : [cleanMessageContent(res.reply)]);
               for (let i = 0; i < rawParts.length; i++) {
-                const bubbleText = rawParts[i];
+                const bubbleText = cleanMessageContent(rawParts[i]);
                 const delay = Math.min(1200, Math.max(450, bubbleText.length * 20));
                 setLoading(true);
                 await new Promise((r) => setTimeout(r, delay));
@@ -630,7 +649,7 @@ export default function ChatPage() {
             } else if (queuedBubbles.length > 0) {
               // Deliver remaining burst bubbles sequentially with typing indicator & natural delay
               for (let i = 0; i < queuedBubbles.length; i++) {
-                const bubbleText = queuedBubbles[i];
+                const bubbleText = cleanMessageContent(queuedBubbles[i]);
                 const delay = Math.min(1300, Math.max(500, bubbleText.length * 22));
                 setLoading(true);
                 await new Promise((r) => setTimeout(r, delay));
@@ -647,12 +666,32 @@ export default function ChatPage() {
             setLoading(false);
             applyChatResponseMetadata(res);
           },
+          onRateLimited: (waitSeconds: number, message: string) => {
+            rateLimited = true;
+            setLoading(false);
+            const waitTime = waitSeconds > 0 ? waitSeconds : 20;
+            setCooldownRemaining(waitTime);
+            setInput(text);
+            setMessages((prev) => prev.slice(0, -1));
+            setToast(`Rate limit reached. Please wait ${waitTime}s before messaging again.`);
+            setTimeout(() => setToast(null), 5000);
+          },
           onError: (err: any) => {
             console.warn("[STREAM ERROR] Stream encountered error:", err);
           },
         }
       );
-    } catch (streamErr) {
+    } catch (streamErr: any) {
+      if (rateLimited) return;
+      if (streamErr?.message?.includes("429")) {
+        setLoading(false);
+        setCooldownRemaining(20);
+        setInput(text);
+        setMessages((prev) => prev.slice(0, -1));
+        setToast("Rate limit reached. Please wait 20s before messaging again.");
+        setTimeout(() => setToast(null), 5000);
+        return;
+      }
       console.warn("[STREAM FAILED] Falling back to non-streaming sendChat:", streamErr);
       if (!streamTokensReceived) {
         try {
@@ -664,12 +703,12 @@ export default function ChatPage() {
           const rawParts = (res.reply_parts && res.reply_parts.length > 1)
             ? res.reply_parts
             : (res.reply && res.reply.includes("|||")
-                ? res.reply.split("|||").map((p) => p.trim()).filter(Boolean)
-                : [res.reply || ""]);
+                ? res.reply.split("|||").map((p) => cleanMessageContent(p)).filter(Boolean)
+                : [cleanMessageContent(res.reply || "")]);
 
           if (rawParts.length > 1) {
             for (let i = 0; i < rawParts.length; i++) {
-              const bubbleText = rawParts[i];
+              const bubbleText = cleanMessageContent(rawParts[i]);
               const typingDelay = Math.min(1400, Math.max(400, bubbleText.length * 25));
               setLoading(true);
               await new Promise((resolve) => setTimeout(resolve, typingDelay));
@@ -687,7 +726,7 @@ export default function ChatPage() {
               }
             }
           } else {
-            const bubbleText = rawParts[0] || "";
+            const bubbleText = cleanMessageContent(rawParts[0] || "");
             const typingDelay = Math.min(1200, Math.max(400, bubbleText.length * 20));
             await new Promise((resolve) => setTimeout(resolve, typingDelay));
             const remMsg: Message = {
@@ -699,8 +738,16 @@ export default function ChatPage() {
           }
 
           applyChatResponseMetadata(res);
-        } catch {
+        } catch (chatErr: any) {
           setInput(text);
+          if (chatErr?.message?.includes("429")) {
+            setLoading(false);
+            setCooldownRemaining(20);
+            setMessages((prev) => prev.slice(0, -1));
+            setToast("Rate limit reached. Please wait 20s before messaging again.");
+            setTimeout(() => setToast(null), 5000);
+            return;
+          }
           const errMsg: Message = {
             role: "assistant",
             content: "Message failed to send. Please check your connection or try again.",
@@ -716,7 +763,7 @@ export default function ChatPage() {
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || cooldownRemaining > 0) return;
     await sendMessageToServer(text);
   };
 
@@ -955,14 +1002,14 @@ export default function ChatPage() {
                 key={idx}
                 type="button"
                 onClick={() => sendMessageToServer(chip)}
-                disabled={loading}
+                disabled={loading || cooldownRemaining > 0}
                 style={{
                   background: "var(--bg-surface)",
                   border: "1px solid var(--border-subtle)",
                   color: "var(--text-primary)",
                   padding: "10px 20px",
                   borderRadius: "20px",
-                  cursor: "pointer",
+                  cursor: (loading || cooldownRemaining > 0) ? "not-allowed" : "pointer",
                   fontSize: "0.8125rem",
                   transition: "all 0.2s var(--ease-spring)",
                   boxShadow: "0 2px 6px rgba(90, 85, 75, 0.04)"
@@ -1031,17 +1078,42 @@ export default function ChatPage() {
               display: "flex", 
               gap: 10, 
               marginTop: 14,
-              width: "100%"
+              width: "100%",
+              position: "relative"
             }}
           >
+            {cooldownRemaining > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: -34,
+                  left: 0,
+                  background: "rgba(184, 92, 75, 0.18)",
+                  border: "1px solid rgba(184, 92, 75, 0.4)",
+                  color: "#B85C4B",
+                  borderRadius: "8px",
+                  padding: "4px 12px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  backdropFilter: "blur(6px)",
+                  animation: "fadeIn 0.2s ease"
+                }}
+              >
+                <span>⏳ Rate limit cooldown:</span>
+                <span style={{ fontWeight: 700 }}>{cooldownRemaining}s</span>
+              </div>
+            )}
             <input
               ref={inputRef}
               type="text"
               className="input-field input-light"
-              placeholder="Type your reaction..."
+              placeholder={cooldownRemaining > 0 ? `Rate limited — wait ${cooldownRemaining}s...` : "Type your reaction..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              disabled={loading}
+              disabled={loading || cooldownRemaining > 0}
               autoComplete="off"
               style={{
                 flex: 1,
@@ -1051,19 +1123,19 @@ export default function ChatPage() {
             />
             <button
               type="submit"
-              disabled={loading || !input.trim()}
+              disabled={loading || !input.trim() || cooldownRemaining > 0}
               style={{
-                background: "var(--accent-primary)",
+                background: cooldownRemaining > 0 ? "rgba(184, 92, 75, 0.6)" : "var(--accent-primary)",
                 color: "#fff",
                 border: "none",
                 borderRadius: 12,
                 padding: "0 24px",
                 fontWeight: 600,
-                cursor: "pointer",
+                cursor: cooldownRemaining > 0 ? "not-allowed" : "pointer",
                 transition: "opacity 0.2s ease"
               }}
             >
-              Send
+              {cooldownRemaining > 0 ? `${cooldownRemaining}s` : "Send"}
             </button>
           </form>
         </div>
@@ -1993,25 +2065,55 @@ export default function ChatPage() {
                   e.preventDefault();
                   handleSend();
                 }}
-                style={{ display: "flex", gap: 10 }}
+                style={{ display: "flex", gap: 10, position: "relative" }}
               >
+                {cooldownRemaining > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: -34,
+                      left: 0,
+                      background: "rgba(184, 92, 75, 0.18)",
+                      border: "1px solid rgba(184, 92, 75, 0.4)",
+                      color: "var(--text-accent, #B85C4B)",
+                      borderRadius: "8px",
+                      padding: "4px 12px",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      backdropFilter: "blur(6px)",
+                      animation: "fadeIn 0.2s ease",
+                      zIndex: 10
+                    }}
+                  >
+                    <span>⏳ Rate limit cooldown:</span>
+                    <span style={{ fontFamily: "monospace", fontWeight: 700 }}>{cooldownRemaining}s</span>
+                  </div>
+                )}
                 <input
                   ref={inputRef}
                   type="text"
                   className="input-field"
-                  placeholder="Say something..."
+                  placeholder={cooldownRemaining > 0 ? `Rate limited — wait ${cooldownRemaining}s...` : "Say something..."}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  disabled={loading}
+                  disabled={loading || cooldownRemaining > 0}
                   autoComplete="off"
                 />
                 <button
                   type="submit"
                   className="btn-primary"
-                  disabled={loading || !input.trim()}
-                  style={{ flexShrink: 0 }}
+                  disabled={loading || !input.trim() || cooldownRemaining > 0}
+                  style={{
+                    flexShrink: 0,
+                    minWidth: cooldownRemaining > 0 ? 60 : undefined,
+                    cursor: cooldownRemaining > 0 ? "not-allowed" : "pointer",
+                    background: cooldownRemaining > 0 ? "rgba(184, 92, 75, 0.6)" : undefined,
+                  }}
                 >
-                  ↑
+                  {cooldownRemaining > 0 ? `${cooldownRemaining}s` : "↑"}
                 </button>
               </form>
             )}

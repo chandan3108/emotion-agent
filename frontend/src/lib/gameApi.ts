@@ -260,6 +260,7 @@ export interface ChatStreamCallbacks {
   onBubbleBoundary?: () => void;
   onDone?: (res: ChatResponse) => void;
   onError?: (err: any) => void;
+  onRateLimited?: (waitSeconds: number, message: string) => void;
 }
 
 export async function sendChatStream(
@@ -317,6 +318,9 @@ export async function sendChatStream(
                 callbacks.onBubbleBoundary?.();
               } else if (parsed.type === "done") {
                 callbacks.onDone?.(parsed as ChatResponse);
+              } else if (parsed.type === "rate_limited") {
+                callbacks.onRateLimited?.(parsed.wait_seconds || 20, parsed.message || "Rate limit reached");
+                return;
               } else if (parsed.type === "error") {
                 callbacks.onError?.(new Error(parsed.message || "Stream error"));
               }
