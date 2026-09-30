@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { sendChat, getXP, getSchedule, getIdentity, getPersonality, getPlans, addPlan, deletePlan, getMemory, bookmarkMemory, resetUser, getMessages, getSessions, startNewSession, switchSession, deleteSession, renameSession, type ChatResponse, type XPData } from "@/lib/gameApi";
+import { sendChat, sendChatStream, getXP, getSchedule, getIdentity, getPersonality, getPlans, addPlan, deletePlan, getMemory, bookmarkMemory, resetUser, getMessages, getSessions, startNewSession, switchSession, deleteSession, renameSession, type ChatResponse, type XPData } from "@/lib/gameApi";
 
 interface Message {
   role: "user" | "assistant";
@@ -497,6 +497,53 @@ export default function ChatPage() {
     };
   }, [getPresetClass]);
 
+  const applyChatResponseMetadata = (res: ChatResponse) => {
+    if (res.xp_delta && res.xp_delta > 0) {
+      setToast(`+${res.xp_delta} XP`);
+      setTimeout(() => setToast(null), 4000);
+    }
+
+    if (res.phase_transition) {
+      const unlockText = res.new_unlocks
+        ? `\n${Object.keys(res.new_unlocks).join(" · ")}`
+        : "";
+      setToast(
+        `${res.phase_transition.from} → ${res.phase_transition.to}${unlockText}`
+      );
+      setTimeout(() => setToast(null), 5000);
+    }
+
+    if (res.rank_transition) {
+      setActiveRankUp(res.rank_transition);
+    }
+
+    if (res.hurt !== undefined) setHurt(res.hurt);
+    if (res.anger !== undefined) setAnger(res.anger);
+    if (res.hurt === undefined || res.anger === undefined) {
+      fetchEmotions();
+    }
+
+    if (res.roleplay) {
+      setRoleplay(res.roleplay);
+    }
+    if (res.schedule) {
+      setScheduleList(res.schedule);
+    }
+    if (res.future_plans) {
+      setFuturePlans(res.future_plans);
+    }
+
+    // Cognitive visibility updates
+    if (res.neurochem) setNeurochem(res.neurochem);
+    if (res.mood_label) setMoodLabel(res.mood_label);
+    setSubtextCaught(res.subtext_caught || null);
+    setInnerMonologue(res.inner_monologue || null);
+    if (res.inner_monologue) setShowMonologue(true);
+
+    getXP().then(setXp).catch(() => {});
+    fetchPlansAndSchedule();
+  };
+
   const sendMessageToServer = async (text: string) => {
     if (!text || loading) return;
 
@@ -509,103 +556,102 @@ export default function ChatPage() {
     setInput("");
     setLoading(true);
 
+    let streamTokensReceived = false;
+
     try {
-      const res: ChatResponse = await sendChat({
-        message: text,
-        session_id: activeSessionId || undefined
-      });
+      // Step 1: Zero-Latency SSE Streaming (<350ms TTFT)
+      await sendChatStream(
+        {
+          message: text,
+          session_id: activeSessionId || undefined,
+        },
+        {
+          onToken: (tok: string) => {
+            if (!streamTokensReceived) {
+              streamTokensReceived = true;
+              setLoading(false);
+            }
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last && last.role === "assistant") {
+                return [...prev.slice(0, -1), { ...last, content: last.content + tok }];
+              } else {
+                return [...prev, { role: "assistant", content: tok, timestamp: new Date().toISOString() }];
+              }
+            });
+          },
+          onBubbleBoundary: () => {
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: "", timestamp: new Date().toISOString() },
+            ]);
+          },
+          onDone: (res: ChatResponse) => {
+            setLoading(false);
+            applyChatResponseMetadata(res);
+          },
+          onError: (err: any) => {
+            console.warn("[STREAM ERROR] Stream encountered error:", err);
+          },
+        }
+      );
+    } catch (streamErr) {
+      console.warn("[STREAM FAILED] Falling back to non-streaming sendChat:", streamErr);
+      if (!streamTokensReceived) {
+        try {
+          const res: ChatResponse = await sendChat({
+            message: text,
+            session_id: activeSessionId || undefined,
+          });
 
-      const rawParts = (res.reply_parts && res.reply_parts.length > 1)
-        ? res.reply_parts
-        : (res.reply && res.reply.includes("|||")
-            ? res.reply.split("|||").map((p) => p.trim()).filter(Boolean)
-            : [res.reply || ""]);
+          const rawParts = (res.reply_parts && res.reply_parts.length > 1)
+            ? res.reply_parts
+            : (res.reply && res.reply.includes("|||")
+                ? res.reply.split("|||").map((p) => p.trim()).filter(Boolean)
+                : [res.reply || ""]);
 
-      if (rawParts.length > 1) {
-        for (let i = 0; i < rawParts.length; i++) {
-          const bubbleText = rawParts[i];
-          // Dynamic typing delay based on length (feels like authentic human typing)
-          const typingDelay = Math.min(1400, Math.max(400, bubbleText.length * 25));
-          setLoading(true);
-          await new Promise((resolve) => setTimeout(resolve, typingDelay));
-          
-          const partMsg: Message = {
+          if (rawParts.length > 1) {
+            for (let i = 0; i < rawParts.length; i++) {
+              const bubbleText = rawParts[i];
+              const typingDelay = Math.min(1400, Math.max(400, bubbleText.length * 25));
+              setLoading(true);
+              await new Promise((resolve) => setTimeout(resolve, typingDelay));
+
+              const partMsg: Message = {
+                role: "assistant",
+                content: bubbleText,
+                timestamp: new Date().toISOString(),
+              };
+              setMessages((prev) => [...prev, partMsg]);
+              setLoading(false);
+
+              if (i < rawParts.length - 1) {
+                await new Promise((resolve) => setTimeout(resolve, 350 + Math.random() * 250));
+              }
+            }
+          } else {
+            const bubbleText = rawParts[0] || "";
+            const typingDelay = Math.min(1200, Math.max(400, bubbleText.length * 20));
+            await new Promise((resolve) => setTimeout(resolve, typingDelay));
+            const remMsg: Message = {
+              role: "assistant",
+              content: bubbleText,
+              timestamp: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, remMsg]);
+          }
+
+          applyChatResponseMetadata(res);
+        } catch {
+          setInput(text);
+          const errMsg: Message = {
             role: "assistant",
-            content: bubbleText,
+            content: "Message failed to send. Please check your connection or try again.",
             timestamp: new Date().toISOString(),
           };
-          setMessages((prev) => [...prev, partMsg]);
-          setLoading(false);
-
-          if (i < rawParts.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 350 + Math.random() * 250));
-          }
+          setMessages((prev) => [...prev, errMsg]);
         }
-      } else {
-        const bubbleText = rawParts[0] || "";
-        const typingDelay = Math.min(1200, Math.max(400, bubbleText.length * 20));
-        await new Promise((resolve) => setTimeout(resolve, typingDelay));
-        const remMsg: Message = {
-          role: "assistant",
-          content: bubbleText,
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, remMsg]);
       }
-
-      if (res.xp_delta && res.xp_delta > 0) {
-        setToast(`+${res.xp_delta} XP`);
-        setTimeout(() => setToast(null), 4000);
-      }
-
-      if (res.phase_transition) {
-        const unlockText = res.new_unlocks
-          ? `\n${Object.keys(res.new_unlocks).join(" · ")}`
-          : "";
-        setToast(
-          `${res.phase_transition.from} → ${res.phase_transition.to}${unlockText}`
-        );
-        setTimeout(() => setToast(null), 5000);
-      }
-
-      if (res.rank_transition) {
-        setActiveRankUp(res.rank_transition);
-      }
-
-      if (res.hurt !== undefined) setHurt(res.hurt);
-      if (res.anger !== undefined) setAnger(res.anger);
-      if (res.hurt === undefined || res.anger === undefined) {
-        fetchEmotions();
-      }
-
-      if (res.roleplay) {
-        setRoleplay(res.roleplay);
-      }
-      if (res.schedule) {
-        setScheduleList(res.schedule);
-      }
-      if (res.future_plans) {
-        setFuturePlans(res.future_plans);
-      }
-
-      // Cognitive visibility updates
-      if (res.neurochem) setNeurochem(res.neurochem);
-      if (res.mood_label) setMoodLabel(res.mood_label);
-      setSubtextCaught(res.subtext_caught || null);
-      setInnerMonologue(res.inner_monologue || null);
-      if (res.inner_monologue) setShowMonologue(true);
-
-      getXP().then(setXp).catch(() => {});
-      fetchPlansAndSchedule();
-    } catch {
-      // Restore input text so they don't lose their typed message on error
-      setInput(text);
-      const errMsg: Message = {
-        role: "assistant",
-        content: "Message failed to send. Please check your connection or try again.",
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errMsg]);
     } finally {
       setLoading(false);
     }

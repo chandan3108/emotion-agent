@@ -353,6 +353,16 @@ class MemorySystem:
         if confidence < 0.75:
             return None
         
+        # Guard: Never store Rem's own lore (Dr. Hayes, Maya, etc.) as User Identity
+        fact_lower = fact.lower()
+        REM_LORE_BLOCKLIST = {
+            'dr. hayes', 'dr hayes', 'hayes', 'professor hayes', 'maya', 
+            'cognitive psychology', 'psychology major', 'rem'
+        }
+        if any(term in fact_lower for term in REM_LORE_BLOCKLIST):
+            print(f"[IDENTITY REJECTED] Fact mentions Rem lore ({fact}) - skipping")
+            return None
+        
         now = datetime.now(timezone.utc).isoformat()
         identity_id = f"i{int(datetime.now(timezone.utc).timestamp() * 1000)}"
         
@@ -821,6 +831,13 @@ Be selective. Only include memories that genuinely add value to the current conv
         norm_cat = category.strip().capitalize()
         norm_key = key.strip().lower().replace(" ", "_")
         full_key = f"{norm_cat}.{norm_key}"
+        
+        # Guard: Never store Rem's own lore (Dr. Hayes, Maya, etc.) in User's Entity Graph
+        entry_text = f"{norm_cat} {norm_key} {value}".lower()
+        REM_LORE_BLOCKLIST = {'dr. hayes', 'dr hayes', 'hayes', 'professor hayes', 'maya'}
+        if any(term in entry_text for term in REM_LORE_BLOCKLIST):
+            print(f"[ENTITY GRAPH REJECTED] Entity mentions Rem lore ({full_key}: {value}) - skipping")
+            return {}
         
         now = datetime.now(timezone.utc).isoformat()
         old_entry = entity_graph.get(full_key)

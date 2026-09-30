@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 import json
 import time
 import random
+import httpx
 
 # Import centralized rate limiter — ALL LLM calls across every module share this budget
 from backend.rate_limiter import global_rate_limiter as rate_limiter
@@ -2830,28 +2831,58 @@ async def generate_response(core: CognitiveCore, user_message: str,
         except ImportError:
             pass
 
-        # Fast primary model execution via Groq (e.g. qwen/qwen3.8-27b ~320ms latency)
+        # Blueprint Section 6: Dual-Tier Uncensored OpenRouter Routing
+        is_date = core.state.get("_active_date_running", False) or relationship_phase in ["Deep", "Bonded"]
+        spicy_context = is_date or (psyche_state.get("warmth", 0.5) > 0.8) or any(w in user_message.lower() for w in ["kiss", "hold", "cuddle", "touch", "closer", "love", "date", "bed", "hug"])
+        
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        target_openrouter_model = "sao10k/l3.3-euryale-70b" if spicy_context else "mistralai/mistral-small-24b-instruct-2501"
+        
         primary_success = False
         text = None
         status = None
         data = None
-        try:
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                resp = await client.post(
-                    INFERENCE_URL,
-                    headers={"Authorization": f"Bearer {HF_TOKEN}"},
-                    json=body,
-                )
-                status = resp.status_code
-                raw = await resp.aread()
-                if status == 200:
-                    data = resp.json()
-                    primary_success = True
-                    print(f"[DEBUG] Primary Groq LLM call succeeded: {MODEL_ID}")
-                else:
-                    print(f"[DEBUG] Primary Groq LLM call returned status {status}")
-        except all_errors as err:
-            print(f"[WARNING] Primary Groq call failed or timed out: {type(err).__name__}")
+
+        if openrouter_key:
+            try:
+                openrouter_body = body.copy()
+                openrouter_body["model"] = target_openrouter_model
+                print(f"[OPENROUTER ROUTING] Tier: {'High Intimacy (Euryale)' if spicy_context else 'Casual Banter (Mistral Small)'} -> {target_openrouter_model}")
+                async with httpx.AsyncClient(timeout=25.0) as or_client:
+                    resp = await or_client.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {openrouter_key}"},
+                        json=openrouter_body,
+                    )
+                    status = resp.status_code
+                    if status == 200:
+                        data = resp.json()
+                        primary_success = True
+                        print(f"[OPENROUTER ROUTING] Call succeeded: {target_openrouter_model}")
+                    else:
+                        print(f"[OPENROUTER ROUTING] Returned status {status}, cascading to Groq...")
+            except all_errors as err:
+                print(f"[OPENROUTER ROUTING] Error: {type(err).__name__}, cascading to Groq...")
+
+        if not primary_success:
+            # Fast primary model execution via Groq (e.g. qwen/qwen3.8-27b ~320ms latency)
+            try:
+                async with httpx.AsyncClient(timeout=20.0) as client:
+                    resp = await client.post(
+                        INFERENCE_URL,
+                        headers={"Authorization": f"Bearer {HF_TOKEN}"},
+                        json=body,
+                    )
+                    status = resp.status_code
+                    raw = await resp.aread()
+                    if status == 200:
+                        data = resp.json()
+                        primary_success = True
+                        print(f"[DEBUG] Primary Groq LLM call succeeded: {MODEL_ID}")
+                    else:
+                        print(f"[DEBUG] Primary Groq LLM call returned status {status}")
+            except all_errors as err:
+                print(f"[WARNING] Primary Groq call failed or timed out: {type(err).__name__}")
 
         # If Groq primary failed, try Google Gemini 2.5 Flash as secondary if available
         if not primary_success:
@@ -3415,6 +3446,405 @@ async def generate_response(core: CognitiveCore, user_message: str,
     if return_processing_result:
         return (response_text, processing_result)
     return response_text
+
+
+async def generate_response_stream(core: CognitiveCore, user_message: str, message_history: list):
+    """
+    Zero-Latency SSE Streaming generator (<350ms TTFT).
+    Streams tokens in real-time from OpenRouter or Groq with fallback cascade.
+    Emits 'bubble_boundary' whenever the '|||' delimiter is detected,
+    allowing the frontend to create distinct message bubbles dynamically.
+    Yields dicts with:
+      - {"type": "token", "token": str}
+      - {"type": "bubble_boundary"}
+      - {"type": "done", "full_text": str, "processing_result": dict}
+      - {"type": "error", "message": str}
+    """
+    if not GROQ_API_KEY:
+        yield {"type": "error", "message": "⚠️ AI is not configured (missing GROQ_API_KEY)."}
+        return
+
+    is_roleplay = False
+    try:
+        timeout = 30.0 if len(user_message) > 100 else 20.0
+        processing_result = await asyncio.wait_for(
+            core.process_message(user_message, emotion_data=None, fast_mode=False),
+            timeout=timeout
+        )
+        if isinstance(processing_result, dict):
+            temp_ctx = processing_result.get("temporal_context", {})
+            if isinstance(temp_ctx, dict):
+                is_roleplay = temp_ctx.get("is_roleplay_mode", False)
+    except Exception as e:
+        print(f"[STREAM ERROR] Cognitive pipeline failed: {e}")
+        processing_result = {}
+
+    psyche_state = processing_result.get("psyche_state", {}) if isinstance(processing_result, dict) else {}
+    relationship_phase = processing_result.get("relationship_phase", "Discovery") if isinstance(processing_result, dict) else "Discovery"
+    trust = psyche_state.get("trust", 0.3)
+    hurt = psyche_state.get("hurt", 0.0)
+    neurochem = psyche_state.get("neurochem", {})
+    da = neurochem.get("da", 0.5)
+    cort = neurochem.get("cort", 0.3)
+    oxy = neurochem.get("oxy", 0.5)
+    ser = neurochem.get("ser", 0.5)
+    endo = neurochem.get("endo", 0.5)
+    energy = processing_result.get("embodiment_state", {}).get("E_daily", 0.7) if isinstance(processing_result, dict) else 0.7
+
+    # Build prompt with prompt_distiller
+    try:
+        from .prompt_distiller import distill_prompt, evolve_archetype
+        starting_archetype = core.state.get("current_psyche", {}).get("starting_archetype", "neutral")
+        unresolved_wounds = core.state.get("current_psyche", {}).get("unresolved_wounds", [])
+        emotional_undercurrents = core.state.get("personality_evolution", {}).get("emotional_undercurrents", [])
+
+        branch_info = evolve_archetype(
+            archetype=starting_archetype,
+            phase=relationship_phase,
+            trust=trust,
+            hurt=hurt,
+            active_wounds=unresolved_wounds,
+            active_undercurrents=emotional_undercurrents
+        )
+        evolved_branch = branch_info.get("branch", "neutral_balanced")
+        if "current_psyche" not in core.state:
+            core.state["current_psyche"] = {}
+        core.state["current_psyche"]["evolved_branch"] = evolved_branch
+
+        clean_memory_context = core.memory.get_clean_prompt_context()
+
+        # Knowledge grounding & plan context (fast/non-blocking)
+        knowledge_context = None
+        try:
+            from .knowledge_grounding import KnowledgeGrounding
+            kg = KnowledgeGrounding()
+            understanding = processing_result.get("understanding", {}) if isinstance(processing_result, dict) else {}
+            knowledge_context = await kg.process(
+                user_message, understanding, core.memory, message_history,
+                user_taught_knowledge=core.state.get("_user_taught_knowledge")
+            )
+        except Exception:
+            pass
+
+        plan_context = None
+        try:
+            from .daily_life import evaluate_plan_request
+            plan_context = await evaluate_plan_request(
+                core.state, user_message, 
+                {"trust": trust, "engagement": core.psyche.engagement, "relationship_phase": relationship_phase, "hurt": hurt}
+            )
+        except Exception:
+            pass
+
+        system_msg = distill_prompt(
+            phase=relationship_phase,
+            trust=trust,
+            hurt=hurt,
+            neurochem={"dopamine": da, "cortisol": cort, "oxytocin": oxy, "serotonin": ser, "endorphins": endo},
+            energy=energy,
+            mood=psyche_state.get("mood", {}),
+            psyche_state=psyche_state,
+            identity_memories=core.memory.get_identity(min_confidence=0.5),
+            episodic_memories=core.memory.get_episodic(min_salience=0.1),
+            message_history=message_history,
+            prev_user_message=message_history[-1].get("content") if message_history else None,
+            unresolved_thread=None,
+            personality_summary=core.personality_evolution.get_personality_summary(),
+            expression_guidance=core.personality_evolution.get_expression_guidance(trust, relationship_phase),
+            conversation_context=core.personality_evolution.get_conversation_context(),
+            stance=core.psyche.stance,
+            respect=core.psyche.respect,
+            engagement=core.psyche.engagement,
+            posture=core.psyche.posture,
+            personality_text=core.personality_evolution.get_personality_text(),
+            phase_description=core.relationship_phases.get_phase_description(),
+            entitlement_debt=core.psyche.entitlement_debt,
+            anger=core.psyche.anger,
+            disgust=core.psyche.disgust,
+            user_evaluation=core.personality_evolution.get_user_evaluation(),
+            conversation_state=getattr(core, 'conversation_state', None),
+            knowledge_context=knowledge_context,
+            stm_summaries=[],
+            temporal_context=core.state.get("temporal_context", {}),
+            plan_context=plan_context,
+            self_identity={
+                "base": {
+                    "Rem's occupation": "college student",
+                    "Rem's major": "psychology",
+                    "Rem's living situation": "lives at home",
+                    "Rem's commute": "~30 min commute to college",
+                },
+                "generated": core.state.get("_self_identity", {}),
+            },
+            conversation_summary=core.personality_evolution.conversation_summary or None,
+            topic_context=core.state.get("_topic_context"),
+            relevant_self_keys=core.state.get("_relevant_self_keys"),
+            user_learned_facts=core.state.get("_user_facts", {}),
+            search_cache=None,
+            user_taught_knowledge=core.state.get("_user_taught_knowledge"),
+            last_mentioned_activity=core.state.get("_last_mentioned_activity"),
+            named_mood_state=core.psyche.get_named_mood_state(),
+            user_patterns=core.state.get("_user_patterns"),
+            behavioral_observations=core.state.get("_behavioral_observations"),
+            emotional_undercurrents=core.personality_evolution.emotional_undercurrents,
+            semantic_glue=core.state.get("_semantic_glue", {}),
+            pre_assessment=processing_result.get("pre_assessment"),
+            parallel_life_context=processing_result.get("parallel_life_context"),
+            unresolved_wounds=core.psyche.get_unresolved_wounds(),
+            situational_facts=core.state.get("_situational_facts", []),
+            rumination_thoughts=core.state.get("_rumination"),
+            rem_recent_claims=core.state.get("_rem_recent_claims", []),
+            inner_monologue=core.state.get("_inner_monologue", []),
+            pending_eruption=core.state.get("_pending_eruption"),
+            proactive_depth=core.state.get("_proactive_depth"),
+            knowledge_holes=core.state.get("_knowledge_holes", []),
+            enrichment_state=_build_enrichment_state(core, user_message, processing_result),
+            pending_followup=None,
+            phase_milestone_instruction=_compute_phase_milestone(core, relationship_phase),
+            rem_volunteer=_compute_rem_volunteer(core),
+            signature_hint=_compute_signature_hint(core, processing_result),
+            rem_recent_responses=core.state.get("_rem_recent_responses", []),
+            inside_jokes=getattr(core.personality_evolution, 'inside_jokes', []),
+            user_temporal_patterns=getattr(core.personality_evolution, 'user_temporal_patterns', []),
+            xp_summary=core.xp_system.get_xp_summary() if hasattr(core, 'xp_system') else None,
+            seed_profile=core.state.get("_seed_profile"),
+            starting_archetype=starting_archetype,
+            clean_memory_context=clean_memory_context,
+        )
+    except Exception as e:
+        print(f"[STREAM PROMPT ERROR] Distiller failed ({e}), using fallback")
+        system_msg = "You are Rem, a 20-year-old college student. Respond naturally in your authentic voice. Use ||| between multiple text messages."
+
+    # Build history with relative time labels
+    history = []
+    from datetime import datetime, timezone as tz
+    now_utc = datetime.now(tz.utc)
+    for m in message_history[-60:]:
+        role = "assistant" if m.get("role") == "assistant" else "user"
+        content = m.get("content", "")
+        ts = m.get("timestamp")
+        if ts and content and role == "user":
+            try:
+                msg_time = datetime.fromisoformat(ts.replace("Z", "+00:00")) if isinstance(ts, str) else ts
+                delta = now_utc - msg_time
+                secs = delta.total_seconds()
+                if secs < 60:
+                    time_label = "just now"
+                elif secs < 3600:
+                    time_label = f"{int(secs/60)} min ago"
+                elif secs < 86400:
+                    time_label = f"{int(secs/3600)} hours ago"
+                else:
+                    time_label = f"{int(secs/86400)} days ago"
+                content = f"[{time_label}] {content}"
+            except Exception:
+                pass
+        history.append({"role": role, "content": content})
+
+    if not history or history[-1].get("role") != "user" or not history[-1].get("content", "").endswith(user_message):
+        history.append({"role": "user", "content": f"[just now] {user_message}"})
+
+    # Dual-tier model routing
+    is_date = core.state.get("_active_date_running", False) or relationship_phase in ["Deep", "Bonded"]
+    spicy_context = is_date or (psyche_state.get("warmth", 0.5) > 0.8) or any(w in user_message.lower() for w in ["kiss", "hold", "cuddle", "touch", "closer", "love", "date", "bed", "hug"])
+    openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+    target_openrouter_model = "sao10k/l3.3-euryale-70b" if spicy_context else "mistralai/mistral-small-24b-instruct-2501"
+
+    temp_jitter = round(0.82 + random.uniform(-0.05, 0.05), 2)
+    freq_jitter = round(0.12 + random.uniform(-0.02, 0.02), 2)
+    pres_jitter = round(0.08 + random.uniform(-0.02, 0.02), 2)
+
+    base_body = {
+        "messages": [{"role": "system", "content": system_msg}, *history],
+        "max_tokens": 256,
+        "temperature": temp_jitter,
+        "top_p": 0.92,
+        "frequency_penalty": freq_jitter,
+        "presence_penalty": pres_jitter,
+        "stream": True,
+    }
+
+    client = httpx.AsyncClient(timeout=25.0)
+    stream = None
+
+    # Step 1: OpenRouter dual-tier streaming
+    if openrouter_key:
+        try:
+            or_body = base_body.copy()
+            or_body["model"] = target_openrouter_model
+            req = client.build_request(
+                "POST",
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {openrouter_key}"},
+                json=or_body
+            )
+            resp = await client.send(req, stream=True)
+            if resp.status_code == 200:
+                stream = resp
+                print(f"[STREAM ROUTING] OpenRouter stream opened: {target_openrouter_model}")
+            else:
+                print(f"[STREAM ROUTING] OpenRouter returned status {resp.status_code}, cascading to Groq...")
+                await resp.aclose()
+        except Exception as or_err:
+            print(f"[STREAM ROUTING] OpenRouter stream error ({or_err}), cascading to Groq...")
+
+    # Step 2: Groq primary (MODEL_ID, ~220ms TTFT)
+    if stream is None:
+        try:
+            groq_body = base_body.copy()
+            groq_body["model"] = MODEL_ID
+            req = client.build_request(
+                "POST",
+                INFERENCE_URL,
+                headers={"Authorization": f"Bearer {HF_TOKEN}"},
+                json=groq_body
+            )
+            resp = await client.send(req, stream=True)
+            if resp.status_code == 200:
+                stream = resp
+                print(f"[STREAM ROUTING] Groq stream opened: {MODEL_ID}")
+            else:
+                print(f"[STREAM ROUTING] Groq returned status {resp.status_code}, cascading to fallbacks...")
+                await resp.aclose()
+        except Exception as groq_err:
+            print(f"[STREAM ROUTING] Groq primary error ({groq_err}), cascading...")
+
+    # Step 3: Groq cascade fallbacks
+    if stream is None:
+        for fallback in MODEL_CASCADE:
+            if fallback["id"] == MODEL_ID:
+                continue
+            try:
+                fb_body = base_body.copy()
+                fb_body["model"] = fallback["id"]
+                req = client.build_request(
+                    "POST",
+                    INFERENCE_URL,
+                    headers={"Authorization": f"Bearer {os.environ.get('GROQ_API_KEY')}"},
+                    json=fb_body
+                )
+                resp = await client.send(req, stream=True)
+                if resp.status_code == 200:
+                    stream = resp
+                    print(f"[STREAM ROUTING] Cascade fallback stream opened: {fallback['label']}")
+                    break
+                else:
+                    await resp.aclose()
+            except Exception:
+                continue
+
+    if stream is None:
+        await client.aclose()
+        yield {"type": "error", "message": "All AI streaming providers unavailable"}
+        return
+
+    # Process token stream and burst delimiters
+    in_think_block = False
+    think_buffer = ""
+    pipe_buffer = ""
+    started = False
+    full_raw_tokens = []
+
+    try:
+        async for line in stream.aiter_lines():
+            if not line.startswith("data: "):
+                continue
+            data_str = line[6:].strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                import json as _json
+                chunk_json = _json.loads(data_str)
+                choices = chunk_json.get("choices", [])
+                if not choices:
+                    continue
+                delta = choices[0].get("delta", {})
+                tok = delta.get("content")
+                if not tok:
+                    continue
+            except Exception:
+                continue
+
+            full_raw_tokens.append(tok)
+
+            # Suppress <think> reasoning tags
+            if not started:
+                think_buffer += tok
+                if "<think>" in think_buffer or "<vthink>" in think_buffer:
+                    in_think_block = True
+                    tag = "<think>" if "<think>" in think_buffer else "<vthink>"
+                    think_buffer = think_buffer.split(tag, 1)[1]
+                    started = True
+                    continue
+                elif len(think_buffer) > 12 or "\n" in think_buffer:
+                    started = True
+                    tok = think_buffer
+                    think_buffer = ""
+                else:
+                    continue
+
+            if in_think_block:
+                if "</think>" in tok or "</vthink>" in tok:
+                    tag = "</think>" if "</think>" in tok else "</vthink>"
+                    _, after = tok.split(tag, 1)
+                    in_think_block = False
+                    tok = after.lstrip()
+                else:
+                    continue
+
+            pipe_buffer += tok
+            while "|||" in pipe_buffer:
+                before, pipe_buffer = pipe_buffer.split("|||", 1)
+                if before:
+                    yield {"type": "token", "token": before}
+                yield {"type": "bubble_boundary"}
+                pipe_buffer = pipe_buffer.lstrip()
+
+            if pipe_buffer.endswith("||"):
+                safe = pipe_buffer[:-2]
+                pipe_buffer = pipe_buffer[-2:]
+            elif pipe_buffer.endswith("|"):
+                safe = pipe_buffer[:-1]
+                pipe_buffer = pipe_buffer[-1:]
+            else:
+                safe = pipe_buffer
+                pipe_buffer = ""
+
+            if safe:
+                yield {"type": "token", "token": safe}
+
+        # Flush remaining buffers
+        if not started and think_buffer:
+            pipe_buffer += think_buffer
+        if pipe_buffer:
+            while "|||" in pipe_buffer:
+                before, pipe_buffer = pipe_buffer.split("|||", 1)
+                if before:
+                    yield {"type": "token", "token": before}
+                yield {"type": "bubble_boundary"}
+                pipe_buffer = pipe_buffer.lstrip()
+            if pipe_buffer:
+                yield {"type": "token", "token": pipe_buffer}
+    finally:
+        await stream.aclose()
+        await client.aclose()
+
+    full_text = "".join(full_raw_tokens).strip()
+    full_text = clean_think_tags(full_text)
+    if not is_roleplay:
+        full_text = strip_roleplay_markers(full_text)
+    full_text = _detect_and_fix_repetition(full_text)
+
+    try:
+        stance = core.psyche.stance
+        prev_stance = core.state.get("_last_stored_stance")
+        if prev_stance is not None and prev_stance != stance:
+            core.state["_last_stored_stance"] = stance
+        core._save_state()
+    except Exception:
+        pass
+
+    yield {"type": "done", "full_text": full_text, "processing_result": processing_result}
 
 
 async def _proactive_messaging_loop():

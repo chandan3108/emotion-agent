@@ -14,6 +14,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from .auth import get_current_user_id
 from pydantic import BaseModel
 
@@ -1351,6 +1352,321 @@ async def chat(payload: ChatRequest, user_id: str = Depends(get_current_user_id)
         mood_label=mood_label,
         subtext_caught=subtext_caught,
         inner_monologue=inner_monologue_text,
+    )
+
+
+@router.post("/chat/stream")
+async def chat_stream(payload: ChatRequest, user_id: str = Depends(get_current_user_id)):
+    """
+    Zero-Latency SSE Streaming endpoint (<350ms TTFT).
+    Streams tokens in real-time and detects '|||' burst bubble delimiters.
+    Offloads memory, XP, and diary generation to background on completion.
+    """
+    import asyncio
+    import json
+    from .discord_bot import generate_response_stream, _generate_conversation_summary
+
+    core = _get_core(user_id)
+
+    if not payload.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    if payload.user_name and not core.state.get("user_name"):
+        core.state["user_name"] = payload.user_name
+        core._save_state()
+
+    xp_before = core.xp_system.total_xp
+    phase_before = core.xp_system.current_phase
+
+    # Resolve active_sess_id
+    active_sess_id = payload.session_id
+    db_init = SessionLocal()
+    try:
+        if not active_sess_id:
+            active_sess_id = _get_active_session_id(user_id, db_init)
+        else:
+            session_row = db_init.query(ChatSession).filter(ChatSession.id == active_sess_id).first()
+            if not session_row:
+                is_date = active_sess_id.startswith("date_") or active_sess_id.startswith("rp_")
+                title = "Date/Roleplay Session" if is_date else "Chat Session"
+                session_row = ChatSession(id=active_sess_id, user_id=user_id, title=title)
+                db_init.add(session_row)
+                db_init.commit()
+    except Exception as e:
+        print(f"Error initializing session in chat_stream route: {e}")
+        db_init.rollback()
+        if not active_sess_id:
+            active_sess_id = "sess_fallback"
+    finally:
+        db_init.close()
+
+    # Build message history from DB
+    db = SessionLocal()
+    message_history = []
+    user_msg_content = payload.message.strip()
+    try:
+        db_user_msg = ChatMessage(session_id=active_sess_id, role="user", content=user_msg_content)
+        db.add(db_user_msg)
+        session_row = db.query(ChatSession).filter(ChatSession.id == active_sess_id).first()
+        if session_row:
+            session_row.updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+        # Long gap (>4h) check for automated episodic chapter
+        last_prior_msg = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).first()
+        if last_prior_msg and last_prior_msg.timestamp:
+            try:
+                prior_ts = last_prior_msg.timestamp.replace(tzinfo=timezone.utc) if getattr(last_prior_msg.timestamp, 'tzinfo', None) is None else last_prior_msg.timestamp
+                now_utc = datetime.now(timezone.utc)
+                gap_hrs = (now_utc - prior_ts).total_seconds() / 3600
+                if gap_hrs >= 4.0:
+                    print(f"[STREAM SESSION CHAPTER] >4h gap detected ({gap_hrs:.1f}h). Triggering automated episodic chapter...")
+                    prior_batch = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).limit(30).all()
+                    if len(prior_batch) >= 2:
+                        asyncio.create_task(_generate_and_save_session_chapter(core, list(reversed(prior_batch))))
+            except Exception as gap_e:
+                print(f"[STREAM GAP CHECK ERROR] {gap_e}")
+
+        # Fetch last 60 messages (30 turns)
+        db_history = db.query(ChatMessage).filter(ChatMessage.session_id == active_sess_id, ChatMessage.id != db_user_msg.id).order_by(ChatMessage.timestamp.desc()).limit(60).all()
+        db_history = list(reversed(db_history))
+        for m in db_history:
+            ts = m.timestamp.replace(tzinfo=timezone.utc).isoformat() if hasattr(m.timestamp, 'isoformat') else str(m.timestamp)
+            message_history.append({"role": m.role, "content": m.content, "timestamp": ts})
+        message_history.append({"role": "user", "content": user_msg_content, "timestamp": datetime.now(timezone.utc).isoformat()})
+    except Exception as dbe:
+        print(f"Failed to query/persist message database in stream: {dbe}")
+        db.rollback()
+        message_history = [{"role": "user", "content": user_msg_content, "timestamp": datetime.now(timezone.utc).isoformat()}]
+    finally:
+        db.close()
+
+    async def sse_event_stream():
+        full_text = ""
+        processing_result = {}
+        try:
+            async for item in generate_response_stream(core, payload.message, message_history):
+                item_type = item.get("type")
+                if item_type == "token":
+                    yield f"data: {json.dumps({'type': 'token', 'token': item['token']})}\n\n"
+                elif item_type == "bubble_boundary":
+                    yield f"data: {json.dumps({'type': 'bubble_boundary'})}\n\n"
+                elif item_type == "done":
+                    full_text = item.get("full_text", "")
+                    processing_result = item.get("processing_result", {})
+                elif item_type == "error":
+                    yield f"data: {json.dumps({'type': 'error', 'message': item.get('message', 'Error')})}\n\n"
+                    return
+        except Exception as stream_err:
+            print(f"[STREAM GENERATOR EXCEPTION] {stream_err}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(stream_err)})}\n\n"
+            return
+
+        if not full_text:
+            full_text = "..."
+
+        # Save assistant message to database
+        save_db = SessionLocal()
+        try:
+            db_assistant_msg = ChatMessage(session_id=active_sess_id, role="assistant", content=full_text)
+            save_db.add(db_assistant_msg)
+            session_row = save_db.query(ChatSession).filter(ChatSession.id == active_sess_id).first()
+            if session_row:
+                session_row.updated_at = datetime.now(timezone.utc)
+            save_db.commit()
+
+            # Record to Tier 1 Working STM
+            is_date_running = core.state.get("_active_date_running", False)
+            core.memory.add_stm(
+                f"[Rem] {full_text}",
+                {"valence": 0.0, "arousal": 0.0},
+                {},
+                topic="",
+                is_date=is_date_running
+            )
+        except Exception as err:
+            print(f"Failed to save assistant stream message: {err}")
+            save_db.rollback()
+        finally:
+            save_db.close()
+
+        # Background processing offload
+        async def _async_background_work():
+            try:
+                await _generate_conversation_summary(core, message_history)
+            except Exception:
+                pass
+            try:
+                trivial_greetings = {
+                    "hi", "hii", "hiii", "hey", "heyy", "hello", "okay hi", "okay hii", "okayy hi",
+                    "sup", "yo", "gm", "gn", "what's up", "whats up", "ok", "okay", "cool", "yeah", "lol", "haha"
+                }
+                cleaned_msg = user_msg_content.strip().lower().rstrip("!.?")
+                if len(message_history) >= 6 and cleaned_msg not in trivial_greetings and len(user_msg_content.strip()) >= 15:
+                    await asyncio.sleep(2.0)
+                    recent_turns = []
+                    total_chars = 0
+                    for m in message_history[-6:]:
+                        role = "User" if m.get("role") == "user" else "Rem"
+                        content = m.get("content", "").strip()
+                        if content:
+                            recent_turns.append(f"{role}: {content}")
+                            total_chars += len(content)
+                    if total_chars >= 80:
+                        conv_context = "\n".join(recent_turns)
+                        from .diary import DiarySystem
+                        diary = DiarySystem(core.state)
+                        trust_val = core.psyche.psyche.get("trust", 0.5) if hasattr(core.psyche, "psyche") else getattr(core.psyche, "trust", 0.5)
+                        entry = await diary.maybe_write_entry(
+                            reflection_data={
+                                "conversation_summary": conv_context,
+                                "user_evaluation": core.state.get("_conversation_summary", "")
+                            },
+                            relationship_phase=core.xp_system.current_phase,
+                            trust=trust_val,
+                            user_name=core.state.get("user_name"),
+                            xp_total=core.xp_system.total_xp
+                        )
+                        if entry:
+                            core._save_state()
+            except Exception as diary_err:
+                print(f"[STREAM DIARY ERROR] {diary_err}")
+
+        try:
+            asyncio.create_task(_async_background_work())
+        except Exception:
+            pass
+
+        # Calculate XP delta + phase transition
+        xp_after = core.xp_system.total_xp
+        xp_delta = xp_after - xp_before
+        phase_after = core.xp_system.current_phase
+
+        phase_transition = None
+        new_unlocks = None
+        if phase_after != phase_before:
+            phase_transition = {"from": phase_before, "to": phase_after}
+            new_unlocks = core.xp_system.get_phase_unlocks(phase_after)
+
+        notifications = core.xp_system.get_pending_notifications()
+        rank_transition = notifications[0] if notifications else None
+        xp_summary = core.xp_system.get_xp_summary()
+        rank_progress = xp_summary.get("progress_pct", 0.0)
+
+        current_psyche = core.state.get("current_psyche", {})
+        hurt_val = round(current_psyche.get("hurt", 0.0), 2)
+        anger_val = round(current_psyche.get("anger", 0.0), 2)
+
+        # Bubble parts
+        parts = []
+        if "|||" in full_text:
+            parts = [p.strip() for p in full_text.split("|||") if p.strip()]
+        elif "\n\n" in full_text:
+            parts = [p.strip() for p in full_text.split("\n\n") if p.strip()]
+        else:
+            try:
+                from .human_messaging import smart_split
+                parts = smart_split(full_text)
+            except Exception:
+                parts = [full_text]
+        if not parts:
+            parts = [full_text]
+
+        roleplay_data = None
+        try:
+            from .daily_life import get_current_activity_details
+            act_details = get_current_activity_details(core.state)
+            roleplay_data = {
+                "active": act_details.get("is_user_plan", False),
+                "activity": act_details.get("activity", "just chilling"),
+                "location": act_details.get("location", "home")
+            }
+        except Exception:
+            pass
+
+        full_schedule = core.state.get("_daily_schedule", {}).get("schedule", [])
+        future_plans = core.state.get("_future_plans", [])
+
+        neurochem_data = None
+        mood_label = None
+        subtext_caught = None
+        inner_monologue_text = None
+        try:
+            neurochem_data = {
+                "dopamine": round(core.psyche.neurochem.get("da", 0.5), 2),
+                "cortisol": round(core.psyche.neurochem.get("cort", 0.3), 2),
+                "oxytocin": round(core.psyche.neurochem.get("oxy", 0.5), 2),
+                "serotonin": round(core.psyche.neurochem.get("ser", 0.5), 2),
+                "adrenaline": round(core.psyche.neurochem.get("endo", 0.5), 2),
+            }
+        except Exception:
+            pass
+
+        try:
+            named_mood_state = core.psyche.get_named_mood_state()
+            if named_mood_state:
+                mood_label = named_mood_state.get("mood") or named_mood_state.get("state") or str(named_mood_state)
+                if isinstance(mood_label, dict):
+                    mood_label = mood_label.get("label", "neutral")
+        except Exception:
+            pass
+
+        try:
+            last_perception = core.state.get("_last_perception", {})
+            raw_subtext = last_perception.get("subtext", "")
+            if raw_subtext and isinstance(raw_subtext, str) and len(raw_subtext.strip()) > 3:
+                subtext_caught = raw_subtext.strip()
+        except Exception:
+            pass
+
+        try:
+            last_subconscious = core.state.get("_last_subconscious", {})
+            raw_mono = last_subconscious.get("inner_monologue", "") or last_subconscious.get("thought", "")
+            if raw_mono and isinstance(raw_mono, str) and len(raw_mono.strip()) > 5:
+                inner_monologue_text = raw_mono.strip()
+        except Exception:
+            pass
+
+        try:
+            core._save_state()
+        except Exception as e:
+            print(f"[STREAM API] Error persisting state: {e}")
+
+        done_payload = {
+            "type": "done",
+            "reply": full_text,
+            "reply_parts": parts,
+            "xp_delta": xp_delta if xp_delta else None,
+            "phase_transition": phase_transition,
+            "new_unlocks": new_unlocks,
+            "current_xp": xp_after,
+            "current_phase": phase_after,
+            "current_rank": core.xp_system.current_rank,
+            "rank_progress_pct": rank_progress,
+            "rank_transition": rank_transition,
+            "hurt": hurt_val,
+            "anger": anger_val,
+            "roleplay": roleplay_data,
+            "schedule": full_schedule,
+            "future_plans": future_plans,
+            "streak_days": core.xp_system.streak_days,
+            "neurochem": neurochem_data,
+            "mood_label": mood_label,
+            "subtext_caught": subtext_caught,
+            "inner_monologue": inner_monologue_text,
+        }
+
+        yield f"data: {json.dumps(done_payload)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        sse_event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
     )
 
 
@@ -3753,42 +4069,48 @@ Return JSON only."""
     if not api_key:
         return None
         
+    models = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json={
-                    "model": "qwen/qwen3.8-27b",
-                    "messages": [
-                        {"role": "system", "content": "You are an episodic memory engine. Output valid JSON only."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    "max_tokens": 250,
-                    "temperature": 0.3,
-                }
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                import re as _re
-                match = _re.search(r'\{[\s\S]*\}', raw_text)
-                if match:
-                    parsed = json.loads(match.group())
-                    title = parsed.get("title", "Conversation Chapter")
-                    narrative = parsed.get("narrative", "")
-                    emotional_shift = parsed.get("emotional_shift", "")
-                    unresolved_loop = parsed.get("unresolved_loop", "")
-                    if narrative:
-                        chapter = core.memory.add_session_chapter(
-                            title=title,
-                            narrative=narrative,
-                            emotional_shift=emotional_shift,
-                            unresolved_loop=unresolved_loop
-                        )
-                        core._save_state()
-                        print(f"[SESSION CHAPTER CREATED] {title}: {narrative[:80]}...")
-                        return chapter
+            for model_id in models:
+                try:
+                    resp = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        json={
+                            "model": model_id,
+                            "messages": [
+                                {"role": "system", "content": "You are an episodic memory engine. Output valid JSON only."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            "max_tokens": 250,
+                            "temperature": 0.3,
+                        }
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        raw_text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                        import re as _re
+                        match = _re.search(r'\{[\s\S]*\}', raw_text)
+                        if match:
+                            parsed = json.loads(match.group())
+                            title = parsed.get("title", "Conversation Chapter")
+                            narrative = parsed.get("narrative", "")
+                            emotional_shift = parsed.get("emotional_shift", "")
+                            unresolved_loop = parsed.get("unresolved_loop", "")
+                            if narrative:
+                                chapter = core.memory.add_session_chapter(
+                                    title=title,
+                                    narrative=narrative,
+                                    emotional_shift=emotional_shift,
+                                    unresolved_loop=unresolved_loop
+                                )
+                                core._save_state()
+                                print(f"[SESSION CHAPTER CREATED] {title}: {narrative[:80]}...")
+                                return chapter
+                except Exception as m_err:
+                    print(f"[SESSION CHAPTER] Model {model_id} error: {m_err}, trying next...")
+                    continue
     except Exception as e:
         print(f"[SESSION CHAPTER ERROR] Failed to generate chapter: {e}")
     return None
@@ -3801,6 +4123,47 @@ async def _force_conversation_summary(core, db, session_id: str):
     if not db_msgs:
         return
     await _generate_and_save_session_chapter(core, db_msgs)
+
+
+async def start_idle_session_monitor():
+    """
+    Tier 2 Episodic Memory: Standalone background monitor for idle sessions.
+    Runs periodically to automatically generate episodic session chapters when a conversation
+    has been inactive for >4 hours, fulfilling the Blueprint mandate.
+    """
+    import asyncio
+    from datetime import timedelta
+    while True:
+        try:
+            await asyncio.sleep(600)  # Check every 10 minutes
+            db = SessionLocal()
+            try:
+                now_utc = datetime.now(timezone.utc)
+                cutoff = now_utc - timedelta(hours=4)
+                # Find sessions that haven't been updated in >= 4 hours
+                sessions = db.query(ChatSession).filter(ChatSession.updated_at <= cutoff).all()
+                for sess in sessions:
+                    last_msg = db.query(ChatMessage).filter(ChatMessage.session_id == sess.id).order_by(ChatMessage.timestamp.desc()).first()
+                    if not last_msg:
+                        continue
+                    core = _get_core(sess.user_id)
+                    already_processed_id = core.state.get(f"_chap_last_msg_{sess.id}")
+                    if already_processed_id == last_msg.id:
+                        continue
+                    
+                    batch = db.query(ChatMessage).filter(ChatMessage.session_id == sess.id).order_by(ChatMessage.timestamp.desc()).limit(30).all()
+                    if len(batch) >= 2:
+                        print(f"[IDLE MONITOR] Auto-generating Tier 2 Episodic Chapter for idle session {sess.id} (>4h gap)...")
+                        chap = await _generate_and_save_session_chapter(core, list(reversed(batch)))
+                        if chap:
+                            core.state[f"_chap_last_msg_{sess.id}"] = last_msg.id
+                            core._save_state()
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[IDLE MONITOR ERROR] {e}")
 
 # Get or create active session id
 def _get_active_session_id(user_id: str, db) -> str:

@@ -61,9 +61,18 @@ def health():
 @app.on_event("startup")
 async def startup_event():
     import os
+    import asyncio
     print("🚀 Emotion Agent API starting...")
     print(f"   GROQ_API_KEY: {'✅ set' if os.getenv('GROQ_API_KEY') else '❌ missing'}")
     print(f"   MODEL_ID: {os.getenv('MODEL_ID', 'default')}")
+    
+    # Start Tier 2 Episodic Memory Idle Monitor (>4h gap scanner)
+    try:
+        from .game_api import start_idle_session_monitor
+        asyncio.create_task(start_idle_session_monitor())
+        print("   TIER 2 MEMORY: ✅ Idle Session Chapter Monitor active")
+    except Exception as e:
+        print(f"   TIER 2 MEMORY: ⚠️ Failed to start idle monitor: {e}")
 
 
 # Routers

@@ -40,6 +40,39 @@ from .diary import DiarySystem
 # from .identity_extractor import IdentityExtractor  # Temporarily disabled
 
 
+def get_rem_lore_blacklist(state: Dict[str, Any] = None) -> set:
+    """Returns a comprehensive set of terms representing Rem's own life, lore, professors, and traits to prevent attributing them to the user."""
+    lore_terms = {
+        'psychology', 'psych', 'cognitive psychology', 'dr. hayes', 'dr hayes', 'hayes', 
+        'professor hayes', 'reading list', 'notes thingy', 'maya', 'indie music', 'billie eilish', 
+        'arctic monkeys', 'adele', 'college student', 'lives at home', 'commute', '30 min',
+        'rem likes', 'rem enjoys', 'rem listens', 'iced matcha', 'matcha latte',
+        'pastels', 'highlighters', 'fairy lights', 'lo-fi studying'
+    }
+    try:
+        from .daily_life import REM_COLLEGE_LORE, REM_STATIC_PROFILE
+        for char_info in REM_COLLEGE_LORE.values():
+            if isinstance(char_info, dict):
+                name = char_info.get("name", "")
+                if name:
+                    lore_terms.add(name.lower())
+                role = char_info.get("role", "")
+                if role:
+                    lore_terms.add(role.lower())
+        for prof_val in REM_STATIC_PROFILE.values():
+            if isinstance(prof_val, str):
+                lore_terms.add(prof_val.lower()[:30])
+    except Exception:
+        pass
+    if state:
+        self_identity = state.get("_self_identity", {})
+        for sk, sv in self_identity.items():
+            val = sv.get("v", sv) if isinstance(sv, dict) else str(sv)
+            if isinstance(val, str) and len(val) > 3:
+                lore_terms.add(val.lower()[:30])
+    return lore_terms
+
+
 class CognitiveCore:
     """
     Main cognitive processing engine.
@@ -1196,16 +1229,8 @@ class CognitiveCore:
                 # Store LLM-extracted identity facts (using correct function signature)
                 new_identity = updates.get("new_identity_facts", [])
                 if new_identity and isinstance(new_identity, list):
-                    # Rem's known traits — identity facts should NOT contain these
-                    rem_traits = {'psychology', 'psych', 'indie music', 'billie eilish', 'arctic monkeys', 
-                                  'adele', 'college student', 'lives at home', 'commute', '30 min',
-                                  'rem likes', 'rem enjoys', 'rem listens'}
-                    # Also check Rem's generated self-identity
-                    self_identity = self.state.get("_self_identity", {})
-                    for sk, sv in self_identity.items():
-                        val = sv.get("v", sv) if isinstance(sv, dict) else str(sv)
-                        if isinstance(val, str) and len(val) > 3:
-                            rem_traits.add(val.lower()[:30])
+                    # Rem's known traits and lore — identity facts should NOT contain these
+                    rem_traits = get_rem_lore_blacklist(self.state)
                     
                     for fact in new_identity:
                         if isinstance(fact, str) and len(fact) > 3:
@@ -1871,7 +1896,8 @@ EXTRACT:
    - STRICT ANTI-HALLUCINATION RULES:
      * NEVER guess, assume, or fabricate the user's name, age, job, or background.
      * DO NOT store facts about other people mentioned in the text as facts about the user. If the user mentions a third party (e.g., "my friend", "Udhayban Patel"), do NOT extract that name or fact as user identity.
-   - NEVER include Rem's own traits: music taste, psychology, college details — those are ABOUT REM
+     * CRITICAL SPEAKER ATTRIBUTION: NEVER extract facts about Rem's own life, backstory, professors (Dr. Hayes), friends (Maya), classes, or notes as facts about the user. If the user mentions Dr. Hayes or asks Rem about her notes/classes (e.g. 'dont u have that notes thingy for dr hayes?'), this is about REM's life, NOT the user's.
+   - NEVER include Rem's own traits, backstory, or college lore: Dr. Hayes, Maya, indie music, psychology, college details — those are ABOUT REM
    - If Rem said "I like indie music" that is NOT a user identity fact
    - ONLY permanent traits/facts. NOT momentary states or opinions:
      - "studies computer science" → ✅ (permanent)
@@ -1957,15 +1983,8 @@ Empty arrays [] if nothing worth extracting."""
             
             # Store identity facts (skip [knowledge] prefix — those come from knowledge grounding)
             new_identity = result.get("identity_facts", [])
-            # Rem's known traits — reject if fact matches these
-            rem_traits = {'psychology', 'psych', 'indie music', 'billie eilish', 'arctic monkeys', 
-                          'adele', 'college student', 'lives at home', 'commute', '30 min',
-                          'rem likes', 'rem enjoys', 'rem listens'}
-            self_identity = self.state.get("_self_identity", {})
-            for sk, sv in self_identity.items():
-                val = sv.get("v", sv) if isinstance(sv, dict) else str(sv)
-                if isinstance(val, str) and len(val) > 3:
-                    rem_traits.add(val.lower()[:30])
+            # Rem's known traits & lore — reject if fact matches these
+            rem_traits = get_rem_lore_blacklist(self.state)
             
             for fact in new_identity:
                 if isinstance(fact, str) and len(fact) > 3:

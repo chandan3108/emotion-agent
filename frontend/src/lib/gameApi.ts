@@ -255,6 +255,84 @@ export function sendChat(payload: ChatRequest, userId: string = DEFAULT_USER_ID)
   });
 }
 
+export interface ChatStreamCallbacks {
+  onToken?: (token: string) => void;
+  onBubbleBoundary?: () => void;
+  onDone?: (res: ChatResponse) => void;
+  onError?: (err: any) => void;
+}
+
+export async function sendChatStream(
+  payload: ChatRequest,
+  callbacks: ChatStreamCallbacks
+): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
+  const res = await fetch(`${API_BASE}/api/user/chat/stream`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`API stream ${res.status}: ${errText}`);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) {
+    throw new Error("No readable response body");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() || "";
+
+      for (const block of blocks) {
+        for (const line of block.split("\n")) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("data: ")) {
+            const raw = trimmed.slice(6).trim();
+            if (raw === "[DONE]") {
+              return;
+            }
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.type === "token") {
+                callbacks.onToken?.(parsed.token);
+              } else if (parsed.type === "bubble_boundary") {
+                callbacks.onBubbleBoundary?.();
+              } else if (parsed.type === "done") {
+                callbacks.onDone?.(parsed as ChatResponse);
+              } else if (parsed.type === "error") {
+                callbacks.onError?.(new Error(parsed.message || "Stream error"));
+              }
+            } catch (err) {
+              console.error("[SSE Parse Error]", err, raw);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    callbacks.onError?.(err);
+    throw err;
+  }
+}
+
 // ── New endpoints (previously Discord-only) ──
 
 export function getMemory(userId: string = DEFAULT_USER_ID) {

@@ -782,6 +782,7 @@ MEMORY RULES:
   Bad: "seems stressed" (inference), "likes talking to me" (inference)
   BAD (CRITICAL): "listens to indie music" when REM said this → that's YOUR preference, not theirs
   BAD: "enjoys psychology" when that's YOUR major → don't store your own traits as user facts
+  BAD (CRITICAL): "has a class with Dr. Hayes" or "has homework for Dr. Hayes" → Dr. Hayes is REM'S professor, Maya is REM'S friend! If the user asks about Dr. Hayes, do NOT attribute Dr. Hayes to the user!
   If unsure whether the user or Rem said something, leave it OUT.
 - new_situational_facts: Temporary things happening in the user's life RIGHT NOW.
   Test: "Will this probably change within days or weeks?" If yes → situational.
