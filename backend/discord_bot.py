@@ -3662,6 +3662,7 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
         "frequency_penalty": freq_jitter,
         "presence_penalty": pres_jitter,
         "stream": True,
+        "reasoning_format": "hidden",
     }
 
     client = httpx.AsyncClient(timeout=25.0)
@@ -3693,6 +3694,7 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
         try:
             groq_body = base_body.copy()
             groq_body["model"] = MODEL_ID
+            groq_body["reasoning_format"] = "hidden"
             req = client.build_request(
                 "POST",
                 INFERENCE_URL,
@@ -3717,6 +3719,8 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
             try:
                 fb_body = base_body.copy()
                 fb_body["model"] = fallback["id"]
+                fb_body["max_tokens"] = 512
+                fb_body["reasoning_format"] = "hidden"
                 req = client.build_request(
                     "POST",
                     INFERENCE_URL,
@@ -3834,6 +3838,16 @@ async def generate_response_stream(core: CognitiveCore, user_message: str, messa
     if not is_roleplay:
         full_text = strip_roleplay_markers(full_text)
     full_text = _detect_and_fix_repetition(full_text)
+
+    if not full_text:
+        fallbacks = [
+            "wait, what did you say? my connection glitched for a second",
+            "sorry, my phone lagged for a sec. what were you saying?",
+            "ah sorry, got a bit distracted. say that again?",
+            "sorry about that, lag on my end. what did you say?"
+        ]
+        full_text = random.choice(fallbacks)
+        yield {"type": "token", "token": full_text}
 
     try:
         stance = core.psyche.stance

@@ -10,6 +10,7 @@ same 40+ prompt params, same memory reasoning, same knowledge grounding,
 same dedup, same behavioral tracking, same milestone detection.
 """
 
+import random
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
@@ -1463,7 +1464,14 @@ async def chat_stream(payload: ChatRequest, user_id: str = Depends(get_current_u
             return
 
         if not full_text:
-            full_text = "..."
+            fallbacks = [
+                "wait, what did you say? my connection glitched for a second",
+                "sorry, my phone lagged for a sec. what were you saying?",
+                "ah sorry, got a bit distracted. say that again?",
+                "sorry about that, lag on my end. what did you say?"
+            ]
+            full_text = random.choice(fallbacks)
+            yield f"data: {json.dumps({'type': 'token', 'token': full_text})}\n\n"
 
         # Save assistant message to database
         save_db = SessionLocal()

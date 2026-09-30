@@ -588,6 +588,19 @@ export default function ChatPage() {
           },
           onDone: (res: ChatResponse) => {
             setLoading(false);
+            if (!streamTokensReceived && res.reply) {
+              const rawParts = (res.reply_parts && res.reply_parts.length > 1)
+                ? res.reply_parts
+                : (res.reply.includes("|||")
+                    ? res.reply.split("|||").map((p) => p.trim()).filter(Boolean)
+                    : [res.reply]);
+              rawParts.forEach((part) => {
+                setMessages((prev) => [
+                  ...prev,
+                  { role: "assistant", content: part, timestamp: new Date().toISOString() },
+                ]);
+              });
+            }
             applyChatResponseMetadata(res);
           },
           onError: (err: any) => {

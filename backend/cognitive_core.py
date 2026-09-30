@@ -1053,6 +1053,7 @@ class CognitiveCore:
         Updates: stance, respect, engagement, posture, quirks.
         """
         try:
+            self.personality_evolution.last_light_reflection = self.personality_evolution.interaction_count
             trust = psyche_summary.get("trust", 0.3)
             hurt = psyche_summary.get("hurt", 0.0)
             
@@ -1198,6 +1199,7 @@ class CognitiveCore:
         Updates: personality text, long-term traits, phase, memories.
         """
         try:
+            self.personality_evolution.last_deep_reflection = self.personality_evolution.interaction_count
             trust = psyche_summary.get("trust", 0.3)
             hurt = psyche_summary.get("hurt", 0.0)
             
